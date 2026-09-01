@@ -120,7 +120,10 @@ describe("fixture obbligatorio · ordinario", () => {
     expect(p.totaleContributi).toBe(1699.76);
     expect(p.imponibile).toBe(4820.24);
     expect(p.totaleImposte).toBe(1230.61);
+    // Carico e netto sono due cifre diverse: 2.930,37 esce di tasca, 3.589,63 resta.
+    expect(p.caricoTotale).toBe(2930.37);
     expect(p.nettoDisponibile).toBe(3589.63);
+    expect(percentuale(p.pressione)).toBe("39,07 %");
   });
 
   it("scompone le imposte come il prospetto", () => {

@@ -7,3 +7,14 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+## Convenzioni di questo repository
+
+- **Messaggi di commit**: in italiano, prima riga all'imperativo. Chiudere con
+  `Co-Authored-By` quando il commit è scritto da un agente; **non** aggiungere
+  il trailer `Claude-Session` (i commit già in cronologia restano com'erano).
+- **Numeri**: mai `Math.round` sugli importi, sempre `round2` da
+  `src/lib/fisco/aritmetica.ts` — arrotonda come il foglio di calcolo.
+- **Formattazione**: ogni cifra o data passa dai formatter di `src/lib/format.ts`,
+  mai `toLocaleString` diretto (il raggruppamento cambia fra Node e browser e
+  fa fallire l'idratazione).
