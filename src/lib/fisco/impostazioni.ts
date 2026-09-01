@@ -1,0 +1,81 @@
+/**
+ * Impostazioni predefinite di un anno, derivate dai parametri di legge di
+ * quell'anno. L'utente le sovrascrive dal pannello di controllo; i valori di
+ * legge restano quelli marcati «da rivedere ogni gennaio».
+ */
+import type { Impostazioni, ParametriAnno } from "./tipi";
+
+export function impostazioniPredefinite(par: ParametriAnno): Impostazioni {
+  const gruppo = par.gruppiAteco[0];
+  return {
+    anno: par.anno,
+    nome: "",
+    dataAperturaPiva: null,
+    saldoInizialeAttivita: 0,
+    saldoInizialePersonale: 0,
+
+    regime: "forfettario",
+    gruppoAteco: gruppo.codice,
+    coefficienteRedditivita: gruppo.coefficiente,
+    nuovaAttivita: false,
+    aliquotaSostitutiva: par.aliquotaSostitutiva,
+    limiteForfettario: par.limiteForfettario,
+    sogliaUscita: par.sogliaUscitaImmediata,
+
+    aliquotaIva: par.aliquotaIvaOrdinaria,
+    periodicitaIva: "trimestrale",
+    maggiorazioneTrimestrale: par.maggiorazioneTrimestrale,
+
+    scaglioniIrpef: par.scaglioniIrpef.map((s) => ({ ...s })),
+    addizionaleRegionale: 0.0173,
+    addizionaleComunale: 0.008,
+    detrazioniPersonali: 0,
+    fondoPensione: 0,
+
+    gestione: "separata",
+    aliquotaGestioneSeparata: par.aliquotaGestioneSeparata,
+    massimaleGs: par.massimaleGestioneSeparata,
+    minimaleGs: par.minimaleAccreditoGestioneSeparata,
+    contributiFissi: 4600,
+    minimaleArtigiani: par.minimaleArtigiani,
+    aliquotaEccedenza: par.aliquotaEccedenzaArtigiani,
+    aliquotaSoggettivaCassa: 0.15,
+    aliquotaIntegrativaCassa: 0.04,
+
+    rivalsaAttiva: false,
+    aliquotaRivalsa: par.aliquotaRivalsaInps,
+    ritenutaAttiva: false,
+    aliquotaRitenuta: par.aliquotaRitenuta,
+    importoBollo: par.importoBollo,
+    sogliaBollo: par.sogliaBollo,
+    bolloAddebitato: true,
+    terminiPagamento: 30,
+
+    giorniLavorativi: 220,
+    oreFatturabiliGiorno: 5,
+    tariffaOraria: 80,
+
+    nettoDesiderato: 40_000,
+    percentualeAccantonamento: 0.3,
+    mesiFondoEmergenza: 6,
+    costiFissiAnnui: 12_000,
+  };
+}
+
+/** Aliquota sostitutiva coerente con l'anzianità della partita IVA. */
+export function aliquotaSostitutivaEffettiva(
+  imp: Impostazioni,
+  par: ParametriAnno,
+): number {
+  if (!imp.nuovaAttivita) return par.aliquotaSostitutiva;
+  if (!imp.dataAperturaPiva) return par.aliquotaSostitutivaNuovaAttivita;
+  const anniTrascorsi = imp.anno - Number(imp.dataAperturaPiva.slice(0, 4));
+  return anniTrascorsi < par.anniNuovaAttivita
+    ? par.aliquotaSostitutivaNuovaAttivita
+    : par.aliquotaSostitutiva;
+}
+
+/** Ore fatturabili all'anno: giorni lavorativi × ore al giorno. */
+export function oreFatturabiliAnno(imp: Impostazioni): number {
+  return imp.giorniLavorativi * imp.oreFatturabiliGiorno;
+}

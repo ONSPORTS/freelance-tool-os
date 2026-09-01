@@ -1,0 +1,134 @@
+@import "tailwindcss";
+
+/* Inter per interfaccia e testo corrente, self-hostato: l'app deve funzionare offline. */
+@import "@fontsource-variable/inter";
+/* Faccia display e numerica. Satoshi (Fontshare) è la prima scelta: se i woff2 sono
+   presenti in public/fonts subentra automaticamente, vedi @font-face più sotto.
+   Plus Jakarta Sans è il sostituto che spedisce di serie — stessa indole geometrica,
+   stesse cifre tabellari. */
+@import "@fontsource-variable/plus-jakarta-sans";
+
+/* Per attivare Satoshi: scarica il woff2 variabile da fontshare.com/fonts/satoshi,
+   mettilo in public/fonts/ e togli il commento qui sotto. Vedi public/fonts/LEGGIMI.md.
+   Il blocco resta commentato perché un @font-face che punta a un file assente
+   costa una richiesta 404 a ogni caricamento di pagina.
+
+@font-face {
+  font-family: "Satoshi";
+  src: url("/fonts/Satoshi-Variable.woff2") format("woff2-variations");
+  font-weight: 300 900;
+  font-style: normal;
+  font-display: swap;
+}
+*/
+
+@theme {
+  /* — Colore ————————————————————————————————— */
+  --color-fondo: #f2f4f9;
+  --color-superficie: #ffffff;
+  --color-superficie-alt: #f7f9fc;
+  --color-inchiostro: #0e1330;
+  --color-inchiostro-tenue: #6b7392;
+  --color-bordo: #e4e8f0;
+  --color-accento: #4c5bf5;
+  --color-accento-tenue: #eef0fe;
+  --color-positivo: #10b981;
+  --color-positivo-tenue: #e7f7f1;
+  --color-attenzione: #f5a524;
+  --color-attenzione-tenue: #fdf3e2;
+  --color-negativo: #e5484d;
+  --color-negativo-tenue: #fdecec;
+
+  /* — Tipografia ————————————————————————————— */
+  --font-display: "Satoshi", "Plus Jakarta Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  --text-semaforo: 2.5rem;        /* 40px — il numero del semaforo fiscale */
+  --text-semaforo--line-height: 1.04;
+  --text-semaforo--letter-spacing: -0.025em;
+  --text-kpi: 1.75rem;            /* 28px — KPI principali */
+  --text-kpi--line-height: 1.1;
+  --text-kpi--letter-spacing: -0.02em;
+  --text-kpi-sm: 1.25rem;         /* 20px — KPI secondari */
+  --text-kpi-sm--line-height: 1.2;
+  --text-kpi-sm--letter-spacing: -0.015em;
+  --text-corpo: 0.9375rem;        /* 15px — testo */
+  --text-corpo--line-height: 1.5;
+  --text-etichetta: 0.8125rem;    /* 13px — etichette */
+  --text-etichetta--line-height: 1.35;
+  --text-micro: 0.6875rem;        /* 11px — micro-label */
+  --text-micro--line-height: 1.3;
+
+  /* — Forma: raggi differenziati per gerarchia ——————————— */
+  --radius-card: 24px;      /* card contenitore */
+  --radius-interna: 16px;   /* card dentro card */
+  --radius-campo: 10px;     /* input e bottoni */
+
+  /* — Ombra: due soli livelli ————————————————————— */
+  --shadow-riposo: 0 1px 2px rgba(14, 19, 48, 0.04);
+  --shadow-sollevato: 0 8px 24px rgba(14, 19, 48, 0.08);
+
+  /* — Movimento ——————————————————————————————— */
+  --ease-quieto: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* I due soli gradienti del prodotto: le card KPI di testa. Altrove superfici piatte. */
+@utility grad-indaco {
+  background-image: linear-gradient(135deg, #4c5bf5 0%, #6f8cfb 55%, #8ab6fd 100%);
+}
+@utility grad-ambra {
+  background-image: linear-gradient(135deg, #f5a524 0%, #f8b65a 52%, #f9c39a 100%);
+}
+
+/* Cifre incolonnate: la differenza tra un prodotto finanziario e un tema Bootstrap. */
+@utility cifre {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-fondo);
+    color: var(--color-inchiostro);
+    font-family: var(--font-sans);
+    font-size: var(--text-corpo);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Il focus da tastiera è sempre visibile, in ogni stato e su ogni superficie. */
+  :focus-visible {
+    outline: 2px solid var(--color-accento);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* I numeri sono sempre tabellari, ovunque compaiano. */
+  th,
+  td,
+  input[type="number"] {
+    font-variant-numeric: tabular-nums lining-nums;
+  }
+
+  ::selection {
+    background-color: var(--color-accento);
+    color: #fff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

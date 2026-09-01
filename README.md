@@ -1,0 +1,91 @@
+# Freelance Finance OS
+
+Il cruscotto economico, fiscale e finanziario del libero professionista italiano.
+La domanda a cui risponde in tre secondi, appena si apre: **di questi soldi,
+quanti sono davvero miei?**
+
+Stato: **fase 1 e 2 completate** — fondamenta visive e motore fiscale.
+
+## Comandi
+
+```bash
+npm run dev        # sviluppo su http://localhost:3000
+npm test           # suite del motore fiscale
+npm run typecheck  # TypeScript in modalità strict
+npm run lint
+npm run build      # export statico in out/
+npx serve out      # serve la build statica
+```
+
+## Architettura
+
+**Local-first, nessun server.** `output: "export"` produce un sito statico: non
+esiste un runtime a cui i dati possano arrivare. I dati fiscali di una persona
+vivono nel suo browser, con export e import JSON per backup e passaggio di
+dispositivo. Il data layer sta dietro un'interfaccia `StorageAdapter` perché un
+eventuale sync cloud sia un'aggiunta, non una riscrittura.
+
+```
+src/lib/fisco/          motore fiscale — modulo puro, niente React, niente Dexie
+  aritmetica.ts         round2 e compagnia: perché Math.round non basta
+  parametri/2026.ts     aliquote e soglie di legge, versionate per anno
+  tipi.ts               modello dati e parametri
+  documenti.ts          campi derivati di fatture e costi
+  motore.ts             la catena di calcolo, dal reddito al saldo
+  iva.ts                liquidazione mensile e trimestrale
+  confronto.ts          simulatore forfettario contro ordinario
+  fixture.ts            i due casi verificati a mano sull'Excel
+src/lib/format.ts       formattazione italiana: 1.234,56 €, mai €1,234.56
+src/components/ui/      primitive ristilizzate sui token del progetto
+src/components/fisco/   semaforo fiscale
+src/app/design/         la pagina che mostra tutto il sistema visivo
+```
+
+### Il motore fiscale
+
+Funzioni pure da input a output: nessun `new Date()` nascosto, nessuna lettura
+dal database. La data di riferimento è un parametro, così stessi ingressi
+producono sempre lo stesso risultato.
+
+Le aliquote non sono scritte nel codice: vivono in `lib/fisco/parametri/<anno>.ts`.
+L'aggiornamento di gennaio è la modifica di un file solo.
+
+**Perché esiste `aritmetica.ts`.** `Math.round(4324.9 * 0.15 * 100) / 100` in
+JavaScript vale 648,73; il foglio di calcolo e l'Agenzia delle Entrate dicono
+648,74. Il prodotto in virgola mobile è `648.73499999999989996`. Un centesimo
+qui invalida l'intero prospetto, quindi ogni arrotondamento passa da `round2`.
+
+### Scostamenti dichiarati rispetto all'Excel di partenza
+
+Concordati prima di scrivere il codice, tutti verificati dai test:
+
+1. **Contributi dedotti per cassa.** Se nell'anno esistono versamenti F24 di tipo
+   `contributi` si deducono quelli; altrimenti si ricade sulla competenza, come
+   faceva l'Excel. Il prospetto dichiara quale delle due strade sta usando.
+2. **Soglia forfettaria sugli incassi.** La norma guarda i compensi percepiti,
+   non il fatturato emesso. L'emesso non ancora incassato resta accanto come
+   indicatore anticipato.
+3. **Bollo legato all'esenzione IVA**, non al regime: copre anche l'ordinario che
+   emette fuori campo IVA o in reverse charge.
+4. **Contributo integrativo della cassa** implementato: il parametro esisteva nel
+   Setup ma nessuna formula lo usava. A differenza della rivalsa INPS 4%, non
+   concorre a formare il reddito.
+5. **Maggiorazione IVA dell'1% non applicata al quarto trimestre**, che confluisce
+   nella dichiarazione annuale. Nell'Excel era un errore.
+6. **Percentuale di detraibilità IVA per singolo documento**: l'Excel forzava il
+   100% in ordinario, sbagliato per auto, telefonia e ristoranti.
+7. **Soglie di legge sugli acconti** (51,65 € e 257,52 €), dove l'Excel spalmava
+   sempre 40/60 producendo rate che nessuno versa.
+
+## Limite dichiarato
+
+Strumento gestionale di pianificazione e controllo: produce stime, non
+dichiarazioni fiscali. Non considera altri redditi che in regime ordinario
+concorrono a formare il reddito complessivo e possono spostare lo scaglione
+IRPEF. I numeri definitivi restano quelli del commercialista.
+
+## Font
+
+Inter e Plus Jakarta Sans arrivano da npm e sono serviti dal progetto: nessuna
+CDN, perché un font caricato da rete significa numeri che non si incolonnano
+proprio quando servono. Per attivare Satoshi vedi `public/fonts/LEGGIMI.md`.
