@@ -1,4 +1,4 @@
-# Freelance Finance OS
+# Freelance Flow
 
 Il cruscotto economico, fiscale e finanziario del libero professionista italiano.
 La domanda a cui risponde in tre secondi, appena si apre: **di questi soldi,

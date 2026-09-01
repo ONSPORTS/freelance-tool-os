@@ -16,10 +16,19 @@ import {
   type NomeCollezione,
 } from "./tipi";
 
-export const FORMATO = "freelance-finance-os";
+export const FORMATO = "freelance-flow";
+
+/**
+ * Il nome precedente del progetto. I backup esportati prima del rename portano
+ * questo marcatore e devono continuare a importarsi: un file di backup che
+ * l'app rifiuta è un archivio perso.
+ */
+export const FORMATO_STORICO = "freelance-finance-os";
+
+const FORMATI_ACCETTATI: readonly string[] = [FORMATO, FORMATO_STORICO];
 
 export type Backup = {
-  formato: typeof FORMATO;
+  formato: typeof FORMATO | typeof FORMATO_STORICO;
   versioneSchema: number;
   esportatoIl: string;
   dati: Dati;
@@ -42,7 +51,7 @@ export function serializzaBackup(backup: Backup): string {
   return `${JSON.stringify(backup, null, 2)}\n`;
 }
 
-/** Nome file parlante: `freelance-finance-os-2026-09-01.json`. */
+/** Nome file parlante: `freelance-flow-2026-09-01.json`. */
 export function nomeFileBackup(adesso = new Date()): string {
   return `${FORMATO}-${adesso.toISOString().slice(0, 10)}.json`;
 }
@@ -342,11 +351,11 @@ export function analizzaBackup(testoGrezzo: string): RisultatoAnalisi {
   if (!oggetto(radice)) {
     return { ok: false, errori: ["Il file non contiene un oggetto di backup."] };
   }
-  if (radice.formato !== FORMATO) {
+  if (typeof radice.formato !== "string" || !FORMATI_ACCETTATI.includes(radice.formato)) {
     return {
       ok: false,
       errori: [
-        "Questo file non è un backup di Freelance Finance OS: manca il marcatore di formato.",
+        "Questo file non è un backup di Freelance Flow: manca il marcatore di formato.",
       ],
     };
   }

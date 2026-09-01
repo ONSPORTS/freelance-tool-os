@@ -68,7 +68,7 @@ export function ProvaSistema() {
     <main className="mx-auto max-w-6xl px-6 py-10">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-etichetta text-inchiostro-tenue">Freelance Finance OS</p>
+          <p className="text-etichetta text-inchiostro-tenue">Freelance Flow</p>
           <h1 className="mt-1 font-display text-kpi font-semibold tracking-tight">
             Sistema visivo
           </h1>

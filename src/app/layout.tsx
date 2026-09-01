@@ -2,10 +2,20 @@ import type { Metadata, Viewport } from "next";
 import { ContenitoreToast } from "@/components/ui/toast";
 import "./globals.css";
 
+const DESCRIZIONE =
+  "Il cruscotto economico, fiscale e finanziario del libero professionista italiano. I dati restano nel tuo browser.";
+
 export const metadata: Metadata = {
-  title: "Freelance Finance OS",
-  description:
-    "Il cruscotto economico, fiscale e finanziario del libero professionista italiano. I dati restano nel tuo browser.",
+  title: "Freelance Flow",
+  description: DESCRIZIONE,
+  applicationName: "Freelance Flow",
+  openGraph: {
+    title: "Freelance Flow",
+    description: DESCRIZIONE,
+    siteName: "Freelance Flow",
+    locale: "it_IT",
+    type: "website",
+  },
 };
 
 export const viewport: Viewport = {

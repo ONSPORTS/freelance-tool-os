@@ -1,7 +1,7 @@
 import { PannelloDati } from "./pannello-dati";
 
 export const metadata = {
-  title: "Dati e backup · Freelance Finance OS",
+  title: "Dati e backup · Freelance Flow",
 };
 
 export default function PaginaDati() {

@@ -120,10 +120,10 @@ describe.each(implementazioni)("StorageAdapter · %s", (_nome, crea) => {
 describe("file di backup", () => {
   it("ha un nome parlante e un marcatore di formato", () => {
     expect(nomeFileBackup(new Date("2026-09-01T10:00:00Z"))).toBe(
-      "freelance-finance-os-2026-09-01.json",
+      "freelance-flow-2026-09-01.json",
     );
     const backup = creaBackup(datiDemo());
-    expect(backup.formato).toBe("freelance-finance-os");
+    expect(backup.formato).toBe("freelance-flow");
     expect(backup.versioneSchema).toBe(VERSIONE_SCHEMA);
   });
 
@@ -138,12 +138,26 @@ describe("file di backup", () => {
     const esito = analizzaBackup(JSON.stringify({ utenti: [], versione: 3 }));
     expect(esito.ok).toBe(false);
     if (esito.ok) return;
-    expect(esito.errori[0]).toContain("Freelance Finance OS");
+    expect(esito.errori[0]).toContain("Freelance Flow");
+  });
+
+  it("importa ancora i backup esportati col nome precedente del progetto", () => {
+    // Il rename in Freelance Flow non deve rendere illeggibile un archivio
+    // salvato prima: il marcatore vecchio resta accettato in lettura.
+    const esito = analizzaBackup(
+      JSON.stringify({
+        formato: "freelance-finance-os",
+        versioneSchema: VERSIONE_SCHEMA,
+        esportatoIl: "2026-09-01T00:00:00.000Z",
+        dati: datiVuoti(),
+      }),
+    );
+    expect(esito.ok).toBe(true);
   });
 
   it("rifiuta un backup creato da una versione più recente", () => {
     const esito = analizzaBackup(
-      JSON.stringify({ formato: "freelance-finance-os", versioneSchema: 99, dati: datiVuoti() }),
+      JSON.stringify({ formato: "freelance-flow", versioneSchema: 99, dati: datiVuoti() }),
     );
     expect(esito.ok).toBe(false);
     if (esito.ok) return;
@@ -153,7 +167,7 @@ describe("file di backup", () => {
   it("segnala le righe rotte invece di importarle a metà", () => {
     const dati = datiDemo();
     const rotto = {
-      formato: "freelance-finance-os",
+      formato: "freelance-flow",
       versioneSchema: 1,
       esportatoIl: "2026-09-01T00:00:00.000Z",
       dati: {
@@ -176,7 +190,7 @@ describe("file di backup", () => {
   it("scarta i campi derivati che non devono stare nell'archivio", () => {
     const dati = datiDemo();
     const conDerivati = {
-      formato: "freelance-finance-os",
+      formato: "freelance-flow",
       versioneSchema: 1,
       esportatoIl: "2026-09-01T00:00:00.000Z",
       dati: {
@@ -206,7 +220,7 @@ describe("file di backup", () => {
 
   it("accetta un backup più vecchio avvisando", () => {
     const esito = analizzaBackup(
-      JSON.stringify({ formato: "freelance-finance-os", versioneSchema: 0, dati: datiVuoti() }),
+      JSON.stringify({ formato: "freelance-flow", versioneSchema: 0, dati: datiVuoti() }),
     );
     expect(esito.ok).toBe(true);
     if (!esito.ok) return;
@@ -303,7 +317,7 @@ describe("versioni dello schema", () => {
   it("un backup della versione 1 si importa ancora, con le collezioni nuove vuote", () => {
     const dati = datiDemo();
     const vecchio = {
-      formato: "freelance-finance-os",
+      formato: "freelance-flow",
       versioneSchema: 1,
       esportatoIl: "2026-06-01T00:00:00.000Z",
       dati: {

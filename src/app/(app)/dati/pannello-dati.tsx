@@ -286,7 +286,7 @@ export function PannelloDati() {
                   <Etichetta>Anteprima della testata</Etichetta>
                   <pre className="mt-2 overflow-x-auto text-micro text-inchiostro-tenue">
 {`{
-  "formato": "freelance-finance-os",
+  "formato": "freelance-flow",
   "versioneSchema": 1,
   "esportatoIl": "${new Date().toISOString()}",
   "dati": { … }

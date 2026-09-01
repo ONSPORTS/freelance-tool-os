@@ -89,9 +89,7 @@ function Marchio() {
         <Wallet className="size-4" aria-hidden />
       </span>
       <span className="font-display text-corpo font-semibold leading-tight">
-        Freelance
-        <br />
-        Finance OS
+        Freelance Flow
       </span>
     </Link>
   );
