@@ -51,6 +51,8 @@ type Colonna =
 
 type FiltroStato = "tutte" | "daIncassare" | "scadute" | "incassate";
 
+const CHIAVI_STATO = ["tutte", "daIncassare", "scadute", "incassate"];
+
 const TIPI_RICAVO = [
   { valore: "ricorrente", etichetta: "Ricorrente" },
   { valore: "progetto", etichetta: "Progetto" },
@@ -71,6 +73,16 @@ export function SchermataFatture() {
     verso: "decrescente",
   });
   const [moduloAperto, setModuloAperto] = React.useState(false);
+
+  // Gli avvisi del cruscotto portano qui già filtrati. Leggo la query a mano
+  // invece di useSearchParams: è un riempimento iniziale, non una navigazione,
+  // e così la pagina resta generabile staticamente senza confini di Suspense.
+  React.useEffect(() => {
+    const richiesto = new URLSearchParams(window.location.search).get("stato");
+    if (richiesto && CHIAVI_STATO.includes(richiesto)) {
+      setFiltroStato(richiesto as FiltroStato);
+    }
+  }, []);
 
   const clienti = React.useMemo(() => dati?.clienti ?? [], [dati]);
   const nomeCliente = React.useCallback(

@@ -29,7 +29,7 @@ export const GRUPPI: { titolo: string; voci: Voce[] }[] = [
   {
     titolo: "Ogni giorno",
     voci: [
-      { href: "/", etichetta: "Dashboard", icona: LayoutDashboard, pronta: false },
+      { href: "/", etichetta: "Cruscotto", icona: LayoutDashboard, pronta: true },
       { href: "/fatture", etichetta: "Fatture", icona: FileText, pronta: true },
       { href: "/costi", etichetta: "Costi", icona: Receipt, pronta: true },
       { href: "/clienti", etichetta: "Clienti", icona: Users, pronta: false },

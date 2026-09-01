@@ -47,6 +47,8 @@ type Colonna =
 
 type FiltroStato = "tutti" | "daPagare" | "pagati";
 
+const CHIAVI_STATO = ["tutti", "daPagare", "pagati"];
+
 const NATURE = [
   { valore: "fisso", etichetta: "Fisso" },
   { valore: "variabile", etichetta: "Variabile" },
@@ -66,6 +68,16 @@ export function SchermataCosti() {
     verso: "decrescente",
   });
   const [moduloAperto, setModuloAperto] = React.useState(false);
+
+  // Gli avvisi del cruscotto portano qui già filtrati. Leggo la query a mano
+  // invece di useSearchParams: è un riempimento iniziale, non una navigazione,
+  // e così la pagina resta generabile staticamente senza confini di Suspense.
+  React.useEffect(() => {
+    const richiesto = new URLSearchParams(window.location.search).get("stato");
+    if (richiesto && CHIAVI_STATO.includes(richiesto)) {
+      setFiltroStato(richiesto as FiltroStato);
+    }
+  }, []);
 
   const forfettario = calcolo?.impostazioni.regime === "forfettario";
 

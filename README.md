@@ -4,8 +4,8 @@ Il cruscotto economico, fiscale e finanziario del libero professionista italiano
 La domanda a cui risponde in tre secondi, appena si apre: **di questi soldi,
 quanti sono davvero miei?**
 
-Stato: **fasi 1-4 completate** — fondamenta visive, motore fiscale, archivio locale,
-registri di fatture e costi.
+Stato: **fasi 1-5 completate** — fondamenta visive, motore fiscale, archivio locale,
+registri di fatture e costi, cruscotto.
 
 ## Comandi
 
@@ -47,13 +47,36 @@ src/lib/dati/           persistenza — tutto dietro l'interfaccia StorageAdapte
 src/lib/format.ts       formattazione italiana: 1.234,56 €, mai €1,234.56
 src/components/ui/      primitive ristilizzate sui token del progetto
 src/components/fisco/   semaforo fiscale
+  calendario.ts         festività italiane e slittamento delle scadenze
+  scadenze.ts           lo scadenzario dell'anno, filtrato per regime
+src/lib/analisi/        aggregati del cruscotto e avvisi, puri e testati
 src/lib/periodo.ts      mese, trimestre, anno, personalizzato — puro e testato
 src/lib/stato/          preferenze di interfaccia, persistite in localStorage
 src/components/guscio/  navigazione, selettore di periodo, toggle di regime
 src/components/tabella/ modifica in linea, ordinamento, barra di ricerca
 src/app/design/         la pagina che mostra tutto il sistema visivo
+src/components/grafici/ i due grafici del cruscotto
 src/app/(app)/          le schermate di lavoro, dentro il guscio
 ```
+
+### Il cruscotto
+
+Il semaforo fiscale scompone il denaro davvero entrato in cassa — compensi più
+IVA incassata — in netto, imposte, contributi e IVA da girare all'erario.
+
+Gli avvisi portano un'azione: «vedi le fatture scadute» apre il registro già
+filtrato. Un avviso senza un'azione è solo un modo elegante di preoccupare
+qualcuno.
+
+I colori dei grafici sono due passi dello stesso indaco, verificati per
+contrasto e per le tre forme di daltonismo. Nessun tooltip fluttuante: il
+valore del mese sotto il cursore compare in testa alla card, dove l'occhio è
+già, e le due serie si aggiornano insieme.
+
+Le scadenze che cadono di sabato, di domenica o in un giorno festivo slittano
+al primo giorno lavorativo successivo — festività mobili comprese, il lunedì
+dell'Angelo si calcola. L'Excel lo diceva in nota senza applicarlo, e mostrava
+date che nella realtà non esistono.
 
 ### I registri
 
