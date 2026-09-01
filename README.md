@@ -4,7 +4,7 @@ Il cruscotto economico, fiscale e finanziario del libero professionista italiano
 La domanda a cui risponde in tre secondi, appena si apre: **di questi soldi,
 quanti sono davvero miei?**
 
-Stato: **fase 1 e 2 completate** — fondamenta visive e motore fiscale.
+Stato: **fasi 1, 2 e 3 completate** — fondamenta visive, motore fiscale, archivio locale.
 
 ## Comandi
 
@@ -35,11 +35,36 @@ src/lib/fisco/          motore fiscale — modulo puro, niente React, niente Dex
   iva.ts                liquidazione mensile e trimestrale
   confronto.ts          simulatore forfettario contro ordinario
   fixture.ts            i due casi verificati a mano sull'Excel
+src/lib/dati/           persistenza — tutto dietro l'interfaccia StorageAdapter
+  adapter.ts            il contratto: depositi, lettura e scrittura complete
+  db.ts                 schema IndexedDB e indici
+  dexie-adapter.ts      implementazione su IndexedDB
+  memoria-adapter.ts    implementazione in memoria, per i test
+  backup.ts             export e import JSON, con convalida riga per riga
+  demo.ts               un anno dimostrativo di 46.050 € di fatturato
+  hooks.ts              lo strato reattivo su useLiveQuery
 src/lib/format.ts       formattazione italiana: 1.234,56 €, mai €1,234.56
 src/components/ui/      primitive ristilizzate sui token del progetto
 src/components/fisco/   semaforo fiscale
 src/app/design/         la pagina che mostra tutto il sistema visivo
+src/app/dati/           archivio, backup e dataset dimostrativo
 ```
+
+### La persistenza
+
+Due implementazioni di `StorageAdapter`: IndexedDB per l'app, memoria per i
+test. La stessa suite gira su entrambe, così l'interfaccia resta un contratto
+verificato e non una decorazione — se non bastasse a scrivere l'adapter in
+memoria, non basterebbe nemmeno a scrivere un adapter cloud.
+
+L'adapter delega direttamente a Dexie, quindi `useLiveQuery` continua a
+osservare le tabelle anche quando la lettura passa dall'interfaccia: la React
+layer resta reattiva senza conoscere il database.
+
+Il file di backup porta un marcatore di formato e la versione dello schema. In
+lettura è severo: una data nel formato sbagliato o un importo non numerico
+fermano l'import e vengono elencati, invece di lasciare l'archivio a metà. I
+campi calcolati che si trovassero nel file vengono scartati.
 
 ### Il motore fiscale
 

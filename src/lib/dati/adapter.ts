@@ -1,0 +1,68 @@
+/**
+ * L'interfaccia dietro cui vive tutta la persistenza.
+ *
+ * Oggi c'è una sola implementazione, su IndexedDB via Dexie, e i dati non
+ * lasciano il browser. Se un giorno servisse un sync cloud, sarà un'altra
+ * implementazione di questa interfaccia e non una riscrittura dell'app.
+ * Per i test esiste anche un adapter in memoria: la stessa suite gira su
+ * entrambi, così l'interfaccia resta un contratto vero e non una decorazione.
+ */
+import type { Dati, NomeCollezione } from "./tipi";
+
+/** Una collezione di entità con chiave `K`. */
+export interface Deposito<T, K extends string | number = string> {
+  tutti(): Promise<T[]>;
+  leggi(chiave: K): Promise<T | undefined>;
+  salva(valore: T): Promise<K>;
+  salvaMolti(valori: T[]): Promise<void>;
+  elimina(chiave: K): Promise<void>;
+  eliminaMolti(chiavi: K[]): Promise<void>;
+  conta(): Promise<number>;
+}
+
+export type ModalitaImport = "sostituisci" | "unisci";
+
+export type EsitoImport = {
+  /** Quante entità sono state scritte, per collezione. */
+  scritte: Record<NomeCollezione, number>;
+  totale: number;
+  modalita: ModalitaImport;
+};
+
+export interface StorageAdapter {
+  readonly nome: string;
+
+  /** Le impostazioni sono indicizzate per anno: i parametri cambiano ogni gennaio. */
+  readonly impostazioni: Deposito<Dati["impostazioni"][number], number>;
+  readonly clienti: Deposito<Dati["clienti"][number]>;
+  readonly fatture: Deposito<Dati["fatture"][number]>;
+  readonly costi: Deposito<Dati["costi"][number]>;
+  readonly movimentiPersonali: Deposito<Dati["movimentiPersonali"][number]>;
+  readonly movimentiAttivita: Deposito<Dati["movimentiAttivita"][number]>;
+  readonly versamenti: Deposito<Dati["versamenti"][number]>;
+  readonly patrimonio: Deposito<Dati["patrimonio"][number]>;
+
+  /** Legge tutto, in una sola transazione dove la tecnologia lo consente. */
+  leggiTutto(): Promise<Dati>;
+  /** Scrive tutto. `sostituisci` svuota prima, `unisci` fa upsert per chiave. */
+  scriviTutto(dati: Dati, modalita: ModalitaImport): Promise<EsitoImport>;
+  svuota(): Promise<void>;
+  /** L'archivio non contiene nulla: serve a decidere se proporre l'onboarding. */
+  vuoto(): Promise<boolean>;
+}
+
+/** I depositi nell'ordine delle collezioni, per iterarci sopra. */
+export function depositiDi(
+  adapter: StorageAdapter,
+): Record<NomeCollezione, Deposito<never, never>> {
+  return {
+    impostazioni: adapter.impostazioni,
+    clienti: adapter.clienti,
+    fatture: adapter.fatture,
+    costi: adapter.costi,
+    movimentiPersonali: adapter.movimentiPersonali,
+    movimentiAttivita: adapter.movimentiAttivita,
+    versamenti: adapter.versamenti,
+    patrimonio: adapter.patrimonio,
+  } as Record<NomeCollezione, Deposito<never, never>>;
+}
