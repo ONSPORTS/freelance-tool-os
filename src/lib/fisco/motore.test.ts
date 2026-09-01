@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { round0, round2, somma } from "./aritmetica";
+import { percentuale } from "@/lib/format";
 import { calcolaCosto, calcolaFattura, costoGrezzo, fatturaGrezza } from "./documenti";
 import {
   COSTI_FIXTURE,
@@ -78,7 +79,8 @@ describe("fixture obbligatorio · forfettario", () => {
     expect(p.impostaSostitutiva).toBe(648.74);
     expect(p.totaleImposte).toBe(648.74);
     expect(p.caricoTotale).toBe(2173.84);
-    expect(p.pressione).toBeCloseTo(0.2898, 4);
+    // Sulla pressione controllo la cifra che l'utente legge, non un'approssimazione.
+    expect(percentuale(p.pressione)).toBe("28,98 %");
   });
 
   it("senza IVA in fattura l'incassato lordo coincide con i ricavi rilevanti", () => {
