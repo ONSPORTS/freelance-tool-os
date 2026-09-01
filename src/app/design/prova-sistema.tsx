@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Stato } from "@/components/ui/stato";
 import { Switch } from "@/components/ui/switch";
 import {
+  ContenitoreTabella,
   Tabella,
   TabellaCella,
   TabellaCorpo,
@@ -376,7 +377,7 @@ export function ProvaSistema() {
               {regime === "forfettario" ? "forfettario" : "ordinario"}.
             </CardSottotitolo>
           </CardCorpo>
-          <div className="mt-4 max-h-80 overflow-auto px-2 pb-2">
+          <ContenitoreTabella className="mt-4 max-h-80 px-2 pb-2">
             <Tabella>
               <TabellaTesta>
                 <tr>
@@ -441,7 +442,7 @@ export function ProvaSistema() {
                 </tr>
               </TabellaPiede>
             </Tabella>
-          </div>
+          </ContenitoreTabella>
         </Card>
       </Sezione>
 

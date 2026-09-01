@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { round0, round2, somma } from "./aritmetica";
-import { calcolaFattura } from "./documenti";
+import { calcolaCosto, calcolaFattura, costoGrezzo, fatturaGrezza } from "./documenti";
 import {
   COSTI_FIXTURE,
   FATTURE_FIXTURE,
@@ -351,3 +351,28 @@ function prospettoConRicavo(importo: number) {
     oggi: OGGI_FIXTURE,
   });
 }
+
+describe("ritorno alla forma grezza", () => {
+  const p = prospettoCon(impostazioniOrdinario());
+
+  it("una fattura calcolata torna grezza senza portarsi dietro i derivati", () => {
+    const calcolata = p.fattureCalcolate[0];
+    const grezza = fatturaGrezza(calcolata);
+    const vietati = [
+      "iva", "rivalsa", "integrativaCassa", "bollo", "bolloACarico", "ritenuta",
+      "totale", "nettoIncasso", "ricavoRilevante", "scadenza", "stato",
+      "giorniIncasso", "giorniRitardo", "aliquotaIvaApplicata",
+    ];
+    for (const campo of vietati) expect(grezza).not.toHaveProperty(campo);
+    expect(grezza).toEqual(FATTURE_FIXTURE[0]);
+  });
+
+  it("un costo calcolato torna grezzo e ricalcolato dà lo stesso risultato", () => {
+    const calcolato = p.costiCalcolati[1];
+    const grezzo = costoGrezzo(calcolato);
+    for (const campo of ["iva", "totale", "costoDeducibile", "ivaDetraibile", "costoNetto", "stato"]) {
+      expect(grezzo).not.toHaveProperty(campo);
+    }
+    expect(calcolaCosto(grezzo, impostazioniOrdinario())).toEqual(calcolato);
+  });
+})

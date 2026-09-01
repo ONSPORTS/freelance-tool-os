@@ -127,3 +127,50 @@ export function coloreDaNome(nome: string): string {
   for (let i = 0; i < nome.length; i++) somma = (somma * 31 + nome.charCodeAt(i)) >>> 0;
   return tavolozza[somma % tavolozza.length];
 }
+
+/**
+ * Legge un numero scritto da una persona italiana. Accetta «1.234,56»,
+ * «1234,56», «1234.56», «1 234,56», con o senza € e %.
+ *
+ * Il punto isolato è ambiguo: in «1.234» sono migliaia, in «12.5» è un
+ * decimale. La regola è quella che un lettore italiano applica a occhio —
+ * un punto seguito da esattamente tre cifre, ripetibile, è un separatore
+ * di migliaia; in ogni altro caso è la virgola decimale scritta all'inglese.
+ */
+export function analizzaNumero(grezzo: string): number | null {
+  const pulito = grezzo
+    .replace(/[\s\u00a0\u202f]/g, "")
+    .replace(/[€%]/g, "")
+    .replace(/^\+/, "")
+    .replace(/−/g, "-");
+  if (pulito === "" || pulito === "-") return null;
+
+  let normalizzato: string;
+  if (pulito.includes(",")) {
+    // La virgola, quando c'è, è sempre il separatore decimale.
+    normalizzato = pulito.replace(/\./g, "").replace(",", ".");
+  } else if (/^-?\d{1,3}(\.\d{3})+$/.test(pulito)) {
+    normalizzato = pulito.replace(/\./g, "");
+  } else {
+    normalizzato = pulito;
+  }
+
+  const valore = Number(normalizzato);
+  return Number.isFinite(valore) ? valore : null;
+}
+
+/** Percentuale digitata: «22», «22%», «0,22» sopra 1 diventa 22 → 0,22. */
+export function analizzaPercentuale(grezzo: string): number | null {
+  const valore = analizzaNumero(grezzo);
+  if (valore === null) return null;
+  return valore > 1 ? valore / 100 : valore;
+}
+
+/** Il valore così come va mostrato dentro un campo in modifica. */
+export function perCampo(valore: number, decimali = 2): string {
+  return new Intl.NumberFormat("it-IT", {
+    ...OPZIONI_BASE,
+    minimumFractionDigits: 0,
+    maximumFractionDigits: decimali,
+  }).format(valore);
+}

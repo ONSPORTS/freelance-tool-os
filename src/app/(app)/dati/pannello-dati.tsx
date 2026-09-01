@@ -8,6 +8,7 @@ import { Etichetta } from "@/components/ui/etichetta";
 import { Kpi } from "@/components/ui/kpi";
 import { Stato } from "@/components/ui/stato";
 import {
+  ContenitoreTabella,
   Tabella,
   TabellaCella,
   TabellaCorpo,
@@ -17,6 +18,7 @@ import {
 } from "@/components/ui/tabella";
 import { toast } from "@/components/ui/toast";
 import { Vuoto } from "@/components/ui/vuoto";
+import { Guscio } from "@/components/guscio/guscio";
 import { archivio } from "@/lib/dati/archivio";
 import { analizzaBackup, creaBackup, nomeFileBackup, serializzaBackup } from "@/lib/dati/backup";
 import { ANNO_DEMO, datiDemo } from "@/lib/dati/demo";
@@ -106,20 +108,11 @@ export function PannelloDati() {
   }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-10">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-etichetta text-inchiostro-tenue">Freelance Finance OS</p>
-          <h1 className="mt-1 font-display text-kpi font-semibold tracking-tight">
-            Dati e backup
-          </h1>
-          <p className="mt-1 max-w-2xl text-corpo text-inchiostro-tenue">
-            Tutto vive nel tuo browser: non esiste un server a cui questi dati possano
-            arrivare. Il file JSON è l&apos;unico modo per portarli su un altro dispositivo,
-            ed è anche il tuo backup.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <Guscio
+      titolo="Dati e backup"
+      descrizione="Tutto vive nel tuo browser: non esiste un server a cui questi dati possano arrivare"
+      azioni={
+        <>
           <Button variante="contorno" onClick={esporta} disabled={inCorso || vuoto}>
             <Download className="size-4" aria-hidden />
             Esporta
@@ -128,11 +121,12 @@ export function PannelloDati() {
             <Upload className="size-4" aria-hidden />
             Importa
           </Button>
-        </div>
-      </header>
-
+        </>
+      }
+    >
+      <div className="mx-auto max-w-5xl">
       {errori.length > 0 && (
-        <Card className="mt-6 border border-negativo/25 bg-negativo-tenue">
+        <Card className="border border-negativo/25 bg-negativo-tenue">
           <CardCorpo>
             <p className="text-etichetta font-medium text-[#C13237]">
               {errori.length === 1 ? "Il file non è valido" : `Il file ha ${errori.length} problemi`}
@@ -251,7 +245,7 @@ export function PannelloDati() {
                   </div>
                 </div>
               </CardCorpo>
-              <div className="px-2 pb-2">
+              <ContenitoreTabella className="px-2 pb-2">
                 <Tabella>
                   <TabellaTesta>
                     <tr>
@@ -276,7 +270,7 @@ export function PannelloDati() {
                     ))}
                   </TabellaCorpo>
                 </Tabella>
-              </div>
+              </ContenitoreTabella>
             </Card>
           </section>
 
@@ -310,7 +304,8 @@ export function PannelloDati() {
           </section>
         </>
       )}
-    </main>
+      </div>
+    </Guscio>
   );
 }
 

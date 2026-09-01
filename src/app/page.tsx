@@ -1,8 +1,10 @@
 import Link from "next/link";
 
 const TAPPE = [
-  { href: "/design", titolo: "Sistema visivo", nota: "Token, tipografia, componenti e semaforo fiscale" },
+  { href: "/fatture", titolo: "Fatture", nota: "Registro con modifica in linea, filtri, ordinamento e totali" },
+  { href: "/costi", titolo: "Costi", nota: "Stesso registro, con categoria, natura e deducibilità" },
   { href: "/dati", titolo: "Dati e backup", nota: "Archivio locale, export e import JSON, dataset dimostrativo" },
+  { href: "/design", titolo: "Sistema visivo", nota: "Token, tipografia, componenti e semaforo fiscale" },
 ];
 
 export default function Home() {
@@ -14,8 +16,8 @@ export default function Home() {
           Di questi soldi, quanti sono davvero miei?
         </h1>
         <p className="mt-3 max-w-lg text-corpo text-inchiostro-tenue">
-          Fondamenta, motore fiscale e archivio locale sono in piedi. Le schermate di
-          lavoro quotidiano arrivano nelle fasi successive.
+          Fondamenta, motore fiscale, archivio locale e i due registri di lavoro
+          quotidiano sono in piedi. Dashboard e prospetti arrivano nelle fasi successive.
         </p>
       </div>
       <nav className="flex flex-col gap-2">

@@ -4,7 +4,8 @@ Il cruscotto economico, fiscale e finanziario del libero professionista italiano
 La domanda a cui risponde in tre secondi, appena si apre: **di questi soldi,
 quanti sono davvero miei?**
 
-Stato: **fasi 1, 2 e 3 completate** — fondamenta visive, motore fiscale, archivio locale.
+Stato: **fasi 1-4 completate** — fondamenta visive, motore fiscale, archivio locale,
+registri di fatture e costi.
 
 ## Comandi
 
@@ -46,9 +47,27 @@ src/lib/dati/           persistenza — tutto dietro l'interfaccia StorageAdapte
 src/lib/format.ts       formattazione italiana: 1.234,56 €, mai €1,234.56
 src/components/ui/      primitive ristilizzate sui token del progetto
 src/components/fisco/   semaforo fiscale
+src/lib/periodo.ts      mese, trimestre, anno, personalizzato — puro e testato
+src/lib/stato/          preferenze di interfaccia, persistite in localStorage
+src/components/guscio/  navigazione, selettore di periodo, toggle di regime
+src/components/tabella/ modifica in linea, ordinamento, barra di ricerca
 src/app/design/         la pagina che mostra tutto il sistema visivo
-src/app/dati/           archivio, backup e dataset dimostrativo
+src/app/(app)/          le schermate di lavoro, dentro il guscio
 ```
+
+### I registri
+
+Fatture e costi si filtrano sulla **data del documento**, non su quella di
+incasso o pagamento: il registro è un elenco di documenti emessi. Il calcolo
+delle imposte resta annuale e per cassa, perché scaglioni, massimali e soglie
+sono grandezze dell'anno — filtrare il prospetto a «marzo» produrrebbe un
+numero privo di significato.
+
+Ogni cella modificabile salva subito e lascia per qualche secondo un toast con
+l'annullamento: il valore precedente è tenuto in memoria, non riletto
+dall'archivio. Le colonne che il regime non usa spariscono — l'IVA in
+forfettario, deducibilità e quota deducibile fra i costi — perché una colonna
+di zeri occupa spazio senza dire nulla.
 
 ### La persistenza
 

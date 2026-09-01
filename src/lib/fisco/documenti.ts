@@ -137,3 +137,41 @@ export function calcolaCosto(costo: Costo, imp: Impostazioni): CostoCalcolato {
     stato: costo.dataPagamento ? "pagato" : "daPagare",
   };
 }
+
+/**
+ * Riporta una fattura calcolata alla sua forma grezza, elencando i campi uno a
+ * uno. È il punto in cui si applica la regola: nel database non entra nulla che
+ * si possa ricalcolare. Aggiungere un derivato senza toccare questa funzione
+ * non lo fa finire per sbaglio nell'archivio.
+ */
+export function fatturaGrezza(f: FatturaCalcolata): Fattura {
+  return {
+    id: f.id,
+    dataEmissione: f.dataEmissione,
+    numero: f.numero,
+    clienteId: f.clienteId,
+    descrizione: f.descrizione,
+    tipoRicavo: f.tipoRicavo,
+    imponibile: f.imponibile,
+    ...(f.aliquotaIva === undefined ? {} : { aliquotaIva: f.aliquotaIva }),
+    dataIncasso: f.dataIncasso ?? null,
+  };
+}
+
+export function costoGrezzo(c: CostoCalcolato): Costo {
+  return {
+    id: c.id,
+    dataDocumento: c.dataDocumento,
+    fornitore: c.fornitore,
+    categoria: c.categoria,
+    descrizione: c.descrizione,
+    natura: c.natura,
+    imponibile: c.imponibile,
+    aliquotaIva: c.aliquotaIva,
+    percentualeDeducibilita: c.percentualeDeducibilita,
+    ...(c.percentualeDetraibilitaIva === undefined
+      ? {}
+      : { percentualeDetraibilitaIva: c.percentualeDetraibilitaIva }),
+    dataPagamento: c.dataPagamento ?? null,
+  };
+}

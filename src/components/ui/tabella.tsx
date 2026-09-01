@@ -6,21 +6,30 @@ import { cn } from "@/lib/utils";
  * intestazione ferma in alto, riga dei totali fissa in basso.
  * I contenitori scrollano da soli: il body della pagina non scorre mai in orizzontale.
  */
-export function Tabella({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) {
-  return (
-    <div className="w-full overflow-x-auto">
-      <table
-        className={cn("w-full border-collapse text-corpo", className)}
-        {...props}
-      />
-    </div>
-  );
+/**
+ * Il riquadro che scorre. Contiene la tabella su entrambi gli assi, così
+ * l'intestazione e la riga dei totali possono agganciarsi ai suoi bordi e il
+ * corpo della pagina non scorre mai in orizzontale.
+ */
+export function ContenitoreTabella({
+  className,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("w-full overflow-auto", className)} {...props} />;
 }
 
+export function Tabella({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) {
+  return <table className={cn("w-full border-collapse text-corpo", className)} {...props} />;
+}
+
+/**
+ * L'aggancio in alto va messo sulle celle, non sulla sezione: su `thead` e
+ * `tfoot` i browser ignorano `position: sticky`, e la riga se ne va scorrendo.
+ */
 export function TabellaTesta({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={cn("sticky top-0 z-10 bg-superficie", className)}
+      className={cn("[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-superficie", className)}
       {...props}
     />
   );
@@ -34,7 +43,8 @@ export function TabellaPiede({ className, ...props }: React.HTMLAttributes<HTMLT
   return (
     <tfoot
       className={cn(
-        "sticky bottom-0 z-10 bg-superficie font-medium [&_td]:border-t [&_td]:border-bordo",
+        "font-medium",
+        "[&_td]:sticky [&_td]:bottom-0 [&_td]:z-10 [&_td]:border-t [&_td]:border-bordo [&_td]:bg-superficie",
         className,
       )}
       {...props}
@@ -60,7 +70,7 @@ export function TabellaIntestazione({
     <th
       scope="col"
       className={cn(
-        "border-b border-bordo px-3 py-2.5 text-etichetta font-medium text-inchiostro-tenue",
+        "border-b border-bordo px-2.5 py-2.5 text-etichetta font-medium text-inchiostro-tenue",
         numerica ? "text-right" : "text-left",
         className,
       )}
@@ -77,7 +87,7 @@ export function TabellaCella({
   return (
     <td
       className={cn(
-        "px-3 py-2.5 align-middle",
+        "px-2.5 py-2.5 align-middle",
         numerica && "cifre text-right",
         className,
       )}

@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { euro, euroTondo, iniziali, num, percentuale, variazione, data } from "./format";
+import {
+  analizzaNumero,
+  analizzaPercentuale,
+  data,
+  euro,
+  euroTondo,
+  iniziali,
+  num,
+  perCampo,
+  percentuale,
+  variazione,
+} from "./format";
 
 describe("formattazione italiana", () => {
   it("scrive gli importi con il separatore di migliaia, anche a quattro cifre", () => {
@@ -33,5 +44,40 @@ describe("formattazione italiana", () => {
   it("ricava le iniziali per gli avatar cliente", () => {
     expect(iniziali("Alfa Srl")).toBe("AS");
     expect(iniziali("Gamma")).toBe("G");
+  });
+});
+
+describe("lettura dei numeri digitati", () => {
+  it("accetta le forme che una persona italiana scrive davvero", () => {
+    expect(analizzaNumero("1.234,56")).toBe(1234.56);
+    expect(analizzaNumero("1234,56")).toBe(1234.56);
+    expect(analizzaNumero("1234.56")).toBe(1234.56);
+    expect(analizzaNumero("1 234,56")).toBe(1234.56);
+    expect(analizzaNumero("3.000")).toBe(3000);
+    expect(analizzaNumero("1.234.567,89")).toBe(1234567.89);
+    expect(analizzaNumero("12.5")).toBe(12.5);
+    expect(analizzaNumero("1.234,56 €")).toBe(1234.56);
+    expect(analizzaNumero("-450,20")).toBe(-450.2);
+    expect(analizzaNumero("−450,20")).toBe(-450.2);
+  });
+
+  it("restituisce null su ciò che numero non è", () => {
+    expect(analizzaNumero("")).toBeNull();
+    expect(analizzaNumero("   ")).toBeNull();
+    expect(analizzaNumero("tremila")).toBeNull();
+    expect(analizzaNumero("-")).toBeNull();
+  });
+
+  it("interpreta le percentuali sia in centesimi sia in frazione", () => {
+    expect(analizzaPercentuale("22")).toBe(0.22);
+    expect(analizzaPercentuale("22%")).toBe(0.22);
+    expect(analizzaPercentuale("0,22")).toBe(0.22);
+    expect(analizzaPercentuale("100")).toBe(1);
+    expect(analizzaPercentuale("0")).toBe(0);
+  });
+
+  it("prepara il valore per il campo in modifica", () => {
+    expect(perCampo(1234.56)).toBe("1.234,56");
+    expect(perCampo(3000)).toBe("3.000");
   });
 });
