@@ -41,6 +41,7 @@ export interface StorageAdapter {
   readonly movimentiAttivita: Deposito<Dati["movimentiAttivita"][number]>;
   readonly versamenti: Deposito<Dati["versamenti"][number]>;
   readonly patrimonio: Deposito<Dati["patrimonio"][number]>;
+  readonly spunte: Deposito<Dati["spunte"][number]>;
 
   /** Legge tutto, in una sola transazione dove la tecnologia lo consente. */
   leggiTutto(): Promise<Dati>;
@@ -64,5 +65,6 @@ export function depositiDi(
     movimentiAttivita: adapter.movimentiAttivita,
     versamenti: adapter.versamenti,
     patrimonio: adapter.patrimonio,
+    spunte: adapter.spunte,
   } as Record<NomeCollezione, Deposito<never, never>>;
 }

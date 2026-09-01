@@ -4,8 +4,8 @@ Il cruscotto economico, fiscale e finanziario del libero professionista italiano
 La domanda a cui risponde in tre secondi, appena si apre: **di questi soldi,
 quanti sono davvero miei?**
 
-Stato: **fasi 1-5 completate** — fondamenta visive, motore fiscale, archivio locale,
-registri di fatture e costi, cruscotto.
+Stato: **fasi 1-6 completate** — fondamenta visive, motore fiscale, archivio locale,
+registri di fatture e costi, cruscotto, schermate fiscali.
 
 ## Comandi
 
@@ -49,6 +49,7 @@ src/components/ui/      primitive ristilizzate sui token del progetto
 src/components/fisco/   semaforo fiscale
   calendario.ts         festività italiane e slittamento delle scadenze
   scadenze.ts           lo scadenzario dell'anno, filtrato per regime
+  spiegazioni.ts        il prospetto riga per riga, con la formula in italiano
 src/lib/analisi/        aggregati del cruscotto e avvisi, puri e testati
 src/lib/periodo.ts      mese, trimestre, anno, personalizzato — puro e testato
 src/lib/stato/          preferenze di interfaccia, persistite in localStorage
@@ -58,6 +59,14 @@ src/app/design/         la pagina che mostra tutto il sistema visivo
 src/components/grafici/ i due grafici del cruscotto
 src/app/(app)/          le schermate di lavoro, dentro il guscio
 ```
+
+### Il prospetto fiscale
+
+Ogni riga porta la formula applicata ai numeri di questa persona, in italiano:
+«5.850,00 € × 26,07 %, fino al massimale di 122.295,00 €». Non è una nota
+d'aiuto generica — serve a fidarsi del totale, o ad accorgersi che
+un'impostazione è sbagliata. Vive in `spiegazioni.ts`, fuori dalla schermata,
+perché servirà anche all'esportazione da mandare al commercialista.
 
 ### Il cruscotto
 

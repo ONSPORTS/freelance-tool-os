@@ -46,13 +46,13 @@ export function Guscio({
 
   return (
     <div className="flex min-h-dvh">
-      <BarraLaterale regime={regime} />
+      <BarraLaterale />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-bordo bg-fondo/85 backdrop-blur-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 lg:px-8">
             <div className="flex min-w-0 items-center gap-2">
-              <MenuMobile regime={regime} />
+              <MenuMobile />
               <div className="min-w-0">
               <h1 className="truncate font-display text-kpi-sm font-semibold">{titolo}</h1>
               {descrizione && (
@@ -97,20 +97,12 @@ function Marchio() {
   );
 }
 
-function ElencoSezioni({
-  regime,
-  onNaviga,
-}: {
-  regime: "forfettario" | "ordinario";
-  onNaviga?: () => void;
-}) {
+function ElencoSezioni({ onNaviga }: { onNaviga?: () => void }) {
   const percorso = usePathname();
   return (
     <div className="flex flex-col gap-5">
       {GRUPPI.map((gruppo) => {
-        // L'IVA non riguarda chi è in forfettario: la voce non compare proprio.
-        const voci = gruppo.voci.filter((v) => !(v.soloOrdinario && regime === "forfettario"));
-        if (voci.length === 0) return null;
+        const voci = gruppo.voci;
         return (
           <div key={gruppo.titolo}>
             <p className="px-2 pb-1.5 text-micro text-inchiostro-tenue">{gruppo.titolo}</p>
@@ -128,21 +120,21 @@ function ElencoSezioni({
   );
 }
 
-function BarraLaterale({ regime }: { regime: "forfettario" | "ordinario" }) {
+function BarraLaterale() {
   return (
     <nav
       aria-label="Sezioni"
       className="hidden w-60 shrink-0 flex-col gap-6 border-r border-bordo bg-superficie px-3 py-5 lg:flex"
     >
       <Marchio />
-      <ElencoSezioni regime={regime} />
+      <ElencoSezioni />
     </nav>
   );
 }
 
 /** Sotto i 1024 px la barra laterale non c'è: senza questo il telefono resta
  *  bloccato sulla schermata da cui è partito. */
-function MenuMobile({ regime }: { regime: "forfettario" | "ordinario" }) {
+function MenuMobile() {
   const [aperto, setAperto] = React.useState(false);
   return (
     <Dialog open={aperto} onOpenChange={setAperto}>
@@ -155,7 +147,7 @@ function MenuMobile({ regime }: { regime: "forfettario" | "ordinario" }) {
         titolo="Sezioni"
         className="left-0 top-0 h-dvh w-[min(18rem,85vw)] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none rounded-r-card"
       >
-        <ElencoSezioni regime={regime} onNaviga={() => setAperto(false)} />
+        <ElencoSezioni onNaviga={() => setAperto(false)} />
         <DialogClose className="sr-only">Chiudi</DialogClose>
       </DialogContent>
     </Dialog>

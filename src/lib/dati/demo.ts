@@ -389,5 +389,10 @@ export function datiDemo(): Dati {
     movimentiAttivita: costruisciMovimentiAttivita(),
     versamenti: VERSAMENTI,
     patrimonio: PATRIMONIO,
+    // Il saldo di giugno e il secondo acconto risultano già versati: i due F24
+    // sopra sono la prova, la spunta è la memoria di averlo fatto.
+    spunte: [
+      { id: `${ANNO_DEMO}:saldo-e-primo-acconto`, anno: ANNO_DEMO, idAdempimento: "saldo-e-primo-acconto", completatoIl: iso(6, 30) },
+    ],
   };
 }

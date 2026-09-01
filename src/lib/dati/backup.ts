@@ -236,6 +236,17 @@ const convalidaVersamento: Convalida<Dati["versamenti"][number]> = (riga, i, err
   };
 };
 
+const convalidaSpunta: Convalida<Dati["spunte"][number]> = (riga, i, errori) => {
+  const id = richiedeId(riga, "spunte", i, errori);
+  if (!id) return null;
+  return {
+    id,
+    anno: numero(riga.anno),
+    idAdempimento: testo(riga.idAdempimento),
+    completatoIl: dataOpzionale(riga.completatoIl) ?? new Date().toISOString().slice(0, 10),
+  };
+};
+
 const convalidaVocePatrimonio: Convalida<Dati["patrimonio"][number]> = (riga, i, errori) => {
   const id = richiedeId(riga, "patrimonio", i, errori);
   if (!id) return null;
@@ -371,6 +382,7 @@ export function analizzaBackup(testoGrezzo: string): RisultatoAnalisi {
   );
   dati.versamenti = convalidaElenco(contenuto.versamenti, "versamenti", convalidaVersamento, errori);
   dati.patrimonio = convalidaElenco(contenuto.patrimonio, "patrimonio", convalidaVocePatrimonio, errori);
+  dati.spunte = convalidaElenco(contenuto.spunte, "spunte", convalidaSpunta, errori);
 
   if (errori.length > 0) return { ok: false, errori };
 

@@ -38,6 +38,18 @@ export type MovimentoAttivita = {
   altreUscite: number;
 };
 
+/**
+ * La spunta di un adempimento dello scadenzario. Non è un dato fiscale: è la
+ * memoria di ciò che l'utente ha dichiarato di aver fatto.
+ */
+export type SpuntaAdempimento = {
+  /** `${anno}:${idAdempimento}`, così la spunta segue l'anno. */
+  id: string;
+  anno: number;
+  idAdempimento: string;
+  completatoIl: string;
+};
+
 export type VocePatrimonio = {
   id: string;
   tipo: "attivo" | "passivo";
@@ -58,6 +70,7 @@ export const COLLEZIONI = [
   "movimentiAttivita",
   "versamenti",
   "patrimonio",
+  "spunte",
 ] as const;
 
 export type NomeCollezione = (typeof COLLEZIONI)[number];
@@ -71,6 +84,7 @@ export type Dati = {
   movimentiAttivita: MovimentoAttivita[];
   versamenti: VersamentoF24[];
   patrimonio: VocePatrimonio[];
+  spunte: SpuntaAdempimento[];
 };
 
 export function datiVuoti(): Dati {
@@ -83,6 +97,7 @@ export function datiVuoti(): Dati {
     movimentiAttivita: [],
     versamenti: [],
     patrimonio: [],
+    spunte: [],
   };
 }
 

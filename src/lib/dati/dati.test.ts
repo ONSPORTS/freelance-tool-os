@@ -5,7 +5,7 @@ import { PARAMETRI_2026 } from "@/lib/fisco/parametri/2026";
 import type { StorageAdapter } from "./adapter";
 import { analizzaBackup, creaBackup, nomeFileBackup, serializzaBackup } from "./backup";
 import { ANNO_DEMO, datiDemo } from "./demo";
-import { DatabaseFinanze } from "./db";
+import { DatabaseFinanze, VERSIONE_SCHEMA } from "./db";
 import { DexieAdapter } from "./dexie-adapter";
 import { MemoriaAdapter } from "./memoria-adapter";
 import { COLLEZIONI, datiVuoti, nuovoId, type Dati } from "./tipi";
@@ -124,7 +124,7 @@ describe("file di backup", () => {
     );
     const backup = creaBackup(datiDemo());
     expect(backup.formato).toBe("freelance-finance-os");
-    expect(backup.versioneSchema).toBe(1);
+    expect(backup.versioneSchema).toBe(VERSIONE_SCHEMA);
   });
 
   it("rifiuta un file che non è JSON", () => {
@@ -294,3 +294,60 @@ describe("dataset dimostrativo", () => {
 function ordina(righe: readonly unknown[]): unknown[] {
   return [...righe].sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
 }
+
+// ————————————————————————————————————————————————————————————
+// Evoluzione dello schema
+// ————————————————————————————————————————————————————————————
+
+describe("versioni dello schema", () => {
+  it("un backup della versione 1 si importa ancora, con le collezioni nuove vuote", () => {
+    const dati = datiDemo();
+    const vecchio = {
+      formato: "freelance-finance-os",
+      versioneSchema: 1,
+      esportatoIl: "2026-06-01T00:00:00.000Z",
+      dati: {
+        impostazioni: dati.impostazioni,
+        clienti: dati.clienti,
+        fatture: dati.fatture,
+        costi: dati.costi,
+        movimentiPersonali: dati.movimentiPersonali,
+        movimentiAttivita: dati.movimentiAttivita,
+        versamenti: dati.versamenti,
+        patrimonio: dati.patrimonio,
+        // «spunte» non esisteva ancora.
+      },
+    };
+    const esito = analizzaBackup(JSON.stringify(vecchio));
+    expect(esito.ok).toBe(true);
+    if (!esito.ok) return;
+    expect(esito.avvisi.some((a) => a.includes("più vecchio"))).toBe(true);
+    expect(esito.backup.dati.spunte).toEqual([]);
+    expect(esito.backup.dati.fatture).toHaveLength(24);
+  });
+
+  it("le spunte sopravvivono al giro completo di export e import", async () => {
+    const adapter = new MemoriaAdapter();
+    await adapter.scriviTutto(datiDemo(), "sostituisci");
+    await adapter.spunte.salva({
+      id: "2026:secondo-acconto",
+      anno: 2026,
+      idAdempimento: "secondo-acconto",
+      completatoIl: "2026-11-30",
+    });
+
+    const file = serializzaBackup(creaBackup(await adapter.leggiTutto()));
+    await adapter.svuota();
+    const letto = analizzaBackup(file);
+    expect(letto.ok).toBe(true);
+    if (!letto.ok) return;
+    await adapter.scriviTutto(letto.backup.dati, "sostituisci");
+
+    const spunte = await adapter.spunte.tutti();
+    expect(spunte).toHaveLength(2);
+    expect(spunte.map((s) => s.idAdempimento).sort()).toEqual([
+      "saldo-e-primo-acconto",
+      "secondo-acconto",
+    ]);
+  });
+});

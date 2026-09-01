@@ -7,6 +7,7 @@ import type {
   MovimentoAttivita,
   MovimentoPersonale,
   VersamentoF24,
+  SpuntaAdempimento,
   VocePatrimonio,
 } from "./tipi";
 
@@ -18,7 +19,7 @@ import type {
  * liquidazione IVA) e il cliente (concentrazione del portafoglio).
  * Nessun campo derivato è indicizzato, perché nessun campo derivato è salvato.
  */
-export const VERSIONE_SCHEMA = 1;
+export const VERSIONE_SCHEMA = 2;
 
 export class DatabaseFinanze extends Dexie {
   impostazioni!: EntityTable<Impostazioni, "anno">;
@@ -29,10 +30,12 @@ export class DatabaseFinanze extends Dexie {
   movimentiAttivita!: EntityTable<MovimentoAttivita, "id">;
   versamenti!: EntityTable<VersamentoF24, "id">;
   patrimonio!: EntityTable<VocePatrimonio, "id">;
+  spunte!: EntityTable<SpuntaAdempimento, "id">;
 
   constructor(nome = "freelance-finance-os") {
     super(nome);
-    this.version(VERSIONE_SCHEMA).stores({
+    // Versione 1: lo schema iniziale.
+    this.version(1).stores({
       impostazioni: "anno",
       clienti: "id, nome",
       fatture: "id, dataEmissione, dataIncasso, clienteId, numero",
@@ -41,6 +44,11 @@ export class DatabaseFinanze extends Dexie {
       movimentiAttivita: "id, [anno+mese]",
       versamenti: "id, data, tipo",
       patrimonio: "id, tipo",
+    });
+    // Versione 2: le spunte dello scadenzario. Aggiungere una tabella non
+    // richiede migrazione: i dati esistenti restano dove sono.
+    this.version(2).stores({
+      spunte: "id, anno",
     });
   }
 }

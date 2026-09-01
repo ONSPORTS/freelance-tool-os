@@ -36,6 +36,7 @@ const ETICHETTE: Record<NomeCollezione, string> = {
   movimentiAttivita: "Movimenti dell'attività",
   versamenti: "Versamenti F24",
   patrimonio: "Voci di patrimonio",
+  spunte: "Adempimenti spuntati",
 };
 
 export function PannelloDati() {

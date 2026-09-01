@@ -21,8 +21,6 @@ export type Voce = {
   icona: LucideIcon;
   /** Le schermate delle fasi successive restano visibili ma inattive. */
   pronta: boolean;
-  /** Nascosta quando il regime è forfettario. */
-  soloOrdinario?: boolean;
 };
 
 export const GRUPPI: { titolo: string; voci: Voce[] }[] = [
@@ -38,10 +36,10 @@ export const GRUPPI: { titolo: string; voci: Voce[] }[] = [
   {
     titolo: "Fisco",
     voci: [
-      { href: "/fisco", etichetta: "Imposte e contributi", icona: Percent, pronta: false },
-      { href: "/iva", etichetta: "IVA", icona: Coins, pronta: false, soloOrdinario: true },
-      { href: "/confronto", etichetta: "Confronto regimi", icona: Scale, pronta: false },
-      { href: "/scadenzario", etichetta: "Scadenzario", icona: CalendarClock, pronta: false },
+      { href: "/fisco", etichetta: "Imposte e contributi", icona: Percent, pronta: true },
+      { href: "/iva", etichetta: "IVA", icona: Coins, pronta: true },
+      { href: "/confronto", etichetta: "Confronto regimi", icona: Scale, pronta: true },
+      { href: "/scadenzario", etichetta: "Scadenzario", icona: CalendarClock, pronta: true },
     ],
   },
   {

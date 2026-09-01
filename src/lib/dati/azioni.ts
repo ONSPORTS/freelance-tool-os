@@ -145,3 +145,29 @@ export async function creaCliente(nome: string): Promise<string> {
   });
   return id;
 }
+
+// ————————————————————————————————————————————————————————————
+// Scadenzario
+// ————————————————————————————————————————————————————————————
+
+export function chiaveSpunta(anno: number, idAdempimento: string): string {
+  return `${anno}:${idAdempimento}`;
+}
+
+export async function spuntaAdempimento(
+  anno: number,
+  idAdempimento: string,
+  completato: boolean,
+) {
+  const id = chiaveSpunta(anno, idAdempimento);
+  if (completato) {
+    await archivio().spunte.salva({
+      id,
+      anno,
+      idAdempimento,
+      completatoIl: new Date().toISOString().slice(0, 10),
+    });
+  } else {
+    await archivio().spunte.elimina(id);
+  }
+}
