@@ -327,18 +327,26 @@ function costruisciCosti(): Costo[] {
   });
 }
 
-/** Prelievi e spese personali, con l'estate più cara e dicembre pure. */
+/**
+ * Prelievi e spese personali, con l'estate più cara e dicembre pure.
+ *
+ * I 1.500 € al mese di prelievo non sono un numero tondo scelto a caso: è
+ * quanto la cassa dell'attività regge davvero nel 2026, perché sopra i costi
+ * correnti gravano 8.750 € di F24 dell'anno precedente. Con 1.700 € la
+ * liquidità netta andrebbe sotto zero in autunno — e un dataset dimostrativo
+ * che chiude l'anno in rosso somiglia a un errore di calcolo.
+ */
 function costruisciMovimentiPersonali(): MovimentoPersonale[] {
-  const variabiliPerMese = [620, 580, 640, 700, 690, 780, 980, 910, 660, 640, 700, 1050];
+  const variabiliPerMese = [450, 420, 460, 500, 500, 560, 700, 650, 480, 460, 500, 750];
   return variabiliPerMese.map((variabili, i) => ({
     id: `mp-${ANNO_DEMO}-${String(i + 1).padStart(2, "0")}`,
     anno: ANNO_DEMO,
     mese: i + 1,
-    prelievi: 2200,
+    prelievi: 1500,
     altreEntrate: 0,
-    speseFisse: 1250,
+    speseFisse: 900,
     speseVariabili: variabili,
-    risparmio: 250,
+    risparmio: 80,
   }));
 }
 

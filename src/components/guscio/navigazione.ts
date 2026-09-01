@@ -30,7 +30,7 @@ export const GRUPPI: { titolo: string; voci: Voce[] }[] = [
       { href: "/", etichetta: "Cruscotto", icona: LayoutDashboard, pronta: true },
       { href: "/fatture", etichetta: "Fatture", icona: FileText, pronta: true },
       { href: "/costi", etichetta: "Costi", icona: Receipt, pronta: true },
-      { href: "/clienti", etichetta: "Clienti", icona: Users, pronta: false },
+      { href: "/clienti", etichetta: "Clienti", icona: Users, pronta: true },
     ],
   },
   {
@@ -45,9 +45,9 @@ export const GRUPPI: { titolo: string; voci: Voce[] }[] = [
   {
     titolo: "Finanza",
     voci: [
-      { href: "/cashflow", etichetta: "Cashflow", icona: BarChart3, pronta: false },
-      { href: "/patrimonio", etichetta: "Patrimonio", icona: PiggyBank, pronta: false },
-      { href: "/pianificazione", etichetta: "Pianificazione", icona: Target, pronta: false },
+      { href: "/cashflow", etichetta: "Cashflow", icona: BarChart3, pronta: true },
+      { href: "/patrimonio", etichetta: "Patrimonio", icona: PiggyBank, pronta: true },
+      { href: "/pianificazione", etichetta: "Pianificazione", icona: Target, pronta: true },
     ],
   },
   {

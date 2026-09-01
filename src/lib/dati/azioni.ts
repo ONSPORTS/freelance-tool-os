@@ -2,7 +2,14 @@
 
 import { toast } from "@/components/ui/toast";
 import { archivio } from "./archivio";
-import type { Costo, Fattura } from "./tipi";
+import type {
+  Costo,
+  Fattura,
+  MovimentoAttivita,
+  MovimentoPersonale,
+  VersamentoF24,
+  VocePatrimonio,
+} from "./tipi";
 import { nuovoId } from "./tipi";
 
 /**
@@ -170,4 +177,83 @@ export async function spuntaAdempimento(
   } else {
     await archivio().spunte.elimina(id);
   }
+}
+
+// ————————————————————————————————————————————————————————————
+// Movimenti mensili, versamenti e patrimonio
+// ————————————————————————————————————————————————————————————
+
+export async function salvaMovimentoAttivita(
+  anno: number,
+  mese: number,
+  modifiche: Partial<Pick<MovimentoAttivita, "altreEntrate" | "altreUscite">>,
+) {
+  const id = `ma-${anno}-${String(mese).padStart(2, "0")}`;
+  const attuale = await archivio().movimentiAttivita.leggi(id);
+  await archivio().movimentiAttivita.salva({
+    id,
+    anno,
+    mese,
+    altreEntrate: 0,
+    altreUscite: 0,
+    ...attuale,
+    ...modifiche,
+  });
+}
+
+export async function salvaMovimentoPersonale(
+  anno: number,
+  mese: number,
+  modifiche: Partial<Omit<MovimentoPersonale, "id" | "anno" | "mese">>,
+) {
+  const id = `mp-${anno}-${String(mese).padStart(2, "0")}`;
+  const attuale = await archivio().movimentiPersonali.leggi(id);
+  await archivio().movimentiPersonali.salva({
+    id,
+    anno,
+    mese,
+    prelievi: 0,
+    altreEntrate: 0,
+    speseFisse: 0,
+    speseVariabili: 0,
+    risparmio: 0,
+    ...attuale,
+    ...modifiche,
+  });
+}
+
+export async function creaVersamento(versamento: Omit<VersamentoF24, "id">) {
+  const nuovo: VersamentoF24 = { ...versamento, id: nuovoId() };
+  await archivio().versamenti.salva(nuovo);
+  toast.conferma("Versamento F24 registrato", async () => {
+    await archivio().versamenti.elimina(nuovo.id);
+  });
+}
+
+export async function eliminaVersamento(versamento: VersamentoF24) {
+  await archivio().versamenti.elimina(versamento.id);
+  toast.conferma("Versamento eliminato", async () => {
+    await archivio().versamenti.salva(versamento);
+  });
+}
+
+export async function salvaVocePatrimonio(voce: VocePatrimonio) {
+  await conAnnullamento(archivio().patrimonio, voce.id, "Voce aggiornata", async () => {
+    await archivio().patrimonio.salva(voce);
+  });
+}
+
+export async function creaVocePatrimonio(voce: Omit<VocePatrimonio, "id">) {
+  const nuova: VocePatrimonio = { ...voce, id: nuovoId() };
+  await archivio().patrimonio.salva(nuova);
+  toast.conferma("Voce aggiunta al patrimonio", async () => {
+    await archivio().patrimonio.elimina(nuova.id);
+  });
+}
+
+export async function eliminaVocePatrimonio(voce: VocePatrimonio) {
+  await archivio().patrimonio.elimina(voce.id);
+  toast.conferma("Voce eliminata", async () => {
+    await archivio().patrimonio.salva(voce);
+  });
 }

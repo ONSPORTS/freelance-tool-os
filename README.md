@@ -4,8 +4,8 @@ Il cruscotto economico, fiscale e finanziario del libero professionista italiano
 La domanda a cui risponde in tre secondi, appena si apre: **di questi soldi,
 quanti sono davvero miei?**
 
-Stato: **fasi 1-6 completate** — fondamenta visive, motore fiscale, archivio locale,
-registri di fatture e costi, cruscotto, schermate fiscali.
+Stato: **fasi 1-7 completate** — tutte le schermate del prodotto sono in piedi.
+Resta la fase 8 di rifinitura.
 
 ## Comandi
 
@@ -50,7 +50,7 @@ src/components/fisco/   semaforo fiscale
   calendario.ts         festività italiane e slittamento delle scadenze
   scadenze.ts           lo scadenzario dell'anno, filtrato per regime
   spiegazioni.ts        il prospetto riga per riga, con la formula in italiano
-src/lib/analisi/        aggregati del cruscotto e avvisi, puri e testati
+src/lib/analisi/        aggregati, avvisi, cashflow e pianificazione, puri e testati
 src/lib/periodo.ts      mese, trimestre, anno, personalizzato — puro e testato
 src/lib/stato/          preferenze di interfaccia, persistite in localStorage
 src/components/guscio/  navigazione, selettore di periodo, toggle di regime
