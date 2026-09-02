@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Search, Wallet } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -12,6 +12,11 @@ import { useCalcoloAnno } from "@/lib/dati/hooks";
 import { cambiaRegime } from "@/lib/dati/azioni";
 import { usePreferenze } from "@/lib/stato/preferenze";
 import { useComandi } from "@/lib/stato/comandi";
+import { useAvvioLicenza, useSolaLettura } from "@/lib/stato/licenza";
+import { ErroreSolaLettura } from "@/lib/dati/sola-lettura";
+import { toast } from "@/components/ui/toast";
+import { BarraLicenza } from "./barra-licenza";
+import { SegnoFlowlance } from "./marchio";
 import { Paletta, Tasto } from "@/components/comandi/paletta";
 import { ScorciatoieGlobali } from "@/components/comandi/tasti";
 import { GRUPPI, type Voce } from "./navigazione";
@@ -48,6 +53,11 @@ export function Guscio({
   const calcolo = useCalcoloAnno(periodo.anno, oggi);
   const regime = calcolo?.impostazioni.regime ?? "forfettario";
 
+  // Verifica la chiave salvata e accende la guardia dell'archivio.
+  useAvvioLicenza(oggi);
+  const solaLettura = useSolaLettura();
+  useAvvisoSolaLettura();
+
   // I parametri provvisori vincono sullo stato di chiusura: sono la cosa che
   // cambia il significato dei numeri a schermo, non solo la loro modificabilità.
   const statoAnno: StatoDellAnno | undefined = calcolo
@@ -69,6 +79,7 @@ export function Guscio({
       <BarraLaterale />
 
       <div className="flex min-w-0 flex-1 flex-col">
+        <BarraLicenza />
         <header className="sticky top-0 z-30 border-b border-bordo bg-fondo/85 backdrop-blur-sm print:hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-8">
             <div className="flex min-w-0 items-center gap-2">
@@ -90,6 +101,7 @@ export function Guscio({
               <Segmenti
                 etichettaGruppo="Regime fiscale"
                 valore={regime}
+                disabilitato={solaLettura}
                 onChange={(r) => void cambiaRegime(periodo.anno, r)}
                 opzioni={[
                   { valore: "forfettario", etichetta: "Forfettario" },
@@ -107,6 +119,27 @@ export function Guscio({
       </div>
     </div>
   );
+}
+
+/**
+ * La rete di sicurezza per una scrittura che l'interfaccia non ha spento.
+ *
+ * I pulsanti che scrivono sono disabilitati a licenza scaduta, ma sono tanti e
+ * ne verranno altri: se uno sfugge, la guardia dell'archivio rifiuta comunque
+ * la scrittura. Senza questo, quel rifiuto sarebbe una promessa non gestita in
+ * console — l'utente cliccherebbe e non succederebbe niente, che è il modo
+ * peggiore di dire di no.
+ */
+function useAvvisoSolaLettura() {
+  React.useEffect(() => {
+    function suRifiuto(e: PromiseRejectionEvent) {
+      if (!(e.reason instanceof ErroreSolaLettura)) return;
+      e.preventDefault();
+      toast.avviso("Licenza scaduta: l'app è in sola lettura.");
+    }
+    window.addEventListener("unhandledrejection", suRifiuto);
+    return () => window.removeEventListener("unhandledrejection", suRifiuto);
+  }, []);
 }
 
 /**
@@ -141,9 +174,7 @@ function BottoneCerca() {
 function Marchio() {
   return (
     <Link href="/" className="flex items-center gap-2.5 px-2">
-      <span className="flex size-8 items-center justify-center rounded-campo bg-inchiostro text-white">
-        <Wallet className="size-4" aria-hidden />
-      </span>
+      <SegnoFlowlance className="size-8 shrink-0" />
       <span className="font-display text-corpo font-semibold leading-tight">
         Flowlance
       </span>

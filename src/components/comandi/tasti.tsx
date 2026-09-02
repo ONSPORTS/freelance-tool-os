@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { ROTTE_PER_TASTO } from "@/lib/comandi/scorciatoie";
 import { useComandi } from "@/lib/stato/comandi";
+import { useSolaLettura } from "@/lib/stato/licenza";
 
 /** Quanto tempo si ha per premere la lettera dopo `g`. */
 const ATTESA_SEQUENZA = 2000;
@@ -35,14 +36,17 @@ export function ScorciatoieGlobali() {
   const chiudi = useComandi((s) => s.chiudiPaletta);
   const paletta = useComandi((s) => s.paletta);
   const chiedi = useComandi((s) => s.chiedi);
+  // A licenza scaduta `n` non apre niente: aprire un modulo che poi non salva
+  // è peggio che non aprirlo. La palette fa lo stesso, togliendo le voci.
+  const bloccato = useSolaLettura();
   const attesaG = React.useRef<number | null>(null);
 
-  const stato = React.useRef({ paletta, apri, chiudi, chiedi, router });
-  stato.current = { paletta, apri, chiudi, chiedi, router };
+  const stato = React.useRef({ paletta, apri, chiudi, chiedi, router, bloccato });
+  stato.current = { paletta, apri, chiudi, chiedi, router, bloccato };
 
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      const { paletta, apri, chiudi, chiedi, router } = stato.current;
+      const { paletta, apri, chiudi, chiedi, router, bloccato } = stato.current;
 
       // ⌘K funziona ovunque, anche dentro un campo: è il modo di uscire da una
       // schermata senza staccare le mani dalla tastiera.
@@ -80,6 +84,7 @@ export function ScorciatoieGlobali() {
           return;
         case "n":
           e.preventDefault();
+          if (bloccato) return;
           router.push("/fatture");
           chiedi({ tipo: "nuovaFattura" });
           return;

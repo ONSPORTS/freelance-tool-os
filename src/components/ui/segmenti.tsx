@@ -12,12 +12,15 @@ export function Segmenti<T extends string>({
   onChange,
   className,
   etichettaGruppo,
+  disabilitato = false,
 }: {
   opzioni: readonly { valore: T; etichetta: string }[];
   valore: T;
   onChange: (v: T) => void;
   className?: string;
   etichettaGruppo: string;
+  /** In sola lettura resta leggibile — dice ancora com'è impostato — e non si tocca. */
+  disabilitato?: boolean;
 }) {
   return (
     <div
@@ -36,6 +39,7 @@ export function Segmenti<T extends string>({
             type="button"
             role="radio"
             aria-checked={attivo}
+            disabled={disabilitato && !attivo}
             onClick={() => onChange(o.valore)}
             className={cn(
               // 34 px di altezza sul telefono, 30 da tablet in su: con il dito
@@ -45,6 +49,7 @@ export function Segmenti<T extends string>({
               attivo
                 ? "bg-superficie text-inchiostro shadow-riposo"
                 : "text-inchiostro-tenue hover:text-inchiostro",
+              "disabled:cursor-not-allowed disabled:text-inchiostro-tenue/50 disabled:hover:text-inchiostro-tenue/50",
             )}
           >
             {o.etichetta}

@@ -7,6 +7,7 @@ import { Chip } from "@/components/ui/chip";
 import { Etichetta } from "@/components/ui/etichetta";
 import { Input } from "@/components/ui/input";
 import { Segmenti } from "@/components/ui/segmenti";
+import { BloccoScrittura } from "@/components/ui/blocco-scrittura";
 import {
   Select,
   SelectContent,
@@ -31,7 +32,23 @@ export type Modifica = (modifiche: Partial<Impostazioni>) => void;
  * definizione del passo: il modulo `percorso.ts` resta puro e testabile, e i
  * componenti restano qui dove possono usare React.
  */
-export function ControlloPasso({
+export function ControlloPasso(props: {
+  passo: string;
+  calcolo: ContestoCalcolo;
+  onModifica: Modifica;
+}) {
+  // Le risposte della configurazione scrivono tutte nelle impostazioni: a
+  // licenza scaduta il percorso si legge — le domande e le spiegazioni restano
+  // lì — e non si risponde. Un `fieldset` invece di dieci `disabilitato`:
+  // spegne anche i controlli che verranno aggiunti dopo.
+  return (
+    <BloccoScrittura>
+      <ControlloDelPasso {...props} />
+    </BloccoScrittura>
+  );
+}
+
+function ControlloDelPasso({
   passo,
   calcolo,
   onModifica,

@@ -162,7 +162,7 @@ export function SchermataCosti() {
       titolo="Costi"
       descrizione={`Registro per data del documento · ${etichettaPeriodo(periodo)}`}
       azioni={
-        <Button onClick={() => setModuloAperto(true)}>
+        <Button scrive onClick={() => setModuloAperto(true)}>
           <ReceiptText className="size-4" aria-hidden />
           Nuovo costo
         </Button>
@@ -221,7 +221,7 @@ export function SchermataCosti() {
           <Vuoto
             icona={Receipt}
             titolo="Nessun costo registrato: aggiungine uno per leggere il margine reale."
-            azione={<Button onClick={() => setModuloAperto(true)}>Nuovo costo</Button>}
+            azione={<Button scrive onClick={() => setModuloAperto(true)}>Nuovo costo</Button>}
           />
         ) : righe.length === 0 ? (
           <Vuoto
@@ -339,19 +339,19 @@ export function SchermataCosti() {
                       <TabellaCella className="w-24">
                         <div className="flex items-center justify-end gap-1">
                           {c.stato === "pagato" ? (
-                            <Button variante="quieto" taglia="icona"
+                            <Button scrive variante="quieto" taglia="icona"
                               aria-label={`Annulla il pagamento del costo ${c.fornitore}`}
                               onClick={() => aggiorna(c, { dataPagamento: null })}>
                               <Undo2 className="size-4" />
                             </Button>
                           ) : (
-                            <Button variante="quieto" taglia="icona"
+                            <Button scrive variante="quieto" taglia="icona"
                               aria-label={`Segna il costo ${c.fornitore} come pagato oggi`}
                               onClick={() => void segnaPagato(c)}>
                               <CheckCheck className="size-4" />
                             </Button>
                           )}
-                          <Button variante="quieto" taglia="icona"
+                          <Button scrive variante="quieto" taglia="icona"
                             aria-label={`Elimina il costo ${c.fornitore}`}
                             onClick={() => void eliminaCosto(c)}
                             className="hover:bg-negativo-tenue hover:text-negativo">
@@ -416,7 +416,7 @@ export function SchermataCosti() {
                     )}
                   </div>
                   {c.stato === "daPagare" && (
-                    <Button
+                    <Button scrive
                       variante="contorno"
                       taglia="sm"
                       className="mt-3 w-full"

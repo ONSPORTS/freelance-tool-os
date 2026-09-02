@@ -128,6 +128,31 @@ describe("il vocabolario copre quello che si fa ogni giorno", () => {
   });
 });
 
+describe("in sola lettura restano solo i comandi che leggono", () => {
+  const bloccati = comandi({ ...CTX, solaLettura: true });
+  const tipi = bloccati.map((c) => c.azione.tipo);
+
+  it("niente «nuova fattura», «nuovo costo», «segna incassata»", () => {
+    expect(tipi).not.toContain("nuovaFattura");
+    expect(tipi).not.toContain("nuovoCosto");
+    expect(tipi).not.toContain("segnaIncassata");
+  });
+
+  it("**«esporta backup» resta**: i dati non sono in ostaggio della licenza", () => {
+    expect(tipi).toContain("esportaBackup");
+    // «Dati e backup» — la schermata — e «Esporta backup» si contendono la
+    // cima e va bene così: la cosa che conta è che il comando ci sia.
+    expect(cerca(bloccati, "esporta backup")[0].comando.azione.tipo).toBe("esportaBackup");
+  });
+
+  it("navigare, aprire una fattura e cambiare anno si possono ancora", () => {
+    expect(tipi).toContain("vai");
+    expect(tipi).toContain("apriFattura");
+    expect(tipi).toContain("apriCliente");
+    expect(tipi).toContain("cambiaAnno");
+  });
+});
+
 // ————————————————————————————————————————————————————————————
 // Cosa trova chi digita
 // ————————————————————————————————————————————————————————————

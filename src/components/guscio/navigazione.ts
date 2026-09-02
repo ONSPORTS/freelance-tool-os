@@ -5,6 +5,7 @@ import {
   CalendarCheck,
   Database,
   FileText,
+  Key,
   Keyboard,
   LayoutDashboard,
   Percent,
@@ -42,6 +43,7 @@ const ICONE: Record<string, LucideIcon> = {
   "/avvio": Compass,
   "/impostazioni": Settings,
   "/dati": Database,
+  "/licenza": Key,
   "/scorciatoie": Keyboard,
 };
 

@@ -17,6 +17,7 @@ import {
   type Esito,
 } from "@/lib/comandi/vocabolario";
 import { useComandi } from "@/lib/stato/comandi";
+import { useSolaLettura } from "@/lib/stato/licenza";
 import { usePreferenze } from "@/lib/stato/preferenze";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ export function Paletta() {
   const impostaAnno = usePreferenze((s) => s.impostaAnno);
   const oggi = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
   const anni = useAnniDisponibili(anno, oggi);
+  const solaLettura = useSolaLettura();
 
   const [query, setQuery] = React.useState("");
   const [selezionato, setSelezionato] = React.useState(0);
@@ -57,6 +59,7 @@ export function Paletta() {
     const clienti = dati?.clienti ?? [];
     const nome = (id: string) => clienti.find((c) => c.id === id)?.nome ?? "Senza cliente";
     return comandi({
+      solaLettura,
       annoCorrente: anno,
       anni: [...anni].sort((a, b) => b - a),
       fatture: (dati?.fatture ?? [])
@@ -71,7 +74,7 @@ export function Paletta() {
         })),
       clienti: clienti.map((c) => ({ id: c.id, nome: c.nome })),
     });
-  }, [dati, anno, anni]);
+  }, [dati, anno, anni, solaLettura]);
 
   const esiti = React.useMemo(() => cerca(vocabolario, query), [vocabolario, query]);
   const gruppi = React.useMemo(() => perSezione(esiti), [esiti]);

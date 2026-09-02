@@ -184,7 +184,7 @@ export function ModuloFattura({
 
           <div className="flex justify-end gap-2 sm:col-span-2">
             <Button type="button" variante="quieto" onClick={onChiudi}>Annulla</Button>
-            <Button type="submit" disabled={!valido || salvando}>Salva la fattura</Button>
+            <Button scrive type="submit" disabled={!valido || salvando}>Salva la fattura</Button>
           </div>
         </form>
       </DialogContent>

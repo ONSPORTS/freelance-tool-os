@@ -11,6 +11,7 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BloccoScrittura } from "@/components/ui/blocco-scrittura";
 import { Card, CardCorpo, CardSottotitolo, CardTitolo } from "@/components/ui/card";
 import { CardInterna } from "@/components/ui/card";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
@@ -334,7 +335,7 @@ export function SchermataChiusura() {
                   <p className="mt-3 text-corpo text-inchiostro-tenue">{chiusura.note}</p>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button variante="contorno" onClick={() => void riapriAnno(chiusura)}>
+                  <Button scrive variante="contorno" onClick={() => void riapriAnno(chiusura)}>
                     <LockOpen className="size-4" aria-hidden />
                     Riapri il {anno}
                   </Button>
@@ -351,7 +352,7 @@ export function SchermataChiusura() {
                   del {anno + 1}. Gli importi restano vivi: se a marzo salta fuori una
                   fattura del {anno}, i riporti la incorporano e te lo segnalano.
                 </CardSottotitolo>
-                <div className="mt-4 space-y-3">
+                <BloccoScrittura className="mt-4 space-y-3">
                   <div>
                     <Etichetta>Nota (facoltativa)</Etichetta>
                     <Input
@@ -376,7 +377,7 @@ export function SchermataChiusura() {
                     Sempre annullabile: la chiusura è una riga in archivio, non uno stato
                     irreversibile.
                   </p>
-                </div>
+                </BloccoScrittura>
               </>
             )}
           </CardCorpo>

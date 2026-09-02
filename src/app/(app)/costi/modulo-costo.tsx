@@ -174,7 +174,7 @@ export function ModuloCosto({
 
           <div className="flex justify-end gap-2 sm:col-span-2">
             <Button type="button" variante="quieto" onClick={onChiudi}>Annulla</Button>
-            <Button type="submit" disabled={!valido || salvando}>Salva il costo</Button>
+            <Button scrive type="submit" disabled={!valido || salvando}>Salva il costo</Button>
           </div>
         </form>
       </DialogContent>

@@ -1,0 +1,195 @@
+import { generateKeyPairSync, sign } from "node:crypto";
+import { describe, expect, it } from "vitest";
+import {
+  componiChiave,
+  daBase64Url,
+  daFirmare,
+  inBase64Url,
+  caricoDi,
+  leggiChiave,
+  type Licenza,
+} from "./chiave";
+import { verificaChiave } from "./verifica";
+import {
+  GIORNI_DI_PROVA,
+  GIORNI_PREAVVISO,
+  descrizione,
+  fineProva,
+  preavviso,
+  solaLettura,
+  statoLicenza,
+} from "./stato";
+
+// ————————————————————————————————————————————————————————————
+// Una coppia vera, generata qui: la chiave di produzione non sta
+// nel repository e una suite che dipendesse da lei non girerebbe.
+// ————————————————————————————————————————————————————————————
+
+const { privateKey, publicKey } = generateKeyPairSync("ed25519");
+const PUBBLICA = inBase64Url(publicKey.export({ type: "spki", format: "der" }).subarray(12));
+const { privateKey: altraPrivata } = generateKeyPairSync("ed25519");
+
+function emetti(licenza: Licenza, con = privateKey): string {
+  const carico = caricoDi(licenza);
+  const firma = sign(null, Buffer.from(`FLW1.${carico}`, "utf8"), con);
+  return componiChiave(licenza, Uint8Array.from(firma));
+}
+
+const ACQUIRENTE: Licenza = {
+  email: "gabriele@esempio.it",
+  scadenza: "2027-03-31",
+  emessaIl: "2026-03-31",
+};
+
+// ————————————————————————————————————————————————————————————
+// Il formato della chiave
+// ————————————————————————————————————————————————————————————
+
+describe("il testo della chiave", () => {
+  it("si scrive e si rilegge identico", () => {
+    const esito = leggiChiave(emetti(ACQUIRENTE));
+    expect(esito.ok).toBe(true);
+    if (!esito.ok) return;
+    expect(esito.chiave.licenza).toEqual(ACQUIRENTE);
+  });
+
+  it("regge il copia-incolla: spazi, a capo, prefisso in minuscolo", () => {
+    const chiave = emetti(ACQUIRENTE);
+    const maltrattata = ` ${chiave.slice(0, 40)}\n  ${chiave.slice(40)} `.replace("FLW1", "flw1");
+    const esito = leggiChiave(maltrattata);
+    expect(esito.ok).toBe(true);
+  });
+
+  it("base64url regge byte arbitrari, andata e ritorno", () => {
+    for (const lunghezza of [0, 1, 2, 3, 4, 63, 64, 65]) {
+      const byte = Uint8Array.from({ length: lunghezza }, (_, i) => (i * 37 + 11) % 256);
+      expect([...(daBase64Url(inBase64Url(byte)) ?? [])]).toEqual([...byte]);
+    }
+  });
+
+  it("dice cosa non va, invece di limitarsi a rifiutare", () => {
+    const motivo = (t: string) => {
+      const e = leggiChiave(t);
+      return e.ok ? "" : e.motivo;
+    };
+    expect(motivo("")).toContain("vuota");
+    expect(motivo("FLW1.abc")).toContain("tre parti");
+    expect(motivo("XXXX.abc.def")).toContain("sconosciuto");
+    expect(motivo("FLW1.a!b.cd")).toContain("non validi");
+    // Carico leggibile ma firma della lunghezza sbagliata.
+    expect(motivo(`FLW1.${caricoDi(ACQUIRENTE)}.AAAA`)).toContain("Ed25519");
+  });
+
+  it("una chiave troncata non passa per buona", () => {
+    const chiave = emetti(ACQUIRENTE);
+    expect(leggiChiave(chiave.slice(0, chiave.length - 10)).ok).toBe(false);
+  });
+
+  it("la firma copre anche il prefisso di versione", () => {
+    const carico = caricoDi(ACQUIRENTE);
+    expect(new TextDecoder().decode(daFirmare(carico))).toBe(`FLW1.${carico}`);
+  });
+});
+
+// ————————————————————————————————————————————————————————————
+// La verifica
+// ————————————————————————————————————————————————————————————
+
+describe("la verifica della firma", () => {
+  it("accetta una licenza emessa con la chiave privata giusta", async () => {
+    const esito = await verificaChiave(emetti(ACQUIRENTE), PUBBLICA);
+    expect(esito.ok).toBe(true);
+    if (!esito.ok) return;
+    expect(esito.licenza).toEqual(ACQUIRENTE);
+  });
+
+  it("rifiuta una licenza firmata da un'altra chiave", async () => {
+    const esito = await verificaChiave(emetti(ACQUIRENTE, altraPrivata), PUBBLICA);
+    expect(esito.ok).toBe(false);
+    if (esito.ok) return;
+    expect(esito.motivo).toContain("firma non corrisponde");
+    expect(esito.verificabile).toBe(true);
+  });
+
+  it("rifiuta una scadenza spostata a mano dentro il carico", async () => {
+    // È il caso che conta: cambiare la data e ricomporre la chiave con la
+    // stessa firma. Il carico è in chiaro, la firma no.
+    const originale = emetti(ACQUIRENTE);
+    const firma = originale.split(".")[2];
+    const caricoTruccato = caricoDi({ ...ACQUIRENTE, scadenza: "2099-12-31" });
+    const esito = await verificaChiave(`FLW1.${caricoTruccato}.${firma}`, PUBBLICA);
+    expect(esito.ok).toBe(false);
+  });
+
+  it("una build senza chiave pubblica non accusa nessuno di contraffazione", async () => {
+    const esito = await verificaChiave(emetti(ACQUIRENTE), "DA-GENERARE");
+    expect(esito.ok).toBe(false);
+    if (esito.ok) return;
+    // `verificabile: false` è quello che impedisce di bloccare l'utente.
+    expect(esito.verificabile).toBe(false);
+    expect(esito.motivo).toContain("chiave pubblica");
+  });
+});
+
+// ————————————————————————————————————————————————————————————
+// Cosa può fare l'app
+// ————————————————————————————————————————————————————————————
+
+describe("lo stato della licenza", () => {
+  const licenza: Licenza = { ...ACQUIRENTE, scadenza: "2026-06-30" };
+
+  it("l'ultimo giorno di validità è ancora valido", () => {
+    const stato = statoLicenza(licenza, "2026-01-01", "2026-06-30");
+    expect(stato.esito).toBe("attiva");
+    expect(solaLettura(stato)).toBe(false);
+  });
+
+  it("il giorno dopo l'app è in sola lettura", () => {
+    const stato = statoLicenza(licenza, "2026-01-01", "2026-07-01");
+    expect(stato.esito).toBe("scaduta");
+    expect(solaLettura(stato)).toBe(true);
+  });
+
+  it("il preavviso comincia a quindici giorni e non prima", () => {
+    const giorni = (oggi: string) => preavviso(statoLicenza(licenza, "2026-01-01", oggi));
+    expect(giorni("2026-06-14")).toBeNull(); // 16 giorni
+    expect(giorni("2026-06-15")).toBe(GIORNI_PREAVVISO);
+    expect(giorni("2026-06-29")).toBe(1);
+    expect(giorni("2026-06-30")).toBe(0);
+    // Scaduta: non è più un preavviso, è un fatto.
+    expect(giorni("2026-07-01")).toBeNull();
+  });
+
+  it("senza licenza vale il periodo di prova, dichiarato", () => {
+    expect(fineProva("2026-01-01")).toBe("2026-01-15");
+    expect(GIORNI_DI_PROVA).toBe(14);
+    const dentro = statoLicenza(null, "2026-01-01", "2026-01-15");
+    expect(dentro.esito).toBe("prova");
+    expect(solaLettura(dentro)).toBe(false);
+    const fuori = statoLicenza(null, "2026-01-01", "2026-01-16");
+    expect(fuori.esito).toBe("provaScaduta");
+    expect(solaLettura(fuori)).toBe(true);
+  });
+
+  it("anche la prova avvisa prima di finire", () => {
+    expect(preavviso(statoLicenza(null, "2026-01-01", "2026-01-10"))).toBe(5);
+  });
+
+  it("un browser che non verifica non blocca nessuno", () => {
+    const stato = statoLicenza(null, "2026-01-01", "2026-12-31");
+    expect(solaLettura(stato)).toBe(true);
+    // Ma quando è il browser a non poter verificare, lo stato è un altro.
+    const cieco = { esito: "nonVerificabile", motivo: "niente Ed25519" } as const;
+    expect(solaLettura(cieco)).toBe(false);
+    expect(preavviso(cieco)).toBeNull();
+  });
+
+  it("si racconta in una riga, con le date in italiano", () => {
+    expect(descrizione(statoLicenza(licenza, "2026-01-01", "2026-05-01"))).toBe(
+      "Licenza attiva fino al 30 giugno 2026",
+    );
+    expect(descrizione(statoLicenza(licenza, "2026-01-01", "2026-07-05"))).toBe(
+      "Licenza scaduta il 30 giugno 2026",
+    );
+  });
+});

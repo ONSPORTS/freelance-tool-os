@@ -13,6 +13,7 @@ import {
   SchedaVoci,
 } from "@/components/tabella/schede";
 import { Campo, Input } from "@/components/ui/input";
+import { BloccoScrittura } from "@/components/ui/blocco-scrittura";
 import { Kpi } from "@/components/ui/kpi";
 import {
   Select,
@@ -383,7 +384,7 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
               </span>
               <span className="flex items-center gap-3">
                 <span className="cifre text-corpo font-medium">{euro(v.importo)}</span>
-                <Button
+                <Button scrive
                   variante="quieto"
                   taglia="icona"
                   aria-label={`Elimina il versamento del ${fmtData(v.data)}`}
@@ -414,6 +415,7 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
             setImporto("");
           }}
         >
+          <BloccoScrittura className="contents">
           <Campo etichetta="Data" htmlFor="f24-data" className="w-44">
             <Input id="f24-data" type="date" value={data} onChange={(e) => setData(e.target.value)} />
           </Campo>
@@ -443,6 +445,7 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
             <Plus className="size-4" aria-hidden />
             Registra
           </Button>
+          </BloccoScrittura>
         </form>
       </CardCorpo>
     </Card>

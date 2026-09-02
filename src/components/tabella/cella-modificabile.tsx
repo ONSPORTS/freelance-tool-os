@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { useSolaLettura } from "@/lib/stato/licenza";
 import { analizzaNumero, analizzaPercentuale, data as fmtData, euro, perCampo, percentuale } from "@/lib/format";
 
 type TipoCella = "testo" | "valuta" | "percentuale" | "data" | "scelta";
@@ -22,8 +23,8 @@ export function CellaModificabile({
   etichetta,
   opzioni,
   vuoto = "—",
-  disabilitata = false,
-  suggerimento,
+  disabilitata: disabilitataProp = false,
+  suggerimento: suggerimentoProp,
   onSalva,
   className,
 }: {
@@ -39,6 +40,15 @@ export function CellaModificabile({
   onSalva: (valore: string | number | null) => void | Promise<void>;
   className?: string;
 }) {
+  // A licenza scaduta l'app è in sola lettura: la cella si legge e non si
+  // apre. Il controllo sta qui e non nelle quattordici schermate che la usano,
+  // perché una schermata nuova se lo dimenticherebbe.
+  const bloccata = useSolaLettura();
+  const disabilitata = disabilitataProp || bloccata;
+  const suggerimento = bloccata
+    ? "Licenza scaduta: l'app è in sola lettura."
+    : suggerimentoProp;
+
   const [inModifica, setInModifica] = React.useState(false);
   const [bozza, setBozza] = React.useState("");
   const [errore, setErrore] = React.useState(false);

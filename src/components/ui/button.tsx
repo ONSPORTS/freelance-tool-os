@@ -4,6 +4,7 @@ import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
+import { useSolaLettura } from "@/lib/stato/licenza";
 
 const bottone = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-campo font-medium " +
@@ -35,17 +36,39 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof bottone> {
   asChild?: boolean;
+  /**
+   * Il pulsante scrive nell'archivio.
+   *
+   * A licenza scaduta si spegne da solo, con la spiegazione nel `title`.
+   * Marcarlo è una parola sola sul posto e si trova con un grep — molto meno
+   * dimenticabile di una condizione riscritta a mano a ogni chiamata. I
+   * pulsanti che leggono (esportare, filtrare, navigare) restano vivi sempre:
+   * a licenza scaduta si consulta tutto.
+   */
+  scrive?: boolean;
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variante, taglia, asChild = false, ...props }, ref) => {
+  ({ className, variante, taglia, asChild = false, scrive = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
+    const bloccato = useSolaLettura();
+    const spento = scrive && bloccato;
     return (
       <Comp
         ref={ref}
         data-slot="button"
         className={cn(bottone({ variante, taglia }), className)}
         {...props}
+        {...(spento
+          ? {
+              disabled: true,
+              "aria-disabled": true,
+              // Anche l'`onClick`, non solo `disabled`: con `asChild` il figlio
+              // può essere un link, che `disabled` non ferma.
+              onClick: undefined,
+              title: "Licenza scaduta: l'app è in sola lettura.",
+            }
+          : null)}
       />
     );
   },

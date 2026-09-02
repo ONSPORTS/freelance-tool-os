@@ -116,11 +116,13 @@ export function PannelloDati() {
       descrizione="Tutto vive nel tuo browser: non esiste un server a cui questi dati possano arrivare"
       azioni={
         <>
+          {/* Senza `scrive`, e apposta: l'esportazione funziona anche a licenza
+              scaduta. È il punto in cui si vede che i dati sono dell'utente. */}
           <Button variante="contorno" onClick={esporta} disabled={inCorso || vuoto}>
             <Download className="size-4" aria-hidden />
             Esporta
           </Button>
-          <Button variante="contorno" onClick={importa} disabled={inCorso}>
+          <Button scrive variante="contorno" onClick={importa} disabled={inCorso}>
             <Upload className="size-4" aria-hidden />
             Importa
           </Button>
@@ -174,11 +176,11 @@ export function PannelloDati() {
             titolo="L'archivio è vuoto. Carica il dataset dimostrativo per vedere l'app piena, oppure importa un backup."
             azione={
               <div className="flex flex-wrap justify-center gap-2">
-                <Button onClick={caricaDemo} disabled={inCorso}>
+                <Button scrive onClick={caricaDemo} disabled={inCorso}>
                   <Sparkles className="size-4" aria-hidden />
                   Carica il dataset dimostrativo
                 </Button>
-                <Button variante="contorno" onClick={importa} disabled={inCorso}>
+                <Button scrive variante="contorno" onClick={importa} disabled={inCorso}>
                   Importa un backup
                 </Button>
               </div>
@@ -238,10 +240,10 @@ export function PannelloDati() {
                     </CardSottotitolo>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button variante="contorno" taglia="sm" onClick={caricaDemo} disabled={inCorso}>
+                    <Button scrive variante="contorno" taglia="sm" onClick={caricaDemo} disabled={inCorso}>
                       Ricarica il dataset dimostrativo
                     </Button>
-                    <Button variante="pericolo" taglia="sm" onClick={svuota} disabled={inCorso}>
+                    <Button scrive variante="pericolo" taglia="sm" onClick={svuota} disabled={inCorso}>
                       <Trash2 className="size-4" aria-hidden />
                       Svuota
                     </Button>

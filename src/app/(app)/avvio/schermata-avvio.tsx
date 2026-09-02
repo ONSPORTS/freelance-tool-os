@@ -129,7 +129,7 @@ export function SchermataAvvio() {
                 opzioni={CONTESTI.map((c) => ({ valore: c, etichetta: NOME_CONTESTO[c] }))}
               />
               {percorso?.completatoIl && (
-                <Button variante="quieto" onClick={() => void ripartiPercorso(contesto, anno)}>
+                <Button scrive variante="quieto" onClick={() => void ripartiPercorso(contesto, anno)}>
                   <RotateCcw className="size-4" aria-hidden />
                   Ricomincia
                 </Button>
@@ -299,10 +299,10 @@ function SchedaPasso({
           <div className="mt-4">{children}</div>
 
           <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-bordo pt-4">
-            <Button onClick={() => onRispondi(passo.id, "confermato")}>
+            <Button scrive onClick={() => onRispondi(passo.id, "confermato")}>
               {passo.soloLettura ? "Ho letto, vai avanti" : "Conferma e continua"}
             </Button>
-            <Button variante="quieto" onClick={() => onRispondi(passo.id, "saltato")}>
+            <Button scrive variante="quieto" onClick={() => onRispondi(passo.id, "saltato")}>
               <SkipForward className="size-4" aria-hidden />
               Salta
             </Button>
@@ -362,7 +362,7 @@ function CorpoPasso({
 function OffertaDemo() {
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Button variante="contorno" onClick={() => void caricaDatasetDimostrativo()}>
+      <Button scrive variante="contorno" onClick={() => void caricaDatasetDimostrativo()}>
         <Sparkles className="size-4" aria-hidden />
         Carica i dati dimostrativi
       </Button>
@@ -444,7 +444,7 @@ function Riepilogo({
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-bordo pt-4">
-          <Button
+          <Button scrive
             onClick={() => void completaPercorso(contesto, anno)}
             disabled={percorso?.completatoIl != null}
           >

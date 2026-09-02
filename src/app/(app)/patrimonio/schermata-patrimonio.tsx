@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardCorpo, CardSottotitolo, CardTitolo } from "@/components/ui/card";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
 import { Campo, Input } from "@/components/ui/input";
+import { BloccoScrittura } from "@/components/ui/blocco-scrittura";
 import { Kpi } from "@/components/ui/kpi";
 import { CellaModificabile } from "@/components/tabella/cella-modificabile";
 import { Guscio } from "@/components/guscio/guscio";
@@ -191,7 +192,7 @@ function ColonnaPatrimonio({
                   </span>
                 )}
                 {libera ? (
-                  <Button
+                  <Button scrive
                     variante="quieto"
                     taglia="icona"
                     aria-label={`Elimina ${v.descrizione}`}
@@ -231,6 +232,7 @@ function ColonnaPatrimonio({
             setValore("");
           }}
         >
+          <BloccoScrittura className="contents">
           <Campo etichetta="Nuova voce" htmlFor={`voce-${tipo}`} className="min-w-40 flex-1">
             <Input
               id={`voce-${tipo}`}
@@ -253,6 +255,7 @@ function ColonnaPatrimonio({
             <Plus className="size-4" aria-hidden />
             Aggiungi
           </Button>
+          </BloccoScrittura>
         </form>
       </CardCorpo>
     </Card>

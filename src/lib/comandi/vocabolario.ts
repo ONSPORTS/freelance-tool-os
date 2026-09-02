@@ -58,6 +58,7 @@ export const DESTINAZIONI: Destinazione[] = [
   { href: "/avvio", etichetta: "Configurazione", gruppo: "Impostazioni", sinonimi: ["onboarding", "percorso", "regime"], pronta: true },
   { href: "/impostazioni", etichetta: "Parametri", gruppo: "Impostazioni", pronta: false },
   { href: "/dati", etichetta: "Dati e backup", gruppo: "Impostazioni", tasto: "d", sinonimi: ["esporta", "importa", "demo"], pronta: true },
+  { href: "/licenza", etichetta: "Licenza", gruppo: "Impostazioni", sinonimi: ["chiave", "scadenza", "abbonamento", "attiva"], pronta: true },
   { href: "/scorciatoie", etichetta: "Scorciatoie da tastiera", gruppo: "Impostazioni", sinonimi: ["tasti", "aiuto", "comandi"], pronta: true },
 ];
 
@@ -78,6 +79,12 @@ export type Comando = {
 
 /** Quel poco che serve per costruire l'elenco. Niente `Prospetto`, niente Dexie. */
 export type ContestoComandi = {
+  /**
+   * L'app è in sola lettura (licenza scaduta): restano solo i comandi che
+   * leggono. Sparire è meglio che comparire e non funzionare — e «esporta
+   * backup» resta, perché l'esportazione funziona sempre.
+   */
+  solaLettura?: boolean;
   annoCorrente: number;
   /** Gli anni fra cui si può passare, di norma quelli con documenti più il corrente. */
   anni: number[];
@@ -94,7 +101,11 @@ export type ContestoComandi = {
 const LIMITE_PER_SEZIONE = 6;
 
 export function comandi(ctx: ContestoComandi): Comando[] {
-  const out: Comando[] = [
+  const scrive = !ctx.solaLettura;
+
+  const out: Comando[] = [];
+  if (scrive) {
+    out.push(
     {
       id: "azione:nuova-fattura",
       etichetta: "Nuova fattura",
@@ -110,15 +121,16 @@ export function comandi(ctx: ContestoComandi): Comando[] {
       azione: { tipo: "nuovoCosto" },
       sinonimi: ["spesa", "aggiungi costo", "fornitore"],
     },
-    {
-      id: "azione:esporta-backup",
-      etichetta: "Esporta backup",
-      sezione: "Azioni",
-      azione: { tipo: "esportaBackup" },
-      sinonimi: ["salva archivio", "scarica dati", "json"],
-      dettaglio: "scarica un file con tutto l'archivio",
-    },
-  ];
+    );
+  }
+  out.push({
+    id: "azione:esporta-backup",
+    etichetta: "Esporta backup",
+    sezione: "Azioni",
+    azione: { tipo: "esportaBackup" },
+    sinonimi: ["salva archivio", "scarica dati", "json"],
+    dettaglio: "scarica un file con tutto l'archivio",
+  });
 
   for (const d of DESTINAZIONI) {
     if (!d.pronta) continue;
@@ -148,7 +160,7 @@ export function comandi(ctx: ContestoComandi): Comando[] {
 
   // Le fatture da incassare vengono prima: «segna incassata» è l'azione che si
   // ripete ogni settimana, e la si cerca per numero o per cliente.
-  for (const f of ctx.fatture) {
+  for (const f of scrive ? ctx.fatture : []) {
     if (f.incassata) continue;
     out.push({
       id: `incassa:${f.id}`,

@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Le chiavi di licenza: la privata firma le licenze, e non deve esistere
+# da nessun'altra parte che sul computer di chi le emette.
+strumenti/licenza/chiavi/

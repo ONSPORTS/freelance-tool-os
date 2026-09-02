@@ -176,7 +176,7 @@ export function SchermataFatture() {
       titolo="Fatture"
       descrizione={`Registro per data di emissione · ${etichettaPeriodo(periodo)}`}
       azioni={
-        <Button onClick={() => setModuloAperto(true)}>
+        <Button scrive onClick={() => setModuloAperto(true)}>
           <FilePlus2 className="size-4" aria-hidden />
           Nuova fattura
         </Button>
@@ -235,7 +235,7 @@ export function SchermataFatture() {
           <Vuoto
             icona={FileText}
             titolo="Registra la prima fattura per vedere il calcolo delle imposte."
-            azione={<Button onClick={() => setModuloAperto(true)}>Nuova fattura</Button>}
+            azione={<Button scrive onClick={() => setModuloAperto(true)}>Nuova fattura</Button>}
           />
         ) : righe.length === 0 ? (
           <Vuoto
@@ -383,7 +383,7 @@ export function SchermataFatture() {
                       <TabellaCella className="w-24">
                         <div className="flex items-center justify-end gap-1">
                           {f.stato === "incassato" ? (
-                            <Button
+                            <Button scrive
                               variante="quieto" taglia="icona"
                               aria-label={`Annulla l'incasso della fattura ${f.numero}`}
                               onClick={() => void annullaIncasso(f)}
@@ -391,7 +391,7 @@ export function SchermataFatture() {
                               <Undo2 className="size-4" />
                             </Button>
                           ) : (
-                            <Button
+                            <Button scrive
                               variante="quieto" taglia="icona"
                               aria-label={`Segna la fattura ${f.numero} come incassata oggi`}
                               onClick={() => void segnaIncassata(f)}
@@ -399,7 +399,7 @@ export function SchermataFatture() {
                               <CheckCheck className="size-4" />
                             </Button>
                           )}
-                          <Button
+                          <Button scrive
                             variante="quieto" taglia="icona"
                             aria-label={`Elimina la fattura ${f.numero}`}
                             onClick={() => void eliminaFattura(f)}
@@ -457,7 +457,7 @@ export function SchermataFatture() {
                     </span>
                   </div>
                   {f.stato !== "incassato" && (
-                    <Button
+                    <Button scrive
                       variante="contorno"
                       taglia="sm"
                       className="mt-3 w-full"
