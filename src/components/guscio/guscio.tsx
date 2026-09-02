@@ -61,7 +61,7 @@ export function Guscio({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 border-b border-bordo bg-fondo/85 backdrop-blur-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-8">
             <div className="flex min-w-0 items-center gap-2">
               <MenuMobile />
               <div className="min-w-0">
@@ -71,7 +71,7 @@ export function Guscio({
               )}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
               <SelettorePeriodo
                 periodo={periodo}
                 onChange={impostaPeriodo}
@@ -86,12 +86,14 @@ export function Guscio({
                   { valore: "ordinario", etichetta: "Ordinario" },
                 ]}
               />
-              {azioni}
+              {/* Sul telefono l'azione principale va in fondo alla riga e prende
+                  la larghezza che resta: un pulsante mozzato non si preme. */}
+              {azioni && <span className="ml-auto shrink-0">{azioni}</span>}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 px-5 py-6 lg:px-8">{children}</main>
+        <main className="flex-1 px-4 py-5 sm:px-5 sm:py-6 lg:px-8">{children}</main>
       </div>
     </div>
   );
@@ -151,8 +153,17 @@ function MenuMobile() {
   const [aperto, setAperto] = React.useState(false);
   return (
     <Dialog open={aperto} onOpenChange={setAperto}>
+      {/*
+        `shrink-0`: senza, il flex della testata comprimeva il bersaglio a 26 px
+        di larghezza su uno schermo da 320, contro i 36 dichiarati.
+      */}
       <DialogTrigger asChild>
-        <Button variante="contorno" taglia="icona" className="lg:hidden" aria-label="Apri le sezioni">
+        <Button
+          variante="contorno"
+          taglia="icona"
+          className="shrink-0 lg:hidden"
+          aria-label="Apri le sezioni"
+        >
           <Menu className="size-4" />
         </Button>
       </DialogTrigger>

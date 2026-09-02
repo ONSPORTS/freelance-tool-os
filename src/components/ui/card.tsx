@@ -47,7 +47,7 @@ export function CardIntestazione({
   return (
     <div
       data-slot="card-intestazione"
-      className={cn("flex items-start justify-between gap-4 px-6 pt-6", className)}
+      className={cn("flex items-start justify-between gap-4 px-4 pt-5 sm:px-6 sm:pt-6", className)}
       {...props}
     />
   );
@@ -83,5 +83,5 @@ export function CardCorpo({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div data-slot="card-corpo" className={cn("p-6", className)} {...props} />;
+  return <div data-slot="card-corpo" className={cn("p-4 sm:p-6", className)} {...props} />;
 }

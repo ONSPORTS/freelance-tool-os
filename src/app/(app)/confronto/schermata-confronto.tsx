@@ -89,9 +89,9 @@ export function SchermataConfronto() {
     >
       <div className="mx-auto max-w-5xl space-y-4">
         {/* La card scura della schermata: il verdetto. */}
-        <Card scura className="p-6">
+        <Card scura className="p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-6">
-            <div className="min-w-64 flex-1">
+            <div className="min-w-0 flex-1 sm:min-w-64">
               <span className="flex items-center gap-2 text-etichetta text-white/60">
                 <Scale className="size-4" aria-hidden />
                 Verdetto su {euroTondo(ricavi)} di ricavi
@@ -143,7 +143,9 @@ export function SchermataConfronto() {
                 step={500}
                 value={ricavi}
                 onChange={(e) => setRicavi(Number(e.target.value))}
-                className="mt-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-superficie-alt accent-[#4C5BF5]"
+                /* Traccia sottile, cursore alto quanto un dito: un bersaglio da
+                   8 px si prende solo per fortuna. */
+                className="mt-2 h-8 w-full cursor-pointer appearance-none bg-transparent accent-[#4C5BF5] [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-superficie-alt [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-superficie-alt [&::-webkit-slider-thumb]:mt-[-6px] [&::-webkit-slider-thumb]:size-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#4C5BF5]"
               />
               <div className="mt-1 flex justify-between text-micro text-inchiostro-tenue">
                 <span className="cifre">{euroTondo(5_000)}</span>

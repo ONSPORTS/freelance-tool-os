@@ -122,7 +122,7 @@ export function SchermataPianificazione() {
               L&apos;ultimo numero è quello che deve guidare la tua attività commerciale.
             </CardSottotitolo>
           </CardCorpo>
-          <ol className="px-6 pb-6">
+          <ol className="px-4 pb-5 sm:px-6 sm:pb-6">
             <Gradino
               etichetta="Fatturato necessario"
               valore={euro(piano.fatturatoNecessario)}

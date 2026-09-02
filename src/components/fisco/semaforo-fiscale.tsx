@@ -57,7 +57,7 @@ export function SemaforoFiscale({
 
   return (
     <section
-      className={cn("rounded-card bg-superficie p-6 shadow-riposo", className)}
+      className={cn("rounded-card bg-superficie p-4 shadow-riposo sm:p-6", className)}
       aria-label="Composizione dell'incassato dell'anno"
     >
       <div className="flex flex-wrap items-end justify-between gap-4">

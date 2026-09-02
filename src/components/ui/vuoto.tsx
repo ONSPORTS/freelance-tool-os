@@ -17,7 +17,7 @@ export function Vuoto({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col items-center gap-3 px-6 py-12 text-center", className)}>
+    <div className={cn("flex flex-col items-center gap-3 px-4 py-12 text-center sm:px-6", className)}>
       {Icona && (
         <span className="flex size-11 items-center justify-center rounded-interna bg-superficie-alt text-inchiostro-tenue">
           <Icona className="size-5" aria-hidden />

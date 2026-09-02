@@ -5,6 +5,13 @@ import { Plus, Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardCorpo, CardSottotitolo, CardTitolo } from "@/components/ui/card";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
+import {
+  ElencoSchede,
+  Scheda,
+  SchedaTesta,
+  SchedaTotale,
+  SchedaVoci,
+} from "@/components/tabella/schede";
 import { Campo, Input } from "@/components/ui/input";
 import { Kpi } from "@/components/ui/kpi";
 import {
@@ -127,7 +134,7 @@ export function SchermataCashflow() {
             senza scorrere: un anno di cassa in cui l'ultimo trimestre resta
             sotto il bordo è un anno che non si legge.
           */}
-          <ContenitoreTabella className="max-h-[48rem] px-2 pb-2">
+          <ContenitoreTabella data-scroll-ok className="hidden max-h-[48rem] px-2 pb-2 md:block">
             <Tabella>
               <TabellaTesta>
                 <tr>
@@ -257,6 +264,83 @@ export function SchermataCashflow() {
               </TabellaPiede>
             </Tabella>
           </ContenitoreTabella>
+
+          {/* Sul telefono ogni mese è una scheda. In testa il saldo, che è la
+              domanda («a fine mese quanto c'era?»), e sotto le voci; i tre
+              campi che si compilano a mano restano modificabili. */}
+          <ElencoSchede>
+            <Scheda className="bg-superficie-alt/60">
+              <SchedaTesta
+                titolo="1° gennaio"
+                sotto={
+                  cashflow.accantonatoIniziale > 0
+                    ? `riporto dal ${anno - 1}, di cui ${euro(cashflow.accantonatoIniziale)} già accantonati`
+                    : `saldo di apertura del ${anno}`
+                }
+                valore={euro(cashflow.saldoIniziale)}
+                notaValore={`${euro(cashflow.liquiditaNettaIniziale)} disponibili`}
+              />
+            </Scheda>
+            {cashflow.mesi.map((m) => (
+              <Scheda key={m.mese}>
+                <SchedaTesta
+                  titolo={<span className="capitalize">{nomeMese(m.mese)}</span>}
+                  sotto={`${euro(m.liquiditaNetta)} di liquidità netta`}
+                  valore={
+                    <span className={m.saldoCassa < 0 ? "text-negativo" : undefined}>
+                      {euro(m.saldoCassa)}
+                    </span>
+                  }
+                  notaValore="saldo di cassa"
+                />
+                <SchedaVoci
+                  voci={[
+                    { etichetta: "Incassi", valore: euro(m.incassiClienti), mostra: m.incassiClienti > 0 },
+                    { etichetta: "Costi pagati", valore: euro(m.costiPagati), mostra: m.costiPagati > 0 },
+                    { etichetta: "IVA versata", valore: euro(m.ivaVersata), mostra: m.ivaVersata > 0 },
+                    {
+                      etichetta: "Imposte e contributi",
+                      valore: euro(m.imposteEContributi),
+                      mostra: m.imposteEContributi > 0,
+                    },
+                    {
+                      etichetta: "Flusso",
+                      valore: (
+                        <span className={m.flussoNetto < 0 ? "text-negativo" : undefined}>
+                          {euro(m.flussoNetto)}
+                        </span>
+                      ),
+                    },
+                  ]}
+                />
+                <div className="mt-3 grid gap-1.5 min-[360px]:grid-cols-3">
+                  <CampoMese
+                    etichetta="Altre entrate"
+                    valore={m.altreEntrate}
+                    nome={`Altre entrate di ${nomeMese(m.mese)}`}
+                    onSalva={(v) => void salvaMovimentoAttivita(anno, m.mese, { altreEntrate: v })}
+                  />
+                  <CampoMese
+                    etichetta="Altre uscite"
+                    valore={m.altreUscite}
+                    nome={`Altre uscite di ${nomeMese(m.mese)}`}
+                    onSalva={(v) => void salvaMovimentoAttivita(anno, m.mese, { altreUscite: v })}
+                  />
+                  <CampoMese
+                    etichetta="Prelievi"
+                    valore={m.prelieviPersonali}
+                    nome={`Prelievi di ${nomeMese(m.mese)}`}
+                    onSalva={(v) => void salvaMovimentoPersonale(anno, m.mese, { prelievi: v })}
+                  />
+                </div>
+              </Scheda>
+            ))}
+            <SchedaTotale
+              etichetta="A fine anno"
+              valore={euro(cashflow.saldoFinale)}
+              nota={`${euro(cashflow.liquiditaNettaFinale)} disponibili`}
+            />
+          </ElencoSchede>
         </Card>
 
         <ElencoVersamenti anno={anno} versamenti={versamentiAnno} />
@@ -285,12 +369,12 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
 
       <ul className="divide-y divide-bordo/70 border-y border-bordo">
         {versamenti.length === 0 ? (
-          <li className="px-6 py-4 text-corpo text-inchiostro-tenue">
+          <li className="px-4 py-4 text-corpo text-inchiostro-tenue sm:px-6">
             Nessun F24 registrato per il {anno}.
           </li>
         ) : (
           versamenti.map((v) => (
-            <li key={v.id} className="flex items-center justify-between gap-3 px-6 py-2.5">
+            <li key={v.id} className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
               <span className="flex items-center gap-3">
                 <span className="cifre text-etichetta text-inchiostro-tenue">{fmtData(v.data)}</span>
                 <span className="text-corpo">
@@ -313,7 +397,7 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
           ))
         )}
         {versamenti.length > 0 && (
-          <li className="flex items-center justify-between bg-superficie-alt/70 px-6 py-2.5">
+          <li className="flex items-center justify-between bg-superficie-alt/70 px-4 py-2.5 sm:px-6">
             <span className="text-etichetta font-medium">Totale versato</span>
             <span className="cifre pr-11 text-corpo font-semibold">{euro(totale)}</span>
           </li>
@@ -362,5 +446,34 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
         </form>
       </CardCorpo>
     </Card>
+  );
+}
+
+/**
+ * Un campo mensile nella scheda del telefono.
+ * L'etichetta va scritta: nella tabella la dava la colonna, qui no.
+ */
+function CampoMese({
+  etichetta,
+  nome,
+  valore,
+  onSalva,
+}: {
+  etichetta: string;
+  nome: string;
+  valore: number;
+  onSalva: (valore: number) => void;
+}) {
+  return (
+    <div>
+      <p className="text-micro text-inchiostro-tenue">{etichetta}</p>
+      <CellaModificabile
+        tipo="valuta"
+        etichetta={nome}
+        valore={valore}
+        className="border-bordo"
+        onSalva={(v) => onSalva(Number(v))}
+      />
+    </div>
   );
 }

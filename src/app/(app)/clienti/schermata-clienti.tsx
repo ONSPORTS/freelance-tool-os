@@ -5,6 +5,13 @@ import Link from "next/link";
 import { Users } from "lucide-react";
 import { Card, CardCorpo, CardSottotitolo, CardTitolo } from "@/components/ui/card";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
+import {
+  ElencoSchede,
+  Scheda,
+  SchedaTesta,
+  SchedaTotale,
+  SchedaVoci,
+} from "@/components/tabella/schede";
 import { Kpi } from "@/components/ui/kpi";
 import { Vuoto } from "@/components/ui/vuoto";
 import {
@@ -124,7 +131,11 @@ export function SchermataClienti() {
                   dove arriva il lavoro che vale.
                 </CardSottotitolo>
               </CardCorpo>
-              <ContenitoreTabella className="max-h-[calc(100dvh-22rem)] px-2 pb-2">
+              {/* Da tablet in su: la tabella, dieci colonne che si confrontano. */}
+              <ContenitoreTabella
+                data-scroll-ok
+                className="hidden max-h-[calc(100dvh-22rem)] px-2 pb-2 md:block"
+              >
                 <Tabella>
                   <TabellaTesta>
                     <tr>
@@ -229,6 +240,81 @@ export function SchermataClienti() {
                   </TabellaPiede>
                 </Tabella>
               </ContenitoreTabella>
+
+              {/* Sul telefono ogni cliente è una scheda: il nome e l'emesso in
+                  testa, il resto come coppie. Canale e note restano modificabili. */}
+              <ElencoSchede>
+                {portafoglio.map((r) => {
+                  const cliente = dati.clienti.find((c) => c.id === r.id);
+                  return (
+                    <Scheda key={r.id}>
+                      <SchedaTesta
+                        titolo={
+                          <span className="flex items-center gap-2">
+                            <span
+                              aria-hidden
+                              className="flex size-6 shrink-0 items-center justify-center rounded-full text-micro font-semibold text-white"
+                              style={{ backgroundColor: r.colore }}
+                            >
+                              {iniziali(r.nome)}
+                            </span>
+                            <span className="truncate">{r.nome}</span>
+                          </span>
+                        }
+                        valore={euro(r.emesso)}
+                        notaValore={`${percentuale(r.quota, 0)} del portafoglio`}
+                      />
+                      <SchedaVoci
+                        voci={[
+                          { etichetta: "Incassato", valore: euro(r.incassato) },
+                          { etichetta: "Da incassare", valore: euro(r.daIncassare) },
+                          {
+                            etichetta: "Scaduto",
+                            valore: (
+                              <span className={r.scaduto > 0 ? "text-negativo" : undefined}>
+                                {euro(r.scaduto)}
+                              </span>
+                            ),
+                            mostra: r.scaduto > 0,
+                          },
+                          { etichetta: "Fatture", valore: num(r.numeroFatture) },
+                          {
+                            etichetta: "Giorni medi",
+                            valore: r.giorniMediIncasso === null ? "—" : num(r.giorniMediIncasso),
+                          },
+                        ]}
+                      />
+                      {cliente && (
+                        <div className="mt-3 space-y-1.5">
+                          <CellaModificabile
+                            tipo="scelta"
+                            etichetta={`Canale di acquisizione di ${r.nome}`}
+                            valore={cliente.canaleAcquisizione || "Altro"}
+                            opzioni={CANALI_ACQUISIZIONE.map((c) => ({ valore: c, etichetta: c }))}
+                            onSalva={(v) =>
+                              void archivio().clienti.salva({ ...cliente, canaleAcquisizione: String(v) })
+                            }
+                          />
+                          <CellaModificabile
+                            tipo="testo"
+                            etichetta={`Note su ${r.nome}`}
+                            valore={cliente.note}
+                            vuoto="Aggiungi una nota"
+                            onSalva={(v) =>
+                              void archivio().clienti.salva({ ...cliente, note: String(v ?? "") })
+                            }
+                          />
+                        </div>
+                      )}
+                    </Scheda>
+                  );
+                })}
+                <SchedaTotale
+                  etichetta={`${num(portafoglio.length)} clienti`}
+                  valore={euro(totaleEmesso)}
+                  nota={`${euro(daIncassare)} da incassare`}
+                />
+              </ElencoSchede>
             </Card>
 
             <Card>
@@ -238,7 +324,13 @@ export function SchermataClienti() {
                   cliente supera il 40% del fatturato, una sua disdetta ti dimezza l&apos;anno.
                   Il canale di acquisizione serve a decidere dove investire tempo
                   commerciale.{" "}
-                  <Link href="/fatture" className="text-accento underline underline-offset-2">
+                  {/* Il padding verticale non muove la riga di testo ma allarga
+                      l'area toccabile: su un collegamento dentro una frase è
+                      tutto quello che si può fare senza spezzarla. */}
+                  <Link
+                    href="/fatture"
+                    className="py-1.5 text-accento underline underline-offset-2"
+                  >
                     Il registro fatture
                   </Link>{" "}
                   ha il dettaglio documento per documento.

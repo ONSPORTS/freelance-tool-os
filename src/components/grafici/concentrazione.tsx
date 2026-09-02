@@ -49,7 +49,7 @@ export function GraficoConcentrazione({ righe }: { righe: RigaCliente[] }) {
             </p>
           )}
 
-          <ul className="space-y-3 px-6 pb-6">
+          <ul className="space-y-3 px-4 pb-5 sm:px-6 sm:pb-6">
             {righe.map((r) => (
               <li key={r.id}>
                 <div className="flex items-center justify-between gap-3">
@@ -80,9 +80,12 @@ export function GraficoConcentrazione({ righe }: { righe: RigaCliente[] }) {
             ))}
           </ul>
 
-          <p className="border-t border-bordo px-6 py-3 text-micro text-inchiostro-tenue">
+          <p className="border-t border-bordo px-4 py-3 text-micro text-inchiostro-tenue sm:px-6">
             La concentrazione è il rischio numero uno di chi lavora da solo.{" "}
-            <Link href="/fatture" className="text-accento underline underline-offset-2">
+            <Link
+              href="/fatture"
+              className="py-1.5 text-accento underline underline-offset-2"
+            >
               Apri il registro fatture
             </Link>{" "}
             per vedere il dettaglio.

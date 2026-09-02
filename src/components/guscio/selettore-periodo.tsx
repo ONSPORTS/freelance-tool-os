@@ -56,7 +56,29 @@ export function SelettorePeriodo({
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2", className)}>
+      {/*
+        I quattro segmenti del tipo di periodo misurano 364 px e non vanno a
+        capo: su un iPhone SE da 320 px sfondavano la pagina di 44 px, su ogni
+        schermata. Sul telefono la stessa scelta sta in una tendina; da tablet
+        in su tornano i segmenti, che si leggono tutti in un colpo d'occhio.
+      */}
+      <Select
+        value={periodo.tipo}
+        onValueChange={(v) => cambiaTipo(v as TipoPeriodo)}
+      >
+        <SelectTrigger className="h-9 w-28 sm:hidden" aria-label="Tipo di periodo">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {TIPI.map((t) => (
+            <SelectItem key={t.valore} value={t.valore}>
+              {t.etichetta}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       <Segmenti
+        className="hidden sm:inline-flex"
         etichettaGruppo="Tipo di periodo"
         valore={periodo.tipo}
         onChange={cambiaTipo}
@@ -67,7 +89,7 @@ export function SelettorePeriodo({
         <Button
           variante="quieto"
           taglia="icona"
-          className="size-7 rounded-full"
+          className="size-9 rounded-full sm:size-7"
           aria-label="Anno precedente"
           onClick={() => onChange({ ...periodo, anno: periodo.anno - 1 })}
         >
@@ -79,7 +101,7 @@ export function SelettorePeriodo({
         <Button
           variante="quieto"
           taglia="icona"
-          className="size-7 rounded-full"
+          className="size-9 rounded-full sm:size-7"
           aria-label="Anno successivo"
           onClick={() => onChange({ ...periodo, anno: periodo.anno + 1 })}
         >

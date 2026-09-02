@@ -159,13 +159,19 @@ function RigaAdempimento({
   const imminente = !passata && giorni <= 15;
 
   return (
-    <li className={cn("flex flex-wrap items-center gap-3 px-5 py-3", fatto && "bg-superficie-alt/50")}>
-      <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+    <li className={cn("flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5", fatto && "bg-superficie-alt/50")}>
+      {/*
+        `min-w-52`: con `min-w-0` il testo poteva restringersi all'infinito, e su
+        320 px l'etichetta finiva larga 38 px e alta 255, una parola per riga,
+        invece di mandare a capo il gruppo dell'importo. Con un minimo dichiarato
+        il flex-wrap scatta e le due parti si impilano.
+      */}
+      <label className="flex min-w-52 flex-1 cursor-pointer items-start gap-3">
         <input
           type="checkbox"
           checked={fatto}
           onChange={(e) => void spuntaAdempimento(anno, scadenza.id, e.target.checked)}
-          className="mt-0.5 size-4 shrink-0 rounded-[4px] accent-[#4C5BF5]"
+          className="mt-0.5 size-5 shrink-0 rounded-[4px] accent-[#4C5BF5] sm:size-4"
           aria-label={`Segna «${scadenza.titolo}» come versato`}
         />
         <span className="min-w-0">
@@ -186,7 +192,12 @@ function RigaAdempimento({
         </span>
       </label>
 
-      <span className="flex shrink-0 items-center gap-3">
+      {/*
+        `ml-auto`: sul telefono questo gruppo va a capo, e senza il margine
+        automatico l'importo si incolonnerebbe a sinistra sotto il titolo,
+        perdendo l'allineamento con le altre righe.
+      */}
+      <span className="ml-auto flex shrink-0 items-center gap-3">
         {scadenza.importo !== null && scadenza.importo > 0 ? (
           <span className={cn("cifre text-corpo font-medium", fatto && "text-inchiostro-tenue")}>
             {euro(scadenza.importo)}

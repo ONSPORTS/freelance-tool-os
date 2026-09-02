@@ -25,7 +25,7 @@ export function RigaDelProspetto({ riga }: { riga: RigaProspetto }) {
   return (
     <div
       className={cn(
-        "flex items-baseline justify-between gap-4 px-6 py-2.5",
+        "flex items-baseline justify-between gap-3 px-4 py-2.5 sm:gap-4 sm:px-6",
         riga.totale && "bg-superficie-alt/70 font-medium",
       )}
     >
@@ -53,7 +53,7 @@ function Spiegazione({ riga, valore }: { riga: RigaProspetto; valore: string }) 
         <button
           type="button"
           aria-label={`Come si calcola: ${riga.etichetta}`}
-          className="rounded-full p-0.5 text-inchiostro-tenue/70 transition-colors hover:bg-superficie-alt hover:text-accento focus-visible:text-accento"
+          className="-my-2 rounded-full p-2 text-inchiostro-tenue/70 transition-colors hover:bg-superficie-alt hover:text-accento focus-visible:text-accento sm:-my-0.5 sm:p-0.5"
         >
           <HelpCircle className="size-3.5" aria-hidden />
         </button>

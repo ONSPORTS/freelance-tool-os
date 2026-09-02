@@ -7,6 +7,13 @@ import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { Stato } from "@/components/ui/stato";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
+import {
+  ElencoSchede,
+  Scheda,
+  SchedaTesta,
+  SchedaTotale,
+  SchedaVoci,
+} from "@/components/tabella/schede";
 import { Vuoto } from "@/components/ui/vuoto";
 import {
   Select,
@@ -34,7 +41,7 @@ import { eliminaCosto, salvaCosto, segnaPagato } from "@/lib/dati/azioni";
 import { useCalcoloAnno, useDati } from "@/lib/dati/hooks";
 import { usePreferenze } from "@/lib/stato/preferenze";
 import { dentroPeriodo, etichettaPeriodo } from "@/lib/periodo";
-import { data as fmtData, euro, percentuale } from "@/lib/format";
+import { data as fmtData, euro, num, percentuale } from "@/lib/format";
 import { CATEGORIE_COSTO } from "@/lib/dati/categorie";
 import { costoGrezzo } from "@/lib/fisco/documenti";
 import type { CostoCalcolato } from "@/lib/fisco/tipi";
@@ -229,7 +236,7 @@ export function SchermataCosti() {
           />
         ) : (
           <>
-            <ContenitoreTabella className="hidden max-h-[calc(100dvh-21rem)] md:block">
+            <ContenitoreTabella data-scroll-ok className="hidden max-h-[calc(100dvh-21rem)] md:block">
               <Tabella>
                 <TabellaTesta>
                   <tr>
@@ -373,42 +380,56 @@ export function SchermataCosti() {
               </Tabella>
             </ContenitoreTabella>
 
-            <ul className="divide-y divide-bordo md:hidden">
+            <ElencoSchede>
               {righe.map((c) => (
-                <li key={c.id} className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate text-corpo font-medium">{c.fornitore}</p>
-                      <p className="truncate text-etichetta text-inchiostro-tenue">{c.descrizione}</p>
-                      <p className="mt-1 text-micro text-inchiostro-tenue">{c.categoria}</p>
-                    </div>
-                    <p className="cifre shrink-0 text-kpi-sm font-semibold">{euro(c.totale)}</p>
-                  </div>
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <Scheda key={c.id}>
+                  <SchedaTesta
+                    titolo={c.fornitore}
+                    sotto={c.descrizione}
+                    valore={euro(c.totale)}
+                    notaValore={c.categoria}
+                  />
+                  <SchedaVoci
+                    voci={[
+                      { etichetta: "Documento", valore: fmtData(c.dataDocumento) },
+                      {
+                        etichetta: "Imponibile",
+                        valore: euro(c.imponibile),
+                        mostra: c.iva > 0,
+                      },
+                      { etichetta: "IVA", valore: euro(c.iva), mostra: c.iva > 0 },
+                      {
+                        etichetta: "Deducibile",
+                        valore: percentuale(c.percentualeDeducibilita, 0),
+                        mostra: !forfettario,
+                      },
+                    ]}
+                  />
+                  <div className="mt-3">
                     {c.stato === "pagato" ? (
                       <Stato tono="positivo">Pagato il {fmtData(c.dataPagamento)}</Stato>
                     ) : (
                       <Stato tono="attenzione">Da pagare</Stato>
                     )}
-                    <span className="text-micro text-inchiostro-tenue">
-                      documento del {fmtData(c.dataDocumento)}
-                      {!forfettario && ` · deducibile ${percentuale(c.percentualeDeducibilita, 0)}`}
-                    </span>
                   </div>
                   {c.stato === "daPagare" && (
-                    <Button variante="contorno" taglia="sm" className="mt-3 w-full"
-                      onClick={() => void segnaPagato(c)}>
+                    <Button
+                      variante="contorno"
+                      taglia="sm"
+                      className="mt-3 w-full"
+                      onClick={() => void segnaPagato(c)}
+                    >
                       <CheckCheck className="size-4" aria-hidden />
                       Segna come pagato oggi
                     </Button>
                   )}
-                </li>
+                </Scheda>
               ))}
-              <li className="flex items-center justify-between bg-superficie-alt p-4">
-                <span className="text-etichetta font-medium">Totale</span>
-                <span className="cifre text-corpo font-semibold">{euro(totali.totale)}</span>
-              </li>
-            </ul>
+              <SchedaTotale
+                valore={euro(totali.totale)}
+                nota={`${num(righe.length)} costi`}
+              />
+            </ElencoSchede>
           </>
         )}
       </Card>

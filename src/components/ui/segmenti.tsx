@@ -38,7 +38,9 @@ export function Segmenti<T extends string>({
             aria-checked={attivo}
             onClick={() => onChange(o.valore)}
             className={cn(
-              "rounded-full px-3.5 py-1.5 text-etichetta font-medium",
+              // 34 px di altezza sul telefono, 30 da tablet in su: con il dito
+              // servono, con il mouse no e ruberebbero spazio alla testata.
+              "rounded-full px-3.5 py-2 text-etichetta font-medium sm:py-1.5",
               "transition-[background-color,color] duration-200 ease-quieto",
               attivo
                 ? "bg-superficie text-inchiostro shadow-riposo"

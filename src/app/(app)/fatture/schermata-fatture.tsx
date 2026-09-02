@@ -7,6 +7,13 @@ import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { Stato } from "@/components/ui/stato";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
+import {
+  ElencoSchede,
+  Scheda,
+  SchedaTesta,
+  SchedaTotale,
+  SchedaVoci,
+} from "@/components/tabella/schede";
 import { Vuoto } from "@/components/ui/vuoto";
 import {
   Select,
@@ -242,7 +249,10 @@ export function SchermataFatture() {
         ) : (
           <>
             {/* Da tablet in su: la tabella. */}
-            <ContenitoreTabella className="hidden max-h-[calc(100dvh-21rem)] md:block">
+            <ContenitoreTabella
+              data-scroll-ok
+              className="hidden max-h-[calc(100dvh-21rem)] md:block"
+            >
               <Tabella>
                 <TabellaTesta>
                   <tr>
@@ -407,17 +417,24 @@ export function SchermataFatture() {
             </ContenitoreTabella>
 
             {/* Su telefono la tabella diventa un elenco di schede leggibili. */}
-            <ul className="divide-y divide-bordo md:hidden">
+            <ElencoSchede>
               {righe.map((f) => (
-                <li key={f.id} className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="cifre text-etichetta text-inchiostro-tenue">{f.numero}</p>
-                      <p className="truncate text-corpo font-medium">{nomeCliente(f.clienteId)}</p>
-                      <p className="truncate text-etichetta text-inchiostro-tenue">{f.descrizione}</p>
-                    </div>
-                    <p className="cifre shrink-0 text-kpi-sm font-semibold">{euro(f.totale)}</p>
-                  </div>
+                <Scheda key={f.id}>
+                  <SchedaTesta
+                    sopra={f.numero}
+                    titolo={nomeCliente(f.clienteId)}
+                    sotto={f.descrizione}
+                    valore={euro(f.totale)}
+                    notaValore={f.ritenuta > 0 ? `${euro(f.nettoIncasso)} netti` : undefined}
+                  />
+                  <SchedaVoci
+                    voci={[
+                      { etichetta: "Emissione", valore: fmtData(f.dataEmissione) },
+                      { etichetta: "Imponibile", valore: euro(f.imponibile) },
+                      { etichetta: "IVA", valore: euro(f.iva), mostra: f.iva > 0 },
+                      { etichetta: "Ritenuta", valore: euro(f.ritenuta), mostra: f.ritenuta > 0 },
+                    ]}
+                  />
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <StatoFattura f={f} />
                     <span className="text-micro text-inchiostro-tenue">
@@ -430,20 +447,22 @@ export function SchermataFatture() {
                   </div>
                   {f.stato !== "incassato" && (
                     <Button
-                      variante="contorno" taglia="sm" className="mt-3 w-full"
+                      variante="contorno"
+                      taglia="sm"
+                      className="mt-3 w-full"
                       onClick={() => void segnaIncassata(f)}
                     >
                       <CheckCheck className="size-4" aria-hidden />
                       Segna come incassata oggi
                     </Button>
                   )}
-                </li>
+                </Scheda>
               ))}
-              <li className="flex items-center justify-between bg-superficie-alt p-4">
-                <span className="text-etichetta font-medium">Totale</span>
-                <span className="cifre text-corpo font-semibold">{euro(totali.totale)}</span>
-              </li>
-            </ul>
+              <SchedaTotale
+                valore={euro(totali.totale)}
+                nota={`${righe.length} ${righe.length === 1 ? "fattura" : "fatture"}`}
+              />
+            </ElencoSchede>
           </>
         )}
       </Card>

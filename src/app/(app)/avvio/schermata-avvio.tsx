@@ -251,7 +251,7 @@ function SchedaPasso({
         type="button"
         onClick={onApri}
         aria-expanded={aperto}
-        className="flex w-full items-start gap-3 px-5 py-4 text-left"
+        className="flex w-full items-start gap-3 px-4 py-4 text-left sm:px-5"
       >
         <span
           className={cn(
@@ -284,7 +284,7 @@ function SchedaPasso({
       </button>
 
       {aperto && (
-        <div className="border-t border-bordo px-5 py-4">
+        <div className="border-t border-bordo px-4 py-4 sm:px-5">
           <p className="text-corpo text-inchiostro-tenue">{passo.perche}</p>
 
           {effetto && (

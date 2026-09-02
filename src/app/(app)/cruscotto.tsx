@@ -200,7 +200,7 @@ export function Cruscotto() {
               </CardSottotitolo>
             </CardCorpo>
             {analisi.prossime.length === 0 ? (
-              <p className="px-6 pb-6 text-corpo text-inchiostro-tenue">
+              <p className="px-4 pb-5 text-corpo text-inchiostro-tenue sm:px-6 sm:pb-6">
                 Nessun adempimento resta nel {anno}. Il prossimo appuntamento è il saldo di
                 giugno, che si calcola sulla dichiarazione di quest&apos;anno.
               </p>
@@ -236,13 +236,15 @@ function RigaAvviso({ avviso }: { avviso: Avviso }) {
   }[avviso.tono];
 
   return (
-    <li className="flex flex-wrap items-start gap-3 px-6 py-3">
+    <li className="flex flex-wrap items-start gap-3 px-4 py-3 sm:px-6">
       <Icona className={cn("mt-0.5 size-4 shrink-0", colore)} aria-hidden />
-      <p className="min-w-64 flex-1 text-corpo">{avviso.testo}</p>
+      {/* Sul telefono il testo si stringe quanto serve; da tablet in su resta
+          largo abbastanza da non spezzarsi in righe di due parole. */}
+      <p className="min-w-0 flex-1 text-corpo sm:min-w-64">{avviso.testo}</p>
       {avviso.azione && (
         <Link
           href={avviso.azione.href}
-          className="shrink-0 rounded-campo px-2 py-1 text-etichetta font-medium text-accento transition-colors hover:bg-accento-tenue"
+          className="shrink-0 rounded-campo px-2 py-2 text-etichetta font-medium text-accento transition-colors hover:bg-accento-tenue sm:py-1"
         >
           {avviso.azione.etichetta}
         </Link>
@@ -255,7 +257,7 @@ function RigaScadenza({ scadenza, oggi }: { scadenza: Adempimento; oggi: string 
   const giorni = giorniAllaData(scadenza.data, oggi);
   const imminente = giorni <= 15;
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 px-6 py-3">
+    <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
       <span className="flex min-w-0 items-center gap-3">
         <CalendarClock
           className={cn("size-4 shrink-0", imminente ? "text-attenzione" : "text-inchiostro-tenue")}

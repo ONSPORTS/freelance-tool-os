@@ -5,6 +5,13 @@ import Link from "next/link";
 import { Coins } from "lucide-react";
 import { Card, CardCorpo, CardSottotitolo, CardTitolo } from "@/components/ui/card";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
+import {
+  ElencoSchede,
+  Scheda,
+  SchedaTesta,
+  SchedaTotale,
+  SchedaVoci,
+} from "@/components/tabella/schede";
 import { Kpi } from "@/components/ui/kpi";
 import { Segmenti } from "@/components/ui/segmenti";
 import {
@@ -62,7 +69,7 @@ export function SchermataIva() {
             </p>
             <p className="mx-auto mt-3 max-w-md text-etichetta text-inchiostro-tenue">
               Se passi al regime ordinario questa schermata si popola da sola.{" "}
-              <Link href="/confronto" className="text-accento underline underline-offset-2">
+              <Link href="/confronto" className="py-1.5 text-accento underline underline-offset-2">
                 Vedi il confronto fra i due regimi
               </Link>
               .
@@ -118,7 +125,8 @@ export function SchermataIva() {
             />
           </CardCorpo>
 
-          <ContenitoreTabella className="px-2 pb-2">
+          {/* Da tablet in su: nove colonne di liquidazione. */}
+          <ContenitoreTabella data-scroll-ok className="hidden px-2 pb-2 md:block">
             <Tabella>
               <TabellaTesta>
                 <tr>
@@ -162,6 +170,51 @@ export function SchermataIva() {
               </TabellaPiede>
             </Tabella>
           </ContenitoreTabella>
+
+          {/* Sul telefono ogni periodo è una scheda. I periodi senza movimenti
+              restano visibili ma spenti: servono a far vedere che l'anno è
+              coperto, non a essere letti uno per uno. */}
+          <ElencoSchede>
+            {periodi.map((p) => {
+              const inattivo = p.debito === 0 && p.credito === 0;
+              return (
+                <Scheda key={p.indice} className={inattivo ? "text-inchiostro-tenue" : undefined}>
+                  <SchedaTesta
+                    titolo={p.etichetta}
+                    sotto={p.scadenza ? `versamento il ${fmtData(p.scadenza)}` : undefined}
+                    valore={euro(p.totaleDaVersare)}
+                    notaValore="da versare"
+                  />
+                  <SchedaVoci
+                    voci={[
+                      { etichetta: "A debito", valore: euro(p.debito) },
+                      { etichetta: "A credito", valore: euro(p.credito) },
+                      { etichetta: "Saldo", valore: euro(p.saldo) },
+                      {
+                        etichetta: "Credito precedente",
+                        valore: euro(p.creditoPrecedente),
+                        mostra: p.creditoPrecedente > 0,
+                      },
+                      {
+                        etichetta: "Maggiorazione",
+                        valore: euro(p.maggiorazione),
+                        mostra: vista === "trimestrale" && p.maggiorazione > 0,
+                      },
+                      {
+                        etichetta: "Credito a nuovo",
+                        valore: euro(p.creditoANuovo),
+                        mostra: p.creditoANuovo > 0,
+                      },
+                    ]}
+                  />
+                </Scheda>
+              );
+            })}
+            <SchedaTotale
+              valore={euro(periodi.reduce((a, p) => a + p.totaleDaVersare, 0))}
+              nota={`${euro(iva.totaleDebito)} a debito · ${euro(iva.totaleCredito)} a credito`}
+            />
+          </ElencoSchede>
         </Card>
 
         <Card>
@@ -182,7 +235,7 @@ export function SchermataIva() {
               Oltre al versamento, chi è in regime ordinario invia la LIPE entro la fine del
               secondo mese successivo a ogni trimestre, e la dichiarazione IVA annuale entro
               il 30 aprile.{" "}
-              <Link href="/scadenzario" className="text-accento underline underline-offset-2">
+              <Link href="/scadenzario" className="py-1.5 text-accento underline underline-offset-2">
                 Trovi tutte le date nello scadenzario
               </Link>
               .

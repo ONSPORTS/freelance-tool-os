@@ -88,7 +88,7 @@ export function CellaModificabile({
         value={String(valore ?? "")}
         onChange={(e) => void onSalva(e.target.value)}
         className={cn(
-          "w-full cursor-pointer rounded-campo border border-transparent bg-transparent px-2 py-1",
+          "w-full cursor-pointer rounded-campo border border-transparent bg-transparent px-2 py-2 sm:py-1",
           "text-corpo text-inchiostro",
           "transition-colors duration-150 hover:border-bordo hover:bg-superficie",
           "focus:border-accento focus:outline-none focus:ring-2 focus:ring-accento/20",
@@ -129,7 +129,7 @@ export function CellaModificabile({
           }
         }}
         className={cn(
-          "w-full rounded-campo border bg-superficie px-2 py-1 text-corpo",
+          "w-full rounded-campo border bg-superficie px-2 py-2 text-corpo sm:py-1",
           numerica && "cifre text-right",
           errore
             ? "border-negativo ring-2 ring-negativo/20"
@@ -152,7 +152,7 @@ export function CellaModificabile({
       title={suggerimento}
       aria-label={`${etichetta}: ${mostrato}. Premi Invio per modificare.`}
       className={cn(
-        "w-full rounded-campo border border-transparent px-2 py-1 text-left",
+        "w-full rounded-campo border border-transparent px-2 py-2 text-left sm:py-1",
         "transition-colors duration-150",
         numerica && "cifre text-right",
         assente && "text-inchiostro-tenue",
