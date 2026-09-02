@@ -256,6 +256,38 @@ const convalidaSpunta: Convalida<Dati["spunte"][number]> = (riga, i, errori) => 
   };
 };
 
+/**
+ * Una chiusura d'anno.
+ *
+ * L'istantanea si accetta così com'è nel file ma non entra mai in un calcolo:
+ * anche importata sbagliata non può spostare un riporto, al massimo mostra uno
+ * scostamento che non c'è.
+ */
+const convalidaChiusura: Convalida<Dati["chiusure"][number]> = (riga, i, errori) => {
+  const anno = numero(riga.anno, Number.NaN);
+  if (!Number.isInteger(anno) || anno < 2000 || anno > 2100) {
+    errori.push(`chiusure, riga ${i + 1}: anno mancante o fuori intervallo.`);
+    return null;
+  }
+  const istantanea = oggetto(riga.istantanea) ? riga.istantanea : {};
+  return {
+    anno,
+    chiusaIl: testo(riga.chiusaIl) || new Date().toISOString(),
+    destinazioneCreditoIva: riga.destinazioneCreditoIva === "rimborso" ? "rimborso" : "compensazione",
+    regimeAnnoSuccessivo: riga.regimeAnnoSuccessivo === "ordinario" ? "ordinario" : "forfettario",
+    note: testo(riga.note),
+    istantanea: {
+      saldoCassa: numero(istantanea.saldoCassa),
+      accantonato: numero(istantanea.accantonato),
+      creditoIva: numero(istantanea.creditoIva),
+      creditoImposte: numero(istantanea.creditoImposte),
+      ricaviRilevanti: numero(istantanea.ricaviRilevanti),
+      fattureDaIncassare: numero(istantanea.fattureDaIncassare),
+      costiDaPagare: numero(istantanea.costiDaPagare),
+    },
+  };
+};
+
 const convalidaVocePatrimonio: Convalida<Dati["patrimonio"][number]> = (riga, i, errori) => {
   const id = richiedeId(riga, "patrimonio", i, errori);
   if (!id) return null;
@@ -392,6 +424,7 @@ export function analizzaBackup(testoGrezzo: string): RisultatoAnalisi {
   dati.versamenti = convalidaElenco(contenuto.versamenti, "versamenti", convalidaVersamento, errori);
   dati.patrimonio = convalidaElenco(contenuto.patrimonio, "patrimonio", convalidaVocePatrimonio, errori);
   dati.spunte = convalidaElenco(contenuto.spunte, "spunte", convalidaSpunta, errori);
+  dati.chiusure = convalidaElenco(contenuto.chiusure, "chiusure", convalidaChiusura, errori);
 
   if (errori.length > 0) return { ok: false, errori };
 

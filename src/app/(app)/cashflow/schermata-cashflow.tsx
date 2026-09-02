@@ -27,7 +27,6 @@ import {
 import { CellaModificabile } from "@/components/tabella/cella-modificabile";
 import { AndamentoCassa } from "@/components/grafici/andamento-cassa";
 import { Guscio } from "@/components/guscio/guscio";
-import { calcolaCashflow } from "@/lib/analisi/cashflow";
 import {
   creaVersamento,
   eliminaVersamento,
@@ -51,19 +50,9 @@ export function SchermataCashflow() {
   const dati = useDati();
   const calcolo = useCalcoloAnno(anno, oggi);
 
-  const cashflow = React.useMemo(() => {
-    if (!dati || !calcolo) return null;
-    return calcolaCashflow({
-      anno,
-      saldoIniziale: calcolo.impostazioni.saldoInizialeAttivita,
-      percentualeAccantonamento: calcolo.impostazioni.percentualeAccantonamento,
-      fatture: calcolo.prospetto.fattureCalcolate,
-      costi: calcolo.prospetto.costiCalcolati,
-      versamenti: dati.versamenti,
-      movimentiAttivita: dati.movimentiAttivita,
-      movimentiPersonali: dati.movimentiPersonali,
-    });
-  }, [dati, calcolo, anno]);
+  // Il cashflow arriva dalla catena degli anni, non ricalcolato qui: è l'unico
+  // modo perché apra con il saldo e l'accantonato lasciati dall'anno prima.
+  const cashflow = calcolo?.cashflow ?? null;
 
   if (!dati || !calcolo || !cashflow) {
     return (
@@ -133,7 +122,12 @@ export function SchermataCashflow() {
               prelievi li scrivi tu: bastano un clic e Invio.
             </CardSottotitolo>
           </CardCorpo>
-          <ContenitoreTabella className="max-h-[32rem] px-2 pb-2">
+          {/*
+            Alta abbastanza da contenere l'apertura, i dodici mesi e il totale
+            senza scorrere: un anno di cassa in cui l'ultimo trimestre resta
+            sotto il bordo è un anno che non si legge.
+          */}
+          <ContenitoreTabella className="max-h-[48rem] px-2 pb-2">
             <Tabella>
               <TabellaTesta>
                 <tr>
@@ -155,6 +149,27 @@ export function SchermataCashflow() {
                 </tr>
               </TabellaTesta>
               <TabellaCorpo>
+                {/*
+                  La riga di apertura non è decorativa: è il punto in cui si vede
+                  che il 1° gennaio la liquidità netta non risale. Senza il
+                  riporto dell'accantonato, questa riga mostrerebbe l'intero
+                  saldo come disponibile.
+                */}
+                <TabellaRiga className="bg-superficie-alt/60">
+                  <TabellaCella className="whitespace-nowrap font-medium">
+                    1° gennaio
+                  </TabellaCella>
+                  <TabellaCella numerica colSpan={7} className="text-inchiostro-tenue">
+                    {cashflow.accantonatoIniziale > 0
+                      ? `riporto dal ${anno - 1}, di cui ${euro(cashflow.accantonatoIniziale)} già accantonati`
+                      : `saldo di apertura del ${anno}`}
+                  </TabellaCella>
+                  <TabellaCella numerica className="text-inchiostro-tenue">
+                    —
+                  </TabellaCella>
+                  <TabellaCella numerica>{euro(cashflow.saldoIniziale)}</TabellaCella>
+                  <TabellaCella numerica>{euro(cashflow.liquiditaNettaIniziale)}</TabellaCella>
+                </TabellaRiga>
                 {cashflow.mesi.map((m) => (
                   <TabellaRiga key={m.mese}>
                     <TabellaCella className="whitespace-nowrap capitalize">

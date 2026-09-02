@@ -13,6 +13,7 @@ import { cambiaRegime } from "@/lib/dati/azioni";
 import { usePreferenze } from "@/lib/stato/preferenze";
 import { GRUPPI, type Voce } from "./navigazione";
 import { SelettorePeriodo } from "./selettore-periodo";
+import type { StatoDellAnno } from "./stato-anno";
 
 /**
  * Il guscio dell'applicazione: navigazione a sinistra, selettore di periodo e
@@ -44,6 +45,16 @@ export function Guscio({
   const calcolo = useCalcoloAnno(periodo.anno, oggi);
   const regime = calcolo?.impostazioni.regime ?? "forfettario";
 
+  // I parametri provvisori vincono sullo stato di chiusura: sono la cosa che
+  // cambia il significato dei numeri a schermo, non solo la loro modificabilità.
+  const statoAnno: StatoDellAnno | undefined = calcolo
+    ? calcolo.parametri.provvisorio
+      ? "provvisorio"
+      : calcolo.chiuso
+        ? "chiuso"
+        : "aperto"
+    : undefined;
+
   return (
     <div className="flex min-h-dvh">
       <BarraLaterale />
@@ -61,7 +72,11 @@ export function Guscio({
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <SelettorePeriodo periodo={periodo} onChange={impostaPeriodo} />
+              <SelettorePeriodo
+                periodo={periodo}
+                onChange={impostaPeriodo}
+                statoAnno={statoAnno}
+              />
               <Segmenti
                 etichettaGruppo="Regime fiscale"
                 valore={regime}

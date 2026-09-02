@@ -1,0 +1,472 @@
+/**
+ * La chiusura dell'anno e i riporti verso quello successivo.
+ *
+ * Il 31 dicembre non azzera niente. Attraversano il confine il saldo di cassa,
+ * le tasse accantonate, il credito IVA, i crediti d'imposta, e le fatture e i
+ * costi rimasti in sospeso. Se uno di questi riporti si perde per strada l'app
+ * non segnala nulla: mostra un numero credibile e sbagliato. È il motivo per
+ * cui questo modulo è puro e testato riga per riga.
+ *
+ * Nota sulla persistenza: della chiusura si salvano solo le **decisioni**
+ * (destinazione del credito IVA, regime confermato, data, note) più
+ * un'istantanea di sola lettura. Gli importi dei riporti si ricalcolano sempre
+ * dai documenti, così una fattura del 2026 registrata a marzo del 2027 si
+ * propaga da sola. L'istantanea non entra mai in un calcolo: serve solo a
+ * mostrare che qualcosa è cambiato dopo la chiusura.
+ */
+import { nonNegativo, round2, somma } from "./aritmetica";
+import { annoDi } from "./documenti";
+import { dateCosto, dateFattura, ripartisci } from "./competenza";
+import { euro } from "../format";
+import type { LiquidazioneIva } from "./iva";
+import type { Prospetto } from "./motore";
+import type { CostoCalcolato, FatturaCalcolata, Impostazioni, ParametriAnno, Regime } from "./tipi";
+
+export type DestinazioneCreditoIva = "compensazione" | "rimborso";
+
+/** Quel tanto del cashflow che serve alla chiusura: saldo e accantonato al 31 dicembre. */
+export type SaldiDiFineAnno = {
+  saldoFinale: number;
+  accantonatoTotale: number;
+};
+
+/**
+ * Fotografia dei riporti al momento della chiusura.
+ * Sola lettura, mai un ingresso di calcolo: confrontarla con i valori ricalcolati
+ * è l'unico modo per accorgersi che un documento è stato aggiunto dopo.
+ */
+export type IstantaneaChiusura = {
+  saldoCassa: number;
+  accantonato: number;
+  creditoIva: number;
+  creditoImposte: number;
+  ricaviRilevanti: number;
+  fattureDaIncassare: number;
+  costiDaPagare: number;
+};
+
+/** La chiusura come sta nel database: decisioni, non importi calcolati. */
+export type ChiusuraAnno = {
+  anno: number;
+  /** Data e ora della chiusura, in ISO. */
+  chiusaIl: string;
+  destinazioneCreditoIva: DestinazioneCreditoIva;
+  /** Il regime confermato per l'anno successivo al momento della chiusura. */
+  regimeAnnoSuccessivo: Regime;
+  note: string;
+  istantanea: IstantaneaChiusura;
+};
+
+export type Sospesi = {
+  numero: number;
+  importo: number;
+  /**
+   * Quanti sono ancora aperti alla data di oggi.
+   *
+   * Diverso da `numero`: al 31 dicembre una fattura di dicembre non era
+   * incassata, ma a marzo può esserlo già. Il riporto conta tutte quelle che
+   * attraversano il confine — è la loro cassa a spostarsi di anno — mentre
+   * questo conta quelle che restano da sollecitare.
+   */
+  numeroAncoraAperti: number;
+};
+
+/** Quello che passa da un anno al successivo. */
+export type Riporto = {
+  daAnno: number;
+  aAnno: number;
+  /** Saldo di cassa al 31 dicembre: diventa il saldo iniziale dell'anno nuovo. */
+  saldoCassa: number;
+  /** Tasse accantonate e non ancora versate: servono a pagare a giugno. */
+  accantonato: number;
+  /** Credito IVA residuo al 31 dicembre. */
+  creditoIva: number;
+  destinazioneCreditoIva: DestinazioneCreditoIva;
+  /** Il credito IVA entra nella liquidazione dell'anno nuovo solo se compensato. */
+  creditoIvaInLiquidazione: number;
+  /** Crediti d'imposta: ritenute eccedenti, versamenti in eccesso, credito non utilizzato. */
+  creditoImposte: number;
+  /** Fatture emesse e non ancora incassate: diventeranno ricavo dell'anno in cui rientrano. */
+  fattureDaIncassare: Sospesi;
+  /** Costi con documento nell'anno e non ancora pagati: si dedurranno quando li paghi. */
+  costiDaPagare: Sospesi;
+};
+
+export function riportoVuoto(daAnno: number): Riporto {
+  return {
+    daAnno,
+    aAnno: daAnno + 1,
+    saldoCassa: 0,
+    accantonato: 0,
+    creditoIva: 0,
+    destinazioneCreditoIva: "compensazione",
+    creditoIvaInLiquidazione: 0,
+    creditoImposte: 0,
+    fattureDaIncassare: { numero: 0, importo: 0, numeroAncoraAperti: 0 },
+    costiDaPagare: { numero: 0, importo: 0, numeroAncoraAperti: 0 },
+  };
+}
+
+export type IngressoRiporto = {
+  anno: number;
+  prospetto: Prospetto;
+  iva: LiquidazioneIva;
+  /** I due saldi di fine anno. Struttura minima: il motore non dipende da `analisi`. */
+  cashflow: SaldiDiFineAnno;
+  /** La chiusura salvata, se l'anno è stato chiuso. Ne servono solo le decisioni. */
+  chiusura?: ChiusuraAnno | null;
+};
+
+/**
+ * I riporti dall'anno indicato a quello successivo.
+ *
+ * Gli importi arrivano sempre dal ricalcolo, mai dall'istantanea salvata: se a
+ * marzo salta fuori una fattura dell'anno chiuso, il riporto la incorpora senza
+ * che nessuno debba ricordarsi di aggiornare qualcosa.
+ */
+export function calcolaRiporto(ing: IngressoRiporto): Riporto {
+  const { anno, prospetto: p, iva, cashflow } = ing;
+  const destinazione = ing.chiusura?.destinazioneCreditoIva ?? "compensazione";
+  const creditoIva = round2(nonNegativo(iva.creditoFinale));
+
+  // Tre crediti diversi che finiscono nello stesso posto: le ritenute che hanno
+  // superato le imposte, i versamenti fatti in eccesso, e il credito dell'anno
+  // ancora prima che non è servito.
+  const eccedenzaVersamenti = nonNegativo(p.giaVersato - p.totaleDovuto);
+  const creditoImposte = round2(
+    somma(p.creditoImposta, eccedenzaVersamenti, p.acconti.creditoResiduo),
+  );
+
+  // Attraversano il confine sia i documenti la cui cassa cade in un anno
+  // successivo, sia quelli che una cassa non ce l'hanno ancora: in entrambi i
+  // casi il ricavo o la deduzione non è di quest'anno. Contare solo i secondi
+  // farebbe sparire dal riporto la fattura di dicembre incassata a gennaio,
+  // che è esattamente il caso per cui il riporto esiste.
+  const rf = ripartisci(p.fattureCalcolate, anno, dateFattura);
+  const rc = ripartisci(p.costiCalcolati, anno, dateCosto);
+  const sospese = [...rf.versoAnniSuccessivi, ...rf.sospesi] as FatturaCalcolata[];
+  const daPagare = [...rc.versoAnniSuccessivi, ...rc.sospesi] as CostoCalcolato[];
+
+  return {
+    daAnno: anno,
+    aAnno: anno + 1,
+    saldoCassa: cashflow.saldoFinale,
+    accantonato: cashflow.accantonatoTotale,
+    creditoIva,
+    destinazioneCreditoIva: destinazione,
+    // A rimborso il credito esce dal circuito della liquidazione: chiederlo e
+    // insieme compensarlo sarebbe contarlo due volte.
+    creditoIvaInLiquidazione: destinazione === "compensazione" ? creditoIva : 0,
+    creditoImposte,
+    fattureDaIncassare: {
+      numero: sospese.length,
+      importo: somma(...sospese.map((f) => f.totale)),
+      numeroAncoraAperti: rf.sospesi.length,
+    },
+    costiDaPagare: {
+      numero: daPagare.length,
+      importo: somma(...daPagare.map((c) => c.totale)),
+      numeroAncoraAperti: rc.sospesi.length,
+    },
+  };
+}
+
+export function istantaneaDa(riporto: Riporto, p: Prospetto): IstantaneaChiusura {
+  return {
+    saldoCassa: riporto.saldoCassa,
+    accantonato: riporto.accantonato,
+    creditoIva: riporto.creditoIva,
+    creditoImposte: riporto.creditoImposte,
+    ricaviRilevanti: p.ricaviRilevanti,
+    fattureDaIncassare: riporto.fattureDaIncassare.importo,
+    costiDaPagare: riporto.costiDaPagare.importo,
+  };
+}
+
+// ————————————————————————————————————————————————————————————
+// Cambio di regime
+// ————————————————————————————————————————————————————————————
+
+export type MotivoRegime =
+  | "nessunCambio"
+  | "limiteSuperato"
+  | "uscitaImmediata"
+  | "rientroDaValutare";
+
+export type PropostaRegime = {
+  regimeAttuale: Regime;
+  regimeProposto: Regime;
+  motivo: MotivoRegime;
+  /** Il cambio va proposto all'utente, non solo raccontato. */
+  daProporre: boolean;
+  /** Data da cui decorre il nuovo regime, in ISO. */
+  decorrenza: string;
+  /** La fattura che ha fatto superare la soglia di uscita immediata, se c'è. */
+  fatturaCheSupera: FatturaCalcolata | null;
+  titolo: string;
+  spiegazione: string;
+  conseguenze: string[];
+};
+
+const CONSEGUENZE_ORDINARIO = [
+  "Le fatture riportano l'IVA e va versata alle scadenze della liquidazione.",
+  "I costi tornano deducibili e l'IVA sugli acquisti torna detraibile.",
+  "Niente imposta sostitutiva: si applicano IRPEF a scaglioni e addizionali.",
+  "Le fatture verso sostituti d'imposta subiscono la ritenuta d'acconto del 20%.",
+  "Serve la contabilità: registri IVA e dichiarazione ordinaria.",
+];
+
+/**
+ * Il regime dell'anno successivo, dedotto dai ricavi dell'anno che si chiude.
+ *
+ * Non è una tendina del Setup che qualcuno deve ricordarsi di girare a gennaio:
+ * superata la soglia il cambio è automatico per legge, e l'app deve dirlo nel
+ * momento in cui chiude l'anno.
+ */
+export function proponiRegime(
+  p: Prospetto,
+  imp: Impostazioni,
+  par: ParametriAnno,
+): PropostaRegime {
+  const anno = p.anno;
+  const primoGennaio = `${anno + 1}-01-01`;
+
+  if (imp.regime === "ordinario") {
+    // Il rientro nel forfettario è possibile ma dipende da requisiti che l'app
+    // non conosce (spese per dipendenti, partecipazioni, redditi da lavoro
+    // dipendente). Si segnala, non si propone.
+    const sottoLimite = p.ricaviRilevanti <= par.limiteForfettario;
+    return {
+      regimeAttuale: "ordinario",
+      regimeProposto: "ordinario",
+      motivo: sottoLimite ? "rientroDaValutare" : "nessunCambio",
+      daProporre: false,
+      decorrenza: primoGennaio,
+      fatturaCheSupera: null,
+      titolo: sottoLimite
+        ? "Resti in ordinario, ma il forfettario tornerebbe accessibile"
+        : "Nessun cambio di regime",
+      spiegazione: sottoLimite
+        ? `Con ${euro(p.ricaviRilevanti)} di ricavi saresti sotto il limite di ${euro(par.limiteForfettario)}. Il rientro nel forfettario dipende anche da requisiti che l'app non conosce: valutalo con il commercialista prima di cambiare.`
+        : "I ricavi non fanno scattare alcun passaggio automatico di regime.",
+      conseguenze: [],
+    };
+  }
+
+  if (p.soglia.stato === "uscitaImmediata") {
+    const fattura = fatturaCheSupera(p, imp.sogliaUscita);
+    return {
+      regimeAttuale: "forfettario",
+      regimeProposto: "ordinario",
+      motivo: "uscitaImmediata",
+      daProporre: true,
+      // L'uscita immediata non aspetta gennaio: colpisce l'anno in corso.
+      decorrenza: fattura?.dataIncasso ?? `${anno}-01-01`,
+      fatturaCheSupera: fattura,
+      titolo: `Uscita immediata dal forfettario: sei già in ordinario per il ${anno}`,
+      spiegazione: `Hai superato ${euro(imp.sogliaUscita)} di ricavi: il forfettario decade nello stesso anno, non dal successivo.${
+        fattura
+          ? ` La soglia è stata superata con la fattura ${fattura.numero || "senza numero"} incassata il ${fattura.dataIncasso}: da quell'operazione in poi l'IVA è dovuta.`
+          : ""
+      } È il caso in cui conviene sentire il commercialista prima di emettere altro.`,
+      conseguenze: [
+        `L'IVA è dovuta sulle operazioni dal superamento in poi, anche se le fatture sono state emesse senza.`,
+        ...CONSEGUENZE_ORDINARIO,
+      ],
+    };
+  }
+
+  if (p.soglia.stato === "limiteSuperato") {
+    return {
+      regimeAttuale: "forfettario",
+      regimeProposto: "ordinario",
+      motivo: "limiteSuperato",
+      daProporre: true,
+      decorrenza: primoGennaio,
+      fatturaCheSupera: null,
+      titolo: `Dal 1° gennaio ${anno + 1} sei in regime ordinario`,
+      spiegazione: `Con ${euro(p.ricaviRilevanti)} di ricavi incassati hai superato il limite di ${euro(par.limiteForfettario)}. Il ${anno} resta forfettario fino in fondo; è l'anno successivo che cambia, e cambia per legge.`,
+      conseguenze: CONSEGUENZE_ORDINARIO,
+    };
+  }
+
+  return {
+    regimeAttuale: "forfettario",
+    regimeProposto: "forfettario",
+    motivo: "nessunCambio",
+    daProporre: false,
+    decorrenza: primoGennaio,
+    fatturaCheSupera: null,
+    titolo: "Resti in regime forfettario",
+    spiegazione: `Con ${euro(p.ricaviRilevanti)} di ricavi sei sotto il limite di ${euro(par.limiteForfettario)}: il ${anno + 1} parte con lo stesso regime.`,
+    conseguenze: [],
+  };
+}
+
+/** La fattura, in ordine di incasso, con cui i ricavi hanno passato la soglia. */
+function fatturaCheSupera(p: Prospetto, soglia: number): FatturaCalcolata | null {
+  const incassate = p.fattureCalcolate
+    .filter((f) => f.dataIncasso && annoDi(f.dataIncasso) === p.anno)
+    .sort((a, b) => (a.dataIncasso as string).localeCompare(b.dataIncasso as string));
+  let cumulato = 0;
+  for (const f of incassate) {
+    cumulato = round2(cumulato + f.ricavoRilevante);
+    if (cumulato > soglia) return f;
+  }
+  return null;
+}
+
+// ————————————————————————————————————————————————————————————
+// Controlli prima di chiudere, e scostamenti dopo
+// ————————————————————————————————————————————————————————————
+
+export type Controllo = {
+  id: string;
+  gravita: "blocco" | "attenzione" | "informazione";
+  titolo: string;
+  dettaglio: string;
+};
+
+/**
+ * Cosa guardare prima di chiudere.
+ *
+ * Nessuno di questi controlli impedisce la chiusura tranne i parametri
+ * provvisori: chiudere un anno con documenti in sospeso è legittimo, ma è
+ * meglio saperlo prima che dopo.
+ */
+export function controlliChiusura(ing: {
+  riporto: Riporto;
+  prospetto: Prospetto;
+  parametri: ParametriAnno;
+  oggi: string;
+}): Controllo[] {
+  const { riporto: r, prospetto: p, parametri: par, oggi } = ing;
+  const controlli: Controllo[] = [];
+
+  if (par.provvisorio) {
+    controlli.push({
+      id: "parametri-provvisori",
+      gravita: "blocco",
+      titolo: `I parametri del ${par.anno} sono provvisori`,
+      dettaglio:
+        "Aliquote e soglie sono ereditate dall'anno precedente in attesa della Legge di Bilancio. Chiudere adesso significherebbe congelare una decisione presa su numeri stimati.",
+    });
+  }
+
+  if (annoDi(oggi) <= p.anno) {
+    controlli.push({
+      id: "anno-in-corso",
+      gravita: "attenzione",
+      titolo: `Il ${p.anno} non è ancora finito`,
+      dettaglio:
+        "Puoi chiudere lo stesso — la chiusura è reversibile — ma i riporti si muoveranno ancora a ogni documento registrato.",
+    });
+  }
+
+  if (r.fattureDaIncassare.numero > 0) {
+    controlli.push({
+      id: "fatture-sospese",
+      gravita: "attenzione",
+      titolo: `${r.fattureDaIncassare.numero} fatture emesse e non incassate`,
+      dettaglio: `${euro(r.fattureDaIncassare.importo)} che diventeranno ricavo dell'anno in cui rientrano. L'IVA, invece, è già di competenza del ${p.anno}.`,
+    });
+  }
+
+  if (r.costiDaPagare.numero > 0) {
+    controlli.push({
+      id: "costi-sospesi",
+      gravita: "attenzione",
+      titolo: `${r.costiDaPagare.numero} costi registrati e non pagati`,
+      dettaglio: `${euro(r.costiDaPagare.importo)} che si dedurranno nell'anno del pagamento, mentre l'IVA è detraibile già nel ${p.anno}.`,
+    });
+  }
+
+  if (r.creditoIva > 0) {
+    controlli.push({
+      id: "credito-iva",
+      gravita: "informazione",
+      titolo: `Credito IVA di ${euro(r.creditoIva)}`,
+      dettaglio:
+        r.destinazioneCreditoIva === "compensazione"
+          ? "Scelto per la compensazione: entra come credito iniziale nella liquidazione dell'anno nuovo."
+          : "Scelto per il rimborso: esce dal circuito della liquidazione e non riduce i versamenti dell'anno nuovo.",
+    });
+  }
+
+  if (r.accantonato > 0) {
+    controlli.push({
+      id: "accantonato",
+      gravita: "informazione",
+      titolo: `${euro(r.accantonato)} di tasse accantonate`,
+      dettaglio:
+        "Restano impegnate anche dopo il 1° gennaio: servono a pagare il saldo di giugno e non tornano a contarsi come liquidità libera.",
+    });
+  }
+
+  return controlli;
+}
+
+export type Scostamento = {
+  voce: string;
+  allaChiusura: number;
+  adesso: number;
+  differenza: number;
+};
+
+/**
+ * Cosa è cambiato dopo la chiusura.
+ *
+ * Non è un errore: è la fattura ritrovata a marzo. Serve a decidere se riaprire
+ * l'anno e ricontrollarlo, invece di scoprirlo dal commercialista.
+ */
+export function scostamentiDaChiusura(
+  chiusura: ChiusuraAnno,
+  riportoAttuale: Riporto,
+  prospetto: Prospetto,
+): Scostamento[] {
+  const attuale = istantaneaDa(riportoAttuale, prospetto);
+  const voci: [string, keyof IstantaneaChiusura][] = [
+    ["Ricavi rilevanti", "ricaviRilevanti"],
+    ["Saldo di cassa", "saldoCassa"],
+    ["Tasse accantonate", "accantonato"],
+    ["Credito IVA", "creditoIva"],
+    ["Crediti d'imposta", "creditoImposte"],
+    ["Fatture da incassare", "fattureDaIncassare"],
+    ["Costi da pagare", "costiDaPagare"],
+  ];
+
+  return voci
+    .map(([voce, campo]) => ({
+      voce,
+      allaChiusura: chiusura.istantanea[campo],
+      adesso: attuale[campo],
+      differenza: round2(attuale[campo] - chiusura.istantanea[campo]),
+    }))
+    .filter((s) => s.differenza !== 0);
+}
+
+// ————————————————————————————————————————————————————————————
+// Blocco dell'esportazione
+// ————————————————————————————————————————————————————————————
+
+export type EsitoEsportazione =
+  | { consentita: true }
+  | { consentita: false; motivo: string };
+
+/**
+ * Il prospetto si può esportare?
+ *
+ * No, finché i parametri dell'anno sono provvisori. Un PDF ha l'aria di un
+ * documento definitivo: se poggia su aliquote dell'anno prima e finisce dal
+ * commercialista, l'errore non si vede più.
+ */
+export function esportazioneProspettoConsentita(par: ParametriAnno): EsitoEsportazione {
+  if (par.provvisorio) {
+    return {
+      consentita: false,
+      motivo: `I parametri del ${par.anno} sono provvisori: aliquote e soglie sono ancora quelle dell'anno precedente. L'export resta bloccato finché non escono i valori definitivi.`,
+    };
+  }
+  return { consentita: true };
+}
+

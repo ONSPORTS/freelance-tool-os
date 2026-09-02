@@ -9,6 +9,7 @@
 import { limita, nonNegativo, rapporto, round2, somma } from "./aritmetica";
 import { interoIt } from "../format";
 import { annoDi, calcolaCosto, calcolaFattura } from "./documenti";
+import { dateCosto, dateFattura, ripartisci } from "./competenza";
 import type {
   Costo,
   CostoCalcolato,
@@ -26,9 +27,49 @@ export type IngressoMotore = {
   fatture: Fattura[];
   costi: Costo[];
   versamenti?: VersamentoF24[];
+  /**
+   * Le impostazioni degli altri anni presenti in archivio.
+   *
+   * Serve perché ogni documento va calcolato con le regole del **suo** anno:
+   * una fattura del 2026 emessa in forfettario non prende l'IVA al 22% solo
+   * perché nel 2027 si è passati all'ordinario. Senza questo elenco il motore
+   * ricade sulle impostazioni dell'anno in esame, che è corretto finché di anni
+   * ce n'è uno solo.
+   */
+  impostazioniPerAnno?: Impostazioni[];
+  /**
+   * Credito d'imposta che arriva dall'anno precedente (eccedenza di acconti,
+   * ritenute superiori alle imposte). Si scomputa dal saldo e dagli acconti.
+   */
+  creditoAnnoPrecedente?: number;
   /** Data di riferimento per stati e ritardi. Iniettata: il motore resta puro. */
   oggi: string;
 };
+
+/**
+ * Le impostazioni da usare per un documento, in base al suo anno.
+ *
+ * Per un anno non censito si prende l'anno censito più vicino **precedente**,
+ * e in mancanza il più vicino in assoluto: un documento vecchio calcolato con
+ * le regole di un anno futuro è esattamente l'errore che questa funzione evita.
+ */
+export function risolutoreImpostazioni(
+  corrente: Impostazioni,
+  tutte: Impostazioni[] = [],
+): (anno: number) => Impostazioni {
+  const perAnno = new Map<number, Impostazioni>();
+  for (const i of tutte) perAnno.set(i.anno, i);
+  perAnno.set(corrente.anno, perAnno.get(corrente.anno) ?? corrente);
+  const anni = [...perAnno.keys()].sort((a, b) => a - b);
+
+  return (anno) => {
+    const esatta = perAnno.get(anno);
+    if (esatta) return esatta;
+    const precedenti = anni.filter((a) => a < anno);
+    if (precedenti.length > 0) return perAnno.get(precedenti[precedenti.length - 1]) as Impostazioni;
+    return perAnno.get(anni[0]) ?? corrente;
+  };
+}
 
 export type StatoSoglia =
   | "nessunLimite"
@@ -43,6 +84,13 @@ export type Acconti = {
   secondo: number;
   /** Sotto la soglia dei 257,52 € l'acconto è unico e si versa a novembre. */
   accontoUnico: boolean;
+  /** Quanto del credito dell'anno precedente è servito a coprire gli acconti. */
+  creditoUtilizzato: number;
+  /** Quello che resta del credito dopo aver coperto gli acconti. */
+  creditoResiduo: number;
+  /** Acconti al netto del credito: la cifra che esce davvero dal conto. */
+  primoDaVersare: number;
+  secondoDaVersare: number;
 };
 
 export type Prospetto = {
@@ -120,6 +168,36 @@ export type Prospetto = {
   acconti: Acconti;
   rataRateizzazione: number;
   rataRateizzazioneConInteressi: number;
+  /** Credito arrivato dall'anno precedente, prima di essere utilizzato. */
+  creditoAnnoPrecedente: number;
+  /** Quanto di quel credito è servito a coprire il saldo. */
+  creditoUtilizzatoSuSaldo: number;
+
+  /**
+   * G · Documenti a cavallo d'anno.
+   *
+   * Le grandezze che attraversano il 31 dicembre, tenute a vista perché sono
+   * quelle su cui si sbaglia: entrano nelle imposte di un anno e nell'IVA di
+   * un altro.
+   */
+  aCavallo: {
+    /** Incassato quest'anno su fatture emesse in anni precedenti: reddito di quest'anno, IVA già liquidata. */
+    ricaviDaAnniPrecedenti: number;
+    /** Emesso quest'anno e già incassato in un anno successivo: IVA di quest'anno, reddito di quello. */
+    ricaviVersoAnniSuccessivi: number;
+    /** Emesso quest'anno e non ancora incassato: IVA dovuta, reddito ancora senza anno. */
+    ricaviSospesi: number;
+    /** IVA di competenza di quest'anno su fatture che incasserai dopo: dovuta comunque. */
+    ivaSuIncassiFuturi: number;
+    costiDaAnniPrecedenti: number;
+    costiVersoAnniSuccessivi: number;
+    costiSospesi: number;
+    /** IVA detraibile di quest'anno su costi che pagherai dopo: detraibile comunque. */
+    ivaDetraibileSuPagamentiFuturi: number;
+    /** Quante fatture e quanti costi attraversano il confine. */
+    numeroFatture: number;
+    numeroCosti: number;
+  };
 
   /** Documenti già calcolati, per non ripetere il lavoro a valle. */
   fattureCalcolate: FatturaCalcolata[];
@@ -171,18 +249,53 @@ export function contributiPrevidenziali(
  * a novembre. Cambia solo il comportamento su importi minuscoli, dove il 40/60
  * produceva rate che nessuno versa davvero.
  */
-export function calcolaAcconti(dovuto: number, par: ParametriAnno): Acconti {
+export function calcolaAcconti(
+  dovuto: number,
+  par: ParametriAnno,
+  creditoInIngresso = 0,
+): Acconti {
+  const credito = nonNegativo(creditoInIngresso);
+
   if (dovuto < par.sogliaAcconti) {
-    return { dovuti: false, primo: 0, secondo: 0, accontoUnico: false };
+    return conCredito({ dovuti: false, primo: 0, secondo: 0, accontoUnico: false }, credito);
   }
   if (dovuto < par.sogliaAccontoUnico) {
-    return { dovuti: true, primo: 0, secondo: round2(dovuto), accontoUnico: true };
+    return conCredito(
+      { dovuti: true, primo: 0, secondo: round2(dovuto), accontoUnico: true },
+      credito,
+    );
   }
+  return conCredito(
+    {
+      dovuti: true,
+      primo: round2(dovuto * par.quotaPrimoAcconto),
+      secondo: round2(dovuto * par.quotaSecondoAcconto),
+      accontoUnico: false,
+    },
+    credito,
+  );
+}
+
+/**
+ * Scomputa il credito dell'anno precedente dagli acconti, nell'ordine in cui si
+ * versano: prima quello di giugno, poi quello di novembre. Gli importi `primo` e
+ * `secondo` restano quelli dovuti per legge — il credito non li riduce, li paga.
+ * La distinzione conta: è dovuto quello che si dichiara, da versare quello che
+ * esce dal conto.
+ */
+function conCredito(
+  base: { dovuti: boolean; primo: number; secondo: number; accontoUnico: boolean },
+  credito: number,
+): Acconti {
+  const suPrimo = Math.min(credito, base.primo);
+  const suSecondo = Math.min(credito - suPrimo, base.secondo);
+  const utilizzato = round2(suPrimo + suSecondo);
   return {
-    dovuti: true,
-    primo: round2(dovuto * par.quotaPrimoAcconto),
-    secondo: round2(dovuto * par.quotaSecondoAcconto),
-    accontoUnico: false,
+    ...base,
+    creditoUtilizzato: utilizzato,
+    creditoResiduo: round2(credito - utilizzato),
+    primoDaVersare: round2(base.primo - suPrimo),
+    secondoDaVersare: round2(base.secondo - suSecondo),
   };
 }
 
@@ -211,17 +324,24 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   const anno = imp.anno;
   const forfettario = imp.regime === "forfettario";
 
-  const fattureCalcolate = ingresso.fatture.map((f) => calcolaFattura(f, imp, oggi));
-  const costiCalcolati = ingresso.costi.map((c) => calcolaCosto(c, imp));
+  // Ogni documento con le regole del suo anno: le impostazioni dell'anno in
+  // esame valgono per il prospetto, non per una fattura di tre anni fa.
+  const impostazioniDi = risolutoreImpostazioni(imp, ingresso.impostazioniPerAnno);
+  const fattureCalcolate = ingresso.fatture.map((f) =>
+    calcolaFattura(f, impostazioniDi(annoDi(f.dataEmissione)), oggi),
+  );
+  const costiCalcolati = ingresso.costi.map((c) =>
+    calcolaCosto(c, impostazioniDi(annoDi(c.dataDocumento))),
+  );
 
-  // — A · Base di calcolo, per cassa ————————————————————————
-  const incassateNellAnno = fattureCalcolate.filter(
-    (f) => f.dataIncasso && annoDi(f.dataIncasso) === anno,
-  );
-  const emesseNellAnno = fattureCalcolate.filter((f) => annoDi(f.dataEmissione) === anno);
-  const pagatiNellAnno = costiCalcolati.filter(
-    (c) => c.dataPagamento && annoDi(c.dataPagamento) === anno,
-  );
+  // — A · Base di calcolo ————————————————————————————————
+  // Due criteri, una funzione sola: la cassa comanda sulle imposte, la data del
+  // documento sull'IVA e sul bollo.
+  const rf = ripartisci(fattureCalcolate, anno, dateFattura);
+  const rc = ripartisci(costiCalcolati, anno, dateCosto);
+  const incassateNellAnno = rf.perCassa;
+  const emesseNellAnno = rf.perCompetenza;
+  const pagatiNellAnno = rc.perCassa;
 
   const compensiIncassati = somma(...incassateNellAnno.map((f) => f.imponibile));
   const rivalsaIncassata = somma(...incassateNellAnno.map((f) => f.rivalsa));
@@ -236,9 +356,7 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   const bolloACarico = somma(...emesseNellAnno.map((f) => f.bolloACarico));
 
   const fatturatoEmesso = somma(...emesseNellAnno.map((f) => f.ricavoRilevante));
-  const inSospeso = somma(
-    ...emesseNellAnno.filter((f) => !f.dataIncasso).map((f) => f.ricavoRilevante),
-  );
+  const inSospeso = somma(...rf.sospesi.map((f) => f.ricavoRilevante));
 
   // La soglia si misura sui compensi percepiti, non sull'emesso: l'emesso resta
   // a fianco come indicatore anticipato di dove chiuderai l'anno.
@@ -314,9 +432,14 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
       .filter((v) => v.tipo !== "iva" && annoDi(v.data) === anno)
       .map((v) => v.importo),
   );
-  const saldoResiduo = round2(nonNegativo(totaleDovuto - giaVersato));
-  const acconti = calcolaAcconti(totaleDovuto, par);
-  const daRateizzare = saldoResiduo + acconti.primo;
+  // Il credito che arriva dall'anno precedente copre prima il saldo, poi gli
+  // acconti: è l'ordine in cui si compensa in F24.
+  const creditoAnnoPrecedente = nonNegativo(ingresso.creditoAnnoPrecedente ?? 0);
+  const dopoVersamenti = nonNegativo(totaleDovuto - giaVersato);
+  const creditoSuSaldo = Math.min(creditoAnnoPrecedente, dopoVersamenti);
+  const saldoResiduo = round2(dopoVersamenti - creditoSuSaldo);
+  const acconti = calcolaAcconti(totaleDovuto, par, creditoAnnoPrecedente - creditoSuSaldo);
+  const daRateizzare = saldoResiduo + acconti.primoDaVersare;
   const rataRateizzazione = round2(daRateizzare / par.rateRateizzazione);
   // Interesse semplice crescente sulle rate successive alla prima.
   const rateMedieConInteressi =
@@ -391,6 +514,28 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
     acconti,
     rataRateizzazione,
     rataRateizzazioneConInteressi,
+
+    aCavallo: {
+      ricaviDaAnniPrecedenti: somma(...rf.daAnniPrecedenti.map((f) => f.ricavoRilevante)),
+      ricaviVersoAnniSuccessivi: somma(...rf.versoAnniSuccessivi.map((f) => f.ricavoRilevante)),
+      ricaviSospesi: inSospeso,
+      ivaSuIncassiFuturi: somma(
+        ...rf.versoAnniSuccessivi.map((f) => f.iva),
+        ...rf.sospesi.map((f) => f.iva),
+      ),
+      costiDaAnniPrecedenti: somma(...rc.daAnniPrecedenti.map((c) => c.costoDeducibile)),
+      costiVersoAnniSuccessivi: somma(...rc.versoAnniSuccessivi.map((c) => c.costoDeducibile)),
+      costiSospesi: somma(...rc.sospesi.map((c) => c.costoDeducibile)),
+      ivaDetraibileSuPagamentiFuturi: somma(
+        ...rc.versoAnniSuccessivi.map((c) => c.ivaDetraibile),
+        ...rc.sospesi.map((c) => c.ivaDetraibile),
+      ),
+      numeroFatture: rf.daAnniPrecedenti.length + rf.versoAnniSuccessivi.length,
+      numeroCosti: rc.daAnniPrecedenti.length + rc.versoAnniSuccessivi.length,
+    },
+
+    creditoAnnoPrecedente,
+    creditoUtilizzatoSuSaldo: round2(creditoSuSaldo),
 
     fattureCalcolate,
     costiCalcolati,

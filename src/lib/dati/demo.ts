@@ -402,5 +402,8 @@ export function datiDemo(): Dati {
     spunte: [
       { id: `${ANNO_DEMO}:saldo-e-primo-acconto`, anno: ANNO_DEMO, idAdempimento: "saldo-e-primo-acconto", completatoIl: iso(6, 30) },
     ],
+    // Nessun anno chiuso: il dataset dimostrativo mostra l'anno in corso, e la
+    // chiusura è una cosa che si prova, non che si trova già fatta.
+    chiusure: [],
   };
 }

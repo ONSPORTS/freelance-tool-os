@@ -76,6 +76,32 @@ export function prospettoDettagliato(
         : "Coincidono con i compensi incassati: non applichi la rivalsa in fattura.",
     totale: true,
   });
+
+  // I documenti a cavallo d'anno vanno detti, non lasciati dentro un totale:
+  // sono la differenza fra «quest'anno ho fatturato» e «quest'anno ho incassato»,
+  // ed è lì che il principio di cassa sorprende chi legge.
+  if (p.aCavallo.ricaviDaAnniPrecedenti > 0) {
+    base.push({
+      id: "ricavi-da-anni-precedenti",
+      etichetta: "di cui incassati su fatture di anni precedenti",
+      valore: p.aCavallo.ricaviDaAnniPrecedenti,
+      formato: "euro",
+      formula: `Fatture emesse prima del ${p.anno} e incassate quest'anno: per le imposte sono ricavo del ${p.anno}, perché conta la data dell'incasso. La loro IVA è già stata liquidata nell'anno di emissione.`,
+    });
+  }
+  if (p.aCavallo.ricaviVersoAnniSuccessivi > 0) {
+    base.push({
+      id: "ricavi-verso-anni-successivi",
+      etichetta: `Emesso nel ${p.anno} e incassato dopo`,
+      valore: p.aCavallo.ricaviVersoAnniSuccessivi,
+      formato: "euro",
+      formula: `Non entra in questo prospetto: diventerà ricavo dell'anno in cui è stato incassato.${
+        p.aCavallo.ivaSuIncassiFuturi > 0
+          ? ` L'IVA, invece, è di competenza del ${p.anno}: ${euro(p.aCavallo.ivaSuIncassiFuturi)}, dovuti comunque.`
+          : ""
+      }`,
+    });
+  }
   base.push({
     id: "costi-pagati",
     etichetta: "Costi pagati nell'anno",
@@ -83,6 +109,30 @@ export function prospettoDettagliato(
     formato: "euro",
     formula: `Totale dei documenti con data di pagamento nel ${p.anno}, IVA compresa.`,
   });
+  // Lo stesso discorso, dall'altro lato: il costo di dicembre pagato a gennaio
+  // si deduce nell'anno nuovo, ma la sua IVA è detraibile in quello vecchio.
+  if (!forfettario && p.aCavallo.costiDaAnniPrecedenti > 0) {
+    base.push({
+      id: "costi-da-anni-precedenti",
+      etichetta: "di cui pagati su documenti di anni precedenti",
+      valore: p.aCavallo.costiDaAnniPrecedenti,
+      formato: "euro",
+      formula: `Documenti datati prima del ${p.anno} e pagati quest'anno: si deducono nel ${p.anno}, perché conta la data del pagamento. La loro IVA era già detraibile nell'anno del documento.`,
+    });
+  }
+  if (!forfettario && p.aCavallo.costiVersoAnniSuccessivi + p.aCavallo.costiSospesi > 0) {
+    base.push({
+      id: "costi-verso-anni-successivi",
+      etichetta: `Registrato nel ${p.anno} e non ancora pagato`,
+      valore: p.aCavallo.costiVersoAnniSuccessivi + p.aCavallo.costiSospesi,
+      formato: "euro",
+      formula: `Non è deducibile qui: lo sarà nell'anno in cui lo paghi.${
+        p.aCavallo.ivaDetraibileSuPagamentiFuturi > 0
+          ? ` L'IVA, invece, è detraibile già nel ${p.anno}: ${euro(p.aCavallo.ivaDetraibileSuPagamentiFuturi)}.`
+          : ""
+      }`,
+    });
+  }
   if (!forfettario) {
     base.push({
       id: "costi-deducibili",

@@ -1,5 +1,6 @@
 import type { ParametriAnno } from "../tipi";
 import { PARAMETRI_2026 } from "./2026";
+import { PARAMETRI_2027 } from "./2027";
 
 /**
  * Registro dei parametri per anno. Aggiungere il 2027 significa creare
@@ -7,6 +8,7 @@ import { PARAMETRI_2026 } from "./2026";
  */
 export const PARAMETRI_PER_ANNO: Record<number, ParametriAnno> = {
   2026: PARAMETRI_2026,
+  2027: PARAMETRI_2027,
 };
 
 export const ANNO_PIU_RECENTE = Math.max(...Object.keys(PARAMETRI_PER_ANNO).map(Number));
@@ -24,4 +26,19 @@ export function parametriSonoDellAnno(anno: number): boolean {
   return anno in PARAMETRI_PER_ANNO;
 }
 
-export { PARAMETRI_2026 };
+/**
+ * L'anno più recente con parametri **definitivi**: è quello su cui ha senso
+ * posizionarsi all'avvio, perché un anno provvisorio mostra numeri stimati.
+ */
+export const ANNO_DEFINITIVO_PIU_RECENTE = Math.max(
+  ...Object.values(PARAMETRI_PER_ANNO)
+    .filter((p) => !p.provvisorio)
+    .map((p) => p.anno),
+);
+
+/** I parametri dell'anno sono provvisori: ereditati da un anno precedente. */
+export function parametriProvvisori(anno: number): boolean {
+  return parametriDi(anno).provvisorio;
+}
+
+export { PARAMETRI_2026, PARAMETRI_2027 };

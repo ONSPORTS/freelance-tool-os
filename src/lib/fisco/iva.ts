@@ -29,6 +29,8 @@ export type PeriodoIva = {
 export type LiquidazioneIva = {
   applicabile: boolean;
   periodicita: Impostazioni["periodicitaIva"];
+  /** Credito IVA riportato dall'anno precedente, quando destinato a compensazione. */
+  creditoIniziale: number;
   mesi: PeriodoIva[];
   trimestri: PeriodoIva[];
   totaleDebito: number;
@@ -55,11 +57,17 @@ function iso(anno: number, mese: number, giorno: number): string {
   return `${anno}-${String(mese).padStart(2, "0")}-${String(giorno).padStart(2, "0")}`;
 }
 
+/**
+ * @param creditoIniziale credito IVA che arriva dall'anno precedente. Entra come
+ * riporto del primo periodo, esattamente come il credito di un periodo entra nel
+ * successivo: un credito destinato a rimborso non passa di qui, resta zero.
+ */
 export function calcolaIva(
   fatture: FatturaCalcolata[],
   costi: CostoCalcolato[],
   imp: Impostazioni,
   par: ParametriAnno,
+  creditoIniziale = 0,
 ): LiquidazioneIva {
   const anno = imp.anno;
   const applicabile = imp.regime !== "forfettario";
@@ -82,7 +90,7 @@ export function calcolaIva(
 
   // Liquidazione mensile: il credito di un periodo si riporta al successivo.
   const mesi: PeriodoIva[] = [];
-  let riporto = 0;
+  let riporto = nonNegativo(creditoIniziale);
   for (let i = 0; i < 12; i++) {
     const saldo = round2(debitoMese[i] - creditoMese[i]);
     const daVersare = round2(nonNegativo(saldo - riporto));
@@ -110,7 +118,7 @@ export function calcolaIva(
   // Liquidazione trimestrale: la maggiorazione dell'1% non colpisce il quarto
   // trimestre, che confluisce nella dichiarazione annuale.
   const trimestri: PeriodoIva[] = [];
-  riporto = 0;
+  riporto = nonNegativo(creditoIniziale);
   for (let t = 0; t < 4; t++) {
     const inizio = t * 3;
     const debito = somma(...debitoMese.slice(inizio, inizio + 3));
@@ -146,6 +154,7 @@ export function calcolaIva(
   return {
     applicabile,
     periodicita: imp.periodicitaIva,
+    creditoIniziale: nonNegativo(creditoIniziale),
     mesi,
     trimestri,
     totaleDebito,

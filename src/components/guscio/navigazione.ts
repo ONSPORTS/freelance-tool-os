@@ -2,6 +2,7 @@ import {
   BarChart3,
   CalendarClock,
   Coins,
+  CalendarCheck,
   Database,
   FileText,
   LayoutDashboard,
@@ -40,6 +41,7 @@ export const GRUPPI: { titolo: string; voci: Voce[] }[] = [
       { href: "/iva", etichetta: "IVA", icona: Coins, pronta: true },
       { href: "/confronto", etichetta: "Confronto regimi", icona: Scale, pronta: true },
       { href: "/scadenzario", etichetta: "Scadenzario", icona: CalendarClock, pronta: true },
+      { href: "/chiusura", etichetta: "Chiusura d'anno", icona: CalendarCheck, pronta: true },
     ],
   },
   {

@@ -1,6 +1,10 @@
 "use client";
 
 import { toast } from "@/components/ui/toast";
+import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
+import { parametriDi } from "@/lib/fisco/parametri";
+import type { ChiusuraAnno, DestinazioneCreditoIva } from "@/lib/fisco/chiusura";
+import type { Impostazioni, Regime } from "@/lib/fisco/tipi";
 import { archivio } from "./archivio";
 import type {
   Costo,
@@ -256,4 +260,115 @@ export async function eliminaVocePatrimonio(voce: VocePatrimonio) {
   toast.conferma("Voce eliminata", async () => {
     await archivio().patrimonio.salva(voce);
   });
+}
+
+// ————————————————————————————————————————————————————————————
+// Chiusura d'anno
+// ————————————————————————————————————————————————————————————
+
+/**
+ * Le impostazioni di un anno, create se non esistono.
+ *
+ * Un anno nuovo non parte da zero: eredita il profilo di quello precedente —
+ * nome, gestione previdenziale, gruppo ATECO, percentuale di accantonamento —
+ * e prende dai parametri solo aliquote e soglie, che cambiano ogni gennaio.
+ * Il saldo iniziale invece resta a zero di proposito: lo porta la chiusura.
+ */
+export async function impostazioniDellAnno(anno: number): Promise<Impostazioni> {
+  const esistenti = await archivio().impostazioni.leggi(anno);
+  if (esistenti) return esistenti;
+
+  const parametri = parametriDi(anno);
+  const base = impostazioniPredefinite(parametri);
+  const precedente = await archivio().impostazioni.leggi(anno - 1);
+  if (!precedente) return { ...base, anno };
+
+  return {
+    ...base,
+    anno,
+    nome: precedente.nome,
+    dataAperturaPiva: precedente.dataAperturaPiva,
+    regime: precedente.regime,
+    gruppoAteco: precedente.gruppoAteco,
+    coefficienteRedditivita: precedente.coefficienteRedditivita,
+    gestione: precedente.gestione,
+    periodicitaIva: precedente.periodicitaIva,
+    rivalsaAttiva: precedente.rivalsaAttiva,
+    ritenutaAttiva: precedente.ritenutaAttiva,
+    bolloAddebitato: precedente.bolloAddebitato,
+    terminiPagamento: precedente.terminiPagamento,
+    addizionaleRegionale: precedente.addizionaleRegionale,
+    addizionaleComunale: precedente.addizionaleComunale,
+    percentualeAccantonamento: precedente.percentualeAccantonamento,
+    mesiFondoEmergenza: precedente.mesiFondoEmergenza,
+    giorniLavorativi: precedente.giorniLavorativi,
+    oreFatturabiliGiorno: precedente.oreFatturabiliGiorno,
+    tariffaOraria: precedente.tariffaOraria,
+    nettoDesiderato: precedente.nettoDesiderato,
+    costiFissiAnnui: precedente.costiFissiAnnui,
+    // Il saldo iniziale non si eredita: arriva dal riporto della chiusura.
+    saldoInizialeAttivita: 0,
+    saldoInizialePersonale: 0,
+  };
+}
+
+/**
+ * Chiude un anno.
+ *
+ * Non congela niente e non scrive nessun importo derivato: registra la data,
+ * le due decisioni (destinazione del credito IVA, regime dell'anno successivo)
+ * e un'istantanea di sola lettura, che serve solo a far vedere in seguito che
+ * qualcosa è cambiato. I riporti continuano a ricalcolarsi dai documenti.
+ */
+export async function chiudiAnno(
+  chiusura: ChiusuraAnno,
+  opzioni: { applicaRegime?: { anno: number; regime: Regime } } = {},
+): Promise<void> {
+  await archivio().chiusure.salva(chiusura);
+
+  const regime = opzioni.applicaRegime;
+  let impostazioniPrecedenti: Impostazioni | undefined;
+  if (regime) {
+    impostazioniPrecedenti = await archivio().impostazioni.leggi(regime.anno);
+    const impostazioni = await impostazioniDellAnno(regime.anno);
+    await archivio().impostazioni.salva({ ...impostazioni, regime: regime.regime });
+  }
+
+  toast.conferma(`Anno ${chiusura.anno} chiuso`, async () => {
+    await archivio().chiusure.elimina(chiusura.anno);
+    if (regime) {
+      if (impostazioniPrecedenti) await archivio().impostazioni.salva(impostazioniPrecedenti);
+      else await archivio().impostazioni.elimina(regime.anno);
+    }
+  });
+}
+
+/**
+ * Riapre un anno chiuso.
+ *
+ * È la conferma che la chiusura non è mai stata uno stato irreversibile:
+ * eliminare la riga riporta l'anno esattamente com'era, perché nessun numero
+ * era stato scritto da nessuna parte.
+ */
+export async function riapriAnno(chiusura: ChiusuraAnno): Promise<void> {
+  await archivio().chiusure.elimina(chiusura.anno);
+  toast.conferma(`Anno ${chiusura.anno} riaperto`, async () => {
+    await archivio().chiusure.salva(chiusura);
+  });
+}
+
+/** Cambia la destinazione del credito IVA su un anno già chiuso. */
+export async function cambiaDestinazioneCreditoIva(
+  chiusura: ChiusuraAnno,
+  destinazione: DestinazioneCreditoIva,
+): Promise<void> {
+  await archivio().chiusure.salva({ ...chiusura, destinazioneCreditoIva: destinazione });
+  toast.conferma(
+    destinazione === "compensazione"
+      ? "Credito IVA in compensazione"
+      : "Credito IVA chiesto a rimborso",
+    async () => {
+      await archivio().chiusure.salva(chiusura);
+    },
+  );
 }

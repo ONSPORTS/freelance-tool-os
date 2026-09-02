@@ -2,8 +2,7 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo } from "react";
-import { calcolaProspetto, type Prospetto } from "@/lib/fisco/motore";
-import { calcolaIva, type LiquidazioneIva } from "@/lib/fisco/iva";
+import { catenaAnni, type AnnoCalcolato, type ArchivioPerAnni } from "@/lib/analisi/anno";
 import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { parametriDi } from "@/lib/fisco/parametri";
 import type { Impostazioni } from "@/lib/fisco/tipi";
@@ -31,40 +30,51 @@ export function useImpostazioni(anno: number): Impostazioni | undefined {
   return useMemo(() => {
     if (salvate) return salvate;
     if (salvate === undefined) return undefined;
-    return impostazioniPredefinite(parametriDi(anno));
+    return { ...impostazioniPredefinite(parametriDi(anno)), anno };
   }, [salvate, anno]);
 }
 
-export type CalcoloAnno = {
-  prospetto: Prospetto;
-  iva: LiquidazioneIva;
-  impostazioni: Impostazioni;
-};
-
 /**
  * Il calcolo completo di un anno, ricavato dai dati grezzi.
- * Cambiare regime nelle impostazioni riconfigura ogni schermata perché tutto
- * scende da qui: nessun valore calcolato è salvato da nessuna parte.
+ *
+ * Non è un anno isolato: `catenaAnni` percorre tutti gli anni presenti in
+ * archivio in ordine, così l'anno richiesto apre con quello che gli ha lasciato
+ * il precedente — saldo, accantonato, credito IVA, crediti d'imposta. Cambiare
+ * regime nelle impostazioni riconfigura ogni schermata perché tutto scende da
+ * qui: nessun valore calcolato è salvato da nessuna parte.
  */
-export function useCalcoloAnno(anno: number, oggi: string): CalcoloAnno | undefined {
+export type CalcoloAnno = AnnoCalcolato;
+
+function archivioDa(dati: Dati): ArchivioPerAnni {
+  return {
+    impostazioni: dati.impostazioni,
+    fatture: dati.fatture,
+    costi: dati.costi,
+    versamenti: dati.versamenti,
+    movimentiAttivita: dati.movimentiAttivita,
+    movimentiPersonali: dati.movimentiPersonali,
+    chiusure: dati.chiusure,
+  };
+}
+
+export function useCatenaAnni(
+  anno: number,
+  oggi: string,
+): Map<number, AnnoCalcolato> | undefined {
   const dati = useDati();
-  return useMemo(() => {
-    if (!dati) return undefined;
-    const parametri = parametriDi(anno);
-    const impostazioni =
-      dati.impostazioni.find((i) => i.anno === anno) ?? impostazioniPredefinite(parametri);
-    const prospetto = calcolaProspetto({
-      impostazioni,
-      parametri,
-      fatture: dati.fatture,
-      costi: dati.costi,
-      versamenti: dati.versamenti,
-      oggi,
-    });
-    return {
-      impostazioni,
-      prospetto,
-      iva: calcolaIva(prospetto.fattureCalcolate, prospetto.costiCalcolati, impostazioni, parametri),
-    };
-  }, [dati, anno, oggi]);
+  return useMemo(
+    () => (dati ? catenaAnni(archivioDa(dati), anno, oggi) : undefined),
+    [dati, anno, oggi],
+  );
+}
+
+export function useCalcoloAnno(anno: number, oggi: string): CalcoloAnno | undefined {
+  const catena = useCatenaAnni(anno, oggi);
+  return catena?.get(anno);
+}
+
+/** Gli anni che hanno qualcosa dentro, per il selettore: sempre in ordine. */
+export function useAnniDisponibili(anno: number, oggi: string): number[] {
+  const catena = useCatenaAnni(anno, oggi);
+  return useMemo(() => (catena ? [...catena.keys()].sort((a, b) => a - b) : [anno]), [catena, anno]);
 }

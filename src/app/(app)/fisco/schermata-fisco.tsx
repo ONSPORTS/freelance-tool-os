@@ -10,8 +10,12 @@ import { Kpi } from "@/components/ui/kpi";
 import { Sezione } from "@/components/ui/fisarmonica";
 import { Guscio } from "@/components/guscio/guscio";
 import { RigaDelProspetto } from "@/components/fisco/riga-prospetto";
+import { AvvisoParametri } from "@/components/fisco/avviso-parametri";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { esportazioneProspettoConsentita } from "@/lib/fisco/chiusura";
 import { useCalcoloAnno } from "@/lib/dati/hooks";
-import { parametriDi, parametriSonoDellAnno } from "@/lib/fisco/parametri";
+import { parametriDi } from "@/lib/fisco/parametri";
 import { dettaglioSoglia, prospettoDettagliato } from "@/lib/fisco/spiegazioni";
 import { usePreferenze } from "@/lib/stato/preferenze";
 import { euro, percentuale } from "@/lib/format";
@@ -38,12 +42,29 @@ export function SchermataFisco() {
 
   const { prospetto: p, impostazioni: imp } = calcolo;
   const soglia = dettaglioSoglia(p, imp);
-  const parametriStimati = !parametriSonoDellAnno(anno);
+  const esportazione = esportazioneProspettoConsentita(parametriDi(anno));
 
   return (
     <Guscio
       titolo="Imposte e contributi"
       descrizione={`Prospetto ${anno} · calcolo per cassa · regime ${imp.regime}`}
+      azioni={
+        // L'export vero arriva più avanti; il blocco no, quello serve da subito.
+        // Un prospetto che sembra definitivo e poggia su aliquote dell'anno
+        // prima non deve poter uscire dall'app, nemmeno per sbaglio.
+        <Button
+          variante="contorno"
+          disabled
+          title={
+            esportazione.consentita
+              ? "L'export del prospetto arriva con la fase successiva."
+              : esportazione.motivo
+          }
+        >
+          <Download className="size-4" aria-hidden />
+          Esporta il prospetto
+        </Button>
+      }
     >
       <div className="mx-auto max-w-4xl space-y-4">
         <section aria-label="Sintesi" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -68,17 +89,7 @@ export function SchermataFisco() {
           </Card>
         )}
 
-        {parametriStimati && (
-          <Card className="border border-attenzione/25 bg-attenzione-tenue">
-            <CardCorpo className="py-4">
-              <p className="text-etichetta text-[#B8791A]">
-                Per il {anno} non ci sono ancora parametri di legge censiti: il prospetto usa
-                aliquote e soglie dell&apos;ultimo anno disponibile. Verificale prima di
-                usarle per decidere.
-              </p>
-            </CardCorpo>
-          </Card>
-        )}
+        <AvvisoParametri anno={anno} />
 
         {p.ricaviRilevanti === 0 ? (
           <Card>

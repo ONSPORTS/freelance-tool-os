@@ -77,7 +77,7 @@ export function SchermataPianificazione() {
   return (
     <Guscio
       titolo="Pianificazione"
-      descrizione="Dal netto che vuoi in tasca ai contatti da coltivare ogni mese"
+      descrizione={`Anno ${anno} · dal netto che vuoi in tasca ai contatti da coltivare ogni mese`}
     >
       <div className="mx-auto max-w-4xl space-y-4">
         <Card scura className="p-6">

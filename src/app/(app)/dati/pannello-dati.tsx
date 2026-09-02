@@ -37,6 +37,7 @@ const ETICHETTE: Record<NomeCollezione, string> = {
   versamenti: "Versamenti F24",
   patrimonio: "Voci di patrimonio",
   spunte: "Adempimenti spuntati",
+  chiusure: "Chiusure d'anno",
 };
 
 export function PannelloDati() {

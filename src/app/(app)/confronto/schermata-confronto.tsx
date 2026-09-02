@@ -83,7 +83,7 @@ export function SchermataConfronto() {
   return (
     <Guscio
       titolo="Forfettario o ordinario?"
-      descrizione="Stessi ricavi, stessi costi, i due regimi messi a confronto"
+      descrizione={`Anno ${anno} · stessi ricavi, stessi costi, i due regimi messi a confronto`}
     >
       <div className="mx-auto max-w-5xl space-y-4">
         {/* La card scura della schermata: il verdetto. */}

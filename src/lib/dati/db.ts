@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import type {
+  ChiusuraAnno,
   Cliente,
   Costo,
   Fattura,
@@ -19,7 +20,7 @@ import type {
  * liquidazione IVA) e il cliente (concentrazione del portafoglio).
  * Nessun campo derivato è indicizzato, perché nessun campo derivato è salvato.
  */
-export const VERSIONE_SCHEMA = 2;
+export const VERSIONE_SCHEMA = 3;
 
 export class DatabaseFinanze extends Dexie {
   impostazioni!: EntityTable<Impostazioni, "anno">;
@@ -31,6 +32,7 @@ export class DatabaseFinanze extends Dexie {
   versamenti!: EntityTable<VersamentoF24, "id">;
   patrimonio!: EntityTable<VocePatrimonio, "id">;
   spunte!: EntityTable<SpuntaAdempimento, "id">;
+  chiusure!: EntityTable<ChiusuraAnno, "anno">;
 
   // Il nome del database resta quello originale anche dopo il rename del
   // progetto in Freelance Flow: in IndexedDB il nome È la chiave dell'archivio,
@@ -53,6 +55,12 @@ export class DatabaseFinanze extends Dexie {
     // richiede migrazione: i dati esistenti restano dove sono.
     this.version(2).stores({
       spunte: "id, anno",
+    });
+    // Versione 3: le chiusure d'anno, una per anno. Anche qui nessuna
+    // migrazione: chi non ha mai chiuso un anno trova la tabella vuota, che è
+    // esattamente lo stato «tutti gli anni aperti».
+    this.version(3).stores({
+      chiusure: "anno",
     });
   }
 }

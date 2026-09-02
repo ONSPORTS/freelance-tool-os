@@ -31,6 +31,13 @@ export type ParametriAnno = {
   anno: number;
   /** Da citare nell'interfaccia accanto ai parametri. */
   fonti: string[];
+  /**
+   * I valori sono ereditati da un anno precedente, in attesa della Legge di
+   * Bilancio. Finché è `true` l'interfaccia lo dichiara e il prospetto non si
+   * può esportare: un documento che sembra definitivo e poggia su aliquote
+   * dell'anno prima non deve poter uscire dall'app.
+   */
+  provvisorio: boolean;
 
   limiteForfettario: number;
   sogliaUscitaImmediata: number;

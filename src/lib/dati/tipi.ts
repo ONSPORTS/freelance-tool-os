@@ -2,6 +2,7 @@
  * Entità che non appartengono al motore fiscale: anagrafiche e movimenti
  * che l'utente compila a mano.
  */
+import type { ChiusuraAnno } from "@/lib/fisco/chiusura";
 import type { Costo, Fattura, Impostazioni, VersamentoF24 } from "@/lib/fisco/tipi";
 
 export type Cliente = {
@@ -58,9 +59,9 @@ export type VocePatrimonio = {
   valore: number;
 };
 
-export type { Costo, Fattura, Impostazioni, VersamentoF24 };
+export type { ChiusuraAnno, Costo, Fattura, Impostazioni, VersamentoF24 };
 
-/** Le otto collezioni persistite. Il nome è anche la chiave nel file di backup. */
+/** Le collezioni persistite. Il nome è anche la chiave nel file di backup. */
 export const COLLEZIONI = [
   "impostazioni",
   "clienti",
@@ -71,6 +72,7 @@ export const COLLEZIONI = [
   "versamenti",
   "patrimonio",
   "spunte",
+  "chiusure",
 ] as const;
 
 export type NomeCollezione = (typeof COLLEZIONI)[number];
@@ -85,6 +87,8 @@ export type Dati = {
   versamenti: VersamentoF24[];
   patrimonio: VocePatrimonio[];
   spunte: SpuntaAdempimento[];
+  /** Le chiusure d'anno: decisioni, non importi. Eliminarne una riapre l'anno. */
+  chiusure: ChiusuraAnno[];
 };
 
 export function datiVuoti(): Dati {
@@ -98,6 +102,7 @@ export function datiVuoti(): Dati {
     versamenti: [],
     patrimonio: [],
     spunte: [],
+    chiusure: [],
   };
 }
 

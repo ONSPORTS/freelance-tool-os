@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { etichettaPeriodo, type Periodo, type TipoPeriodo } from "@/lib/periodo";
 import { nomeMese } from "@/lib/format";
+import { StatoAnno, type StatoDellAnno } from "./stato-anno";
 
 const TIPI: { valore: TipoPeriodo; etichetta: string }[] = [
   { valore: "mese", etichetta: "Mese" },
@@ -30,10 +31,13 @@ const TIPI: { valore: TipoPeriodo; etichetta: string }[] = [
 export function SelettorePeriodo({
   periodo,
   onChange,
+  statoAnno,
   className,
 }: {
   periodo: Periodo;
   onChange: (p: Periodo) => void;
+  /** Aperto, chiuso o su parametri provvisori. Sta attaccato all'anno perché è dell'anno. */
+  statoAnno?: StatoDellAnno;
   className?: string;
 }) {
   const oggi = React.useMemo(() => new Date(), []);
@@ -82,6 +86,8 @@ export function SelettorePeriodo({
           <ChevronRight className="size-4" />
         </Button>
       </div>
+
+      {statoAnno && <StatoAnno stato={statoAnno} />}
 
       {periodo.tipo === "mese" && (
         <Select

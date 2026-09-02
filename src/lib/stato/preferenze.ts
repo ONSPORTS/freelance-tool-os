@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { ANNO_PIU_RECENTE } from "@/lib/fisco/parametri";
+import { ANNO_DEFINITIVO_PIU_RECENTE } from "@/lib/fisco/parametri";
 import { periodoAnno, type Periodo } from "@/lib/periodo";
 
 /**
@@ -22,7 +22,10 @@ type Preferenze = {
 export const usePreferenze = create<Preferenze>()(
   persist(
     (set, get) => ({
-      periodo: periodoAnno(ANNO_PIU_RECENTE),
+      // L'app apre sull'ultimo anno con parametri definitivi, non sull'ultimo
+      // censito: aprire di default su un anno le cui aliquote sono stimate
+      // significherebbe mostrare numeri provvisori a chi non li ha chiesti.
+      periodo: periodoAnno(ANNO_DEFINITIVO_PIU_RECENTE),
       densita: "comoda",
       impostaPeriodo: (periodo) => set({ periodo }),
       impostaAnno: (anno) => set({ periodo: { ...get().periodo, anno } }),

@@ -9,7 +9,6 @@ import { Campo, Input } from "@/components/ui/input";
 import { Kpi } from "@/components/ui/kpi";
 import { CellaModificabile } from "@/components/tabella/cella-modificabile";
 import { Guscio } from "@/components/guscio/guscio";
-import { calcolaCashflow } from "@/lib/analisi/cashflow";
 import { calcolaPatrimonio, type VoceCalcolata } from "@/lib/analisi/pianificazione";
 import {
   creaVocePatrimonio,
@@ -30,16 +29,7 @@ export function SchermataPatrimonio() {
 
   const patrimonio = React.useMemo(() => {
     if (!dati || !calcolo) return null;
-    const cashflow = calcolaCashflow({
-      anno,
-      saldoIniziale: calcolo.impostazioni.saldoInizialeAttivita,
-      percentualeAccantonamento: calcolo.impostazioni.percentualeAccantonamento,
-      fatture: calcolo.prospetto.fattureCalcolate,
-      costi: calcolo.prospetto.costiCalcolati,
-      versamenti: dati.versamenti,
-      movimentiAttivita: dati.movimentiAttivita,
-      movimentiPersonali: dati.movimentiPersonali,
-    });
+    const cashflow = calcolo.cashflow;
     const personale = dati.movimentiPersonali
       .filter((m) => m.anno === anno)
       .reduce(
@@ -73,7 +63,7 @@ export function SchermataPatrimonio() {
   return (
     <Guscio
       titolo="Patrimonio"
-      descrizione="Quello che possiedi meno quello che devi, al netto di ciò che è già impegnato"
+      descrizione={`Al 31 dicembre ${anno} · quello che possiedi meno quello che devi, al netto di ciò che è già impegnato`}
     >
       <div className="mx-auto max-w-4xl space-y-4">
         <section aria-label="Sintesi" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

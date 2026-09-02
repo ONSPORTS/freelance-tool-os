@@ -14,6 +14,7 @@ export const PARAMETRI_2026: ParametriAnno = {
     "Allegato n. 2 alla Legge 190/2014 — coefficienti di redditività",
     "Circolare INPS n. 8 del 3 febbraio 2026 — aliquote previdenziali",
   ],
+  provvisorio: false,
 
   limiteForfettario: 85_000,
   sogliaUscitaImmediata: 100_000,

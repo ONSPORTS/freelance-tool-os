@@ -36,6 +36,17 @@ export type MeseCassa = {
 export type Cashflow = {
   mesi: MeseCassa[];
   saldoIniziale: number;
+  /**
+   * Tasse già accantonate al 1° gennaio, riportate dall'anno precedente.
+   *
+   * È il numero che, se non attraversa la chiusura, fa risalire da solo la
+   * liquidità netta il primo dell'anno: il conto è lo stesso di ieri, ma una
+   * parte di quei soldi serve a pagare a giugno. Non produce un errore,
+   * produce un numero plausibile e sbagliato.
+   */
+  accantonatoIniziale: number;
+  /** Liquidità davvero disponibile al 1° gennaio: saldo meno accantonato. */
+  liquiditaNettaIniziale: number;
   totaleEntrate: number;
   totaleUscite: number;
   saldoFinale: number;
@@ -53,6 +64,8 @@ const MESI_BREVI = [
 export type IngressoCashflow = {
   anno: number;
   saldoIniziale: number;
+  /** Accantonamento residuo che arriva dall'anno precedente. Zero al primo anno. */
+  accantonatoIniziale?: number;
   percentualeAccantonamento: number;
   fatture: FatturaCalcolata[];
   costi: CostoCalcolato[];
@@ -71,7 +84,10 @@ export function calcolaCashflow(ing: IngressoCashflow): Cashflow {
 
   const mesi: MeseCassa[] = [];
   let saldo = ing.saldoIniziale;
-  let accantonato = 0;
+  // L'accantonato non riparte da zero a gennaio: quello dell'anno prima serve a
+  // pagare il saldo di giugno, e finché non è versato resta denaro impegnato.
+  const accantonatoIniziale = round2(Math.max(0, ing.accantonatoIniziale ?? 0));
+  let accantonato = accantonatoIniziale;
 
   for (let m = 1; m <= 12; m++) {
     const incassiClienti = somma(
@@ -130,6 +146,8 @@ export function calcolaCashflow(ing: IngressoCashflow): Cashflow {
   return {
     mesi,
     saldoIniziale: ing.saldoIniziale,
+    accantonatoIniziale,
+    liquiditaNettaIniziale: round2(ing.saldoIniziale - accantonatoIniziale),
     totaleEntrate: somma(...mesi.map((m) => m.totaleEntrate)),
     totaleUscite: somma(...mesi.map((m) => m.totaleUscite)),
     saldoFinale: mesi[11].saldoCassa,

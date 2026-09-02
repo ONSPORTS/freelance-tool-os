@@ -101,3 +101,126 @@ export function impostazioniOrdinario(): Impostazioni {
     addizionaleComunale: 0.008,
   };
 }
+
+// ————————————————————————————————————————————————————————————
+// Fixture di chiusura d'anno
+// ————————————————————————————————————————————————————————————
+
+/**
+ * Lo scenario del passaggio d'anno, verificato a mano.
+ *
+ * Il 2026 chiude e il 2027 apre. Ogni riporto è rappresentato una volta sola,
+ * con numeri tondi, così i valori si ricontrollano a mente:
+ *
+ *   saldo di cassa   10.000 + 48.800 − 2.440 − 9.760 = 46.600
+ *   accantonato      48.800 × 30 %                   = 14.640
+ *   liquidità netta  46.600 − 14.640                 = 31.960
+ *   credito IVA      440 di aprile + 220 di dicembre = 660
+ *   da incassare     6.100 + 3.660                   =  9.760
+ *   da pagare        1.220                           =  1.220
+ *
+ * Due documenti stanno a cavallo del 31 dicembre, uno per lato: la fattura
+ * `cf2` è IVA del 2026 e ricavo del 2027, il costo `cc2` è IVA detraibile del
+ * 2026 e deduzione del 2027.
+ */
+export const OGGI_CHIUSURA = "2027-03-15";
+
+export const FATTURE_CHIUSURA: Fattura[] = [
+  {
+    id: "cf1",
+    dataEmissione: "2026-03-10",
+    numero: "2026/001",
+    clienteId: "alfa",
+    descrizione: "Progetto annuale",
+    tipoRicavo: "progetto",
+    imponibile: 40_000,
+    aliquotaIva: 0.22,
+    dataIncasso: "2026-03-31",
+  },
+  {
+    // Emessa a dicembre, incassata a gennaio: IVA del 2026, ricavo del 2027.
+    id: "cf2",
+    dataEmissione: "2026-12-20",
+    numero: "2026/002",
+    clienteId: "beta",
+    descrizione: "Consulenza dicembre",
+    tipoRicavo: "progetto",
+    imponibile: 5_000,
+    aliquotaIva: 0.22,
+    dataIncasso: "2027-01-15",
+  },
+  {
+    // Emessa e mai incassata: IVA dovuta lo stesso, ricavo ancora senza anno.
+    id: "cf3",
+    dataEmissione: "2026-11-05",
+    numero: "2026/003",
+    clienteId: "gamma",
+    descrizione: "Retainer novembre",
+    tipoRicavo: "ricorrente",
+    imponibile: 3_000,
+    aliquotaIva: 0.22,
+    dataIncasso: null,
+  },
+];
+
+export const COSTI_CHIUSURA: Costo[] = [
+  {
+    id: "cc1",
+    dataDocumento: "2026-04-10",
+    fornitore: "Studio Rossi",
+    categoria: "Commercialista e consulenze",
+    descrizione: "Onorario",
+    natura: "fisso",
+    imponibile: 2_000,
+    aliquotaIva: 0.22,
+    percentualeDeducibilita: 1,
+    dataPagamento: "2026-04-20",
+  },
+  {
+    // Documento di dicembre, pagato a gennaio: IVA detraibile del 2026,
+    // deduzione del 2027. È il caso speculare della fattura `cf2`.
+    id: "cc2",
+    dataDocumento: "2026-12-15",
+    fornitore: "Zeta Digital",
+    categoria: "Servizi e collaborazioni",
+    descrizione: "Sviluppo dicembre",
+    natura: "variabile",
+    imponibile: 1_000,
+    aliquotaIva: 0.22,
+    percentualeDeducibilita: 1,
+    dataPagamento: "2027-01-20",
+  },
+  {
+    id: "cc3",
+    dataDocumento: "2026-12-28",
+    fornitore: "Tipografia Moderna",
+    categoria: "Attrezzature",
+    descrizione: "Postazione di lavoro",
+    natura: "variabile",
+    imponibile: 8_000,
+    aliquotaIva: 0.22,
+    percentualeDeducibilita: 1,
+    dataPagamento: "2026-12-30",
+  },
+];
+
+/** Ordinario, 30 % di accantonamento, 10.000 € di saldo iniziale. */
+export function impostazioniChiusura2026(): Impostazioni {
+  return {
+    ...impostazioniOrdinario(),
+    anno: 2026,
+    saldoInizialeAttivita: 10_000,
+    percentualeAccantonamento: 0.3,
+    periodicitaIva: "trimestrale",
+  };
+}
+
+/** Lo stesso profilo, un anno dopo. I riporti arrivano dalla chiusura, non da qui. */
+export function impostazioniChiusura2027(): Impostazioni {
+  return {
+    ...impostazioniChiusura2026(),
+    anno: 2027,
+    // Il saldo iniziale non si scrive a mano: lo porta la chiusura del 2026.
+    saldoInizialeAttivita: 0,
+  };
+}
