@@ -38,6 +38,7 @@ const ETICHETTE: Record<NomeCollezione, string> = {
   patrimonio: "Voci di patrimonio",
   spunte: "Adempimenti spuntati",
   chiusure: "Chiusure d'anno",
+  percorsi: "Percorsi di configurazione",
 };
 
 export function PannelloDati() {

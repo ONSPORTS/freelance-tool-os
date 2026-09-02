@@ -44,6 +44,7 @@ export interface StorageAdapter {
   readonly spunte: Deposito<Dati["spunte"][number]>;
   /** Le chiusure sono indicizzate per anno, come le impostazioni. */
   readonly chiusure: Deposito<Dati["chiusure"][number], number>;
+  readonly percorsi: Deposito<Dati["percorsi"][number]>;
 
   /** Legge tutto, in una sola transazione dove la tecnologia lo consente. */
   leggiTutto(): Promise<Dati>;
@@ -69,5 +70,6 @@ export function depositiDi(
     patrimonio: adapter.patrimonio,
     spunte: adapter.spunte,
     chiusure: adapter.chiusure,
+    percorsi: adapter.percorsi,
   } as Record<NomeCollezione, Deposito<never, never>>;
 }

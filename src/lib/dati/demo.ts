@@ -405,5 +405,29 @@ export function datiDemo(): Dati {
     // Nessun anno chiuso: il dataset dimostrativo mostra l'anno in corso, e la
     // chiusura è una cosa che si prova, non che si trova già fatta.
     chiusure: [],
+    // Il dataset dimostrativo non finge di aver risposto alle domande: il
+    // percorso resta da fare, ed è giusto che si veda.
+    percorsi: [],
+  };
+}
+
+/**
+ * Il dataset dimostrativo, conservando quello che l'utente ha già deciso.
+ *
+ * Serve al primo avvio: chi ha appena risposto alle domande di configurazione
+ * non deve vedersele cancellare per aver chiesto di guardare le schermate
+ * popolate. Le impostazioni restano le sue, i documenti sono inventati.
+ */
+export function datiDemoConservando(
+  attuali: Dati,
+  conserva: { impostazioni: boolean; percorsi: boolean },
+): Dati {
+  const demo = datiDemo();
+  return {
+    ...demo,
+    impostazioni: conserva.impostazioni && attuali.impostazioni.length > 0
+      ? attuali.impostazioni
+      : demo.impostazioni,
+    percorsi: conserva.percorsi ? attuali.percorsi : demo.percorsi,
   };
 }

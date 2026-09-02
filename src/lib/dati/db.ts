@@ -2,6 +2,7 @@ import Dexie, { type EntityTable } from "dexie";
 import type {
   ChiusuraAnno,
   Cliente,
+  StatoPercorso,
   Costo,
   Fattura,
   Impostazioni,
@@ -20,7 +21,7 @@ import type {
  * liquidazione IVA) e il cliente (concentrazione del portafoglio).
  * Nessun campo derivato è indicizzato, perché nessun campo derivato è salvato.
  */
-export const VERSIONE_SCHEMA = 3;
+export const VERSIONE_SCHEMA = 4;
 
 export class DatabaseFinanze extends Dexie {
   impostazioni!: EntityTable<Impostazioni, "anno">;
@@ -33,6 +34,7 @@ export class DatabaseFinanze extends Dexie {
   patrimonio!: EntityTable<VocePatrimonio, "id">;
   spunte!: EntityTable<SpuntaAdempimento, "id">;
   chiusure!: EntityTable<ChiusuraAnno, "anno">;
+  percorsi!: EntityTable<StatoPercorso, "id">;
 
   // Il nome del database resta quello originale anche dopo il rename del
   // progetto in Freelance Flow: in IndexedDB il nome È la chiave dell'archivio,
@@ -61,6 +63,12 @@ export class DatabaseFinanze extends Dexie {
     // esattamente lo stato «tutti gli anni aperti».
     this.version(3).stores({
       chiusure: "anno",
+    });
+    // Versione 4: l'avanzamento nei percorsi di configurazione. Chi non ne ha
+    // mai fatto uno trova la tabella vuota, cioè «nessun passo confermato»:
+    // esattamente lo stato di partenza.
+    this.version(4).stores({
+      percorsi: "id, [contesto+anno]",
     });
   }
 }

@@ -7,6 +7,12 @@ import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { parametriDi } from "@/lib/fisco/parametri";
 import type { Impostazioni } from "@/lib/fisco/tipi";
 import { archivio } from "./archivio";
+import {
+  chiavePercorso,
+  type ContestoPercorso,
+  type SituazioneApp,
+  type StatoPercorso,
+} from "@/lib/onboarding/percorso";
 import type { Dati } from "./tipi";
 
 /**
@@ -77,4 +83,42 @@ export function useCalcoloAnno(anno: number, oggi: string): CalcoloAnno | undefi
 export function useAnniDisponibili(anno: number, oggi: string): number[] {
   const catena = useCatenaAnni(anno, oggi);
   return useMemo(() => (catena ? [...catena.keys()].sort((a, b) => a - b) : [anno]), [catena, anno]);
+}
+
+// ————————————————————————————————————————————————————————————
+// Percorsi di configurazione
+// ————————————————————————————————————————————————————————————
+
+/** L'avanzamento in un percorso, o `null` se non è mai stato iniziato. */
+export function usePercorso(
+  contesto: ContestoPercorso,
+  anno: number,
+): StatoPercorso | null | undefined {
+  const dati = useDati();
+  return useMemo(() => {
+    if (!dati) return undefined;
+    return dati.percorsi.find((p) => p.id === chiavePercorso(contesto, anno)) ?? null;
+  }, [dati, contesto, anno]);
+}
+
+/**
+ * Lo stato dell'app dal punto di vista del percorso: serve a capire quale dei
+ * tre momenti si sta vivendo senza doverlo chiedere all'utente.
+ */
+export function useSituazione(anno: number, oggi: string): SituazioneApp | undefined {
+  const dati = useDati();
+  const catena = useCatenaAnni(anno, oggi);
+  return useMemo(() => {
+    if (!dati || !catena) return undefined;
+    const precedente = catena.get(anno - 1);
+    return {
+      anno,
+      // «Vuoto» qui significa senza documenti: le impostazioni predefinite non
+      // contano, perché non le ha scelte nessuno.
+      archivioVuoto: dati.fatture.length === 0 && dati.costi.length === 0,
+      precedenteChiuso: precedente?.chiuso ?? false,
+      cambioRegimeProposto: precedente?.regime.daProporre ?? false,
+      completati: dati.percorsi.filter((p) => p.completatoIl).map((p) => p.id),
+    };
+  }, [dati, catena, anno]);
 }

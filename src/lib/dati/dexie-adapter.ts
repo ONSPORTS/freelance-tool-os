@@ -42,6 +42,7 @@ export class DexieAdapter implements StorageAdapter {
   readonly patrimonio: StorageAdapter["patrimonio"];
   readonly spunte: StorageAdapter["spunte"];
   readonly chiusure: StorageAdapter["chiusure"];
+  readonly percorsi: StorageAdapter["percorsi"];
 
   constructor(database: DatabaseFinanze = dbCondiviso()) {
     this.database = database;
@@ -60,6 +61,9 @@ export class DexieAdapter implements StorageAdapter {
     this.spunte = deposito(database.spunte as unknown as Table<Dati["spunte"][number], string>);
     this.chiusure = deposito(
       database.chiusure as unknown as Table<Dati["chiusure"][number], number>,
+    );
+    this.percorsi = deposito(
+      database.percorsi as unknown as Table<Dati["percorsi"][number], string>,
     );
   }
 

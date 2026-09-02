@@ -279,6 +279,14 @@ export function SchermataChiusura() {
             )}
 
             {regime.daProporre && (
+              <div className="mt-4">
+                <Button variante="contorno" asChild>
+                  <Link href="/avvio">Vedi cosa cambia, sui tuoi numeri</Link>
+                </Button>
+              </div>
+            )}
+
+            {regime.daProporre && (
               <p className="mt-4 text-etichetta text-white/60">
                 Chiudendo l&apos;anno il regime viene applicato alle impostazioni
                 {regime.motivo === "uscitaImmediata" ? ` del ${anno}` : ` del ${anno + 1}`}.

@@ -3,6 +3,7 @@
  * che l'utente compila a mano.
  */
 import type { ChiusuraAnno } from "@/lib/fisco/chiusura";
+import type { StatoPercorso } from "@/lib/onboarding/percorso";
 import type { Costo, Fattura, Impostazioni, VersamentoF24 } from "@/lib/fisco/tipi";
 
 export type Cliente = {
@@ -59,7 +60,7 @@ export type VocePatrimonio = {
   valore: number;
 };
 
-export type { ChiusuraAnno, Costo, Fattura, Impostazioni, VersamentoF24 };
+export type { ChiusuraAnno, Costo, Fattura, Impostazioni, StatoPercorso, VersamentoF24 };
 
 /** Le collezioni persistite. Il nome è anche la chiave nel file di backup. */
 export const COLLEZIONI = [
@@ -73,6 +74,7 @@ export const COLLEZIONI = [
   "patrimonio",
   "spunte",
   "chiusure",
+  "percorsi",
 ] as const;
 
 export type NomeCollezione = (typeof COLLEZIONI)[number];
@@ -89,6 +91,11 @@ export type Dati = {
   spunte: SpuntaAdempimento[];
   /** Le chiusure d'anno: decisioni, non importi. Eliminarne una riapre l'anno. */
   chiusure: ChiusuraAnno[];
+  /**
+   * L'avanzamento nei percorsi di configurazione. Non è stato di interfaccia:
+   * distingue un valore scelto da un valore mai toccato, e l'app lo dichiara.
+   */
+  percorsi: StatoPercorso[];
 };
 
 export function datiVuoti(): Dati {
@@ -103,6 +110,7 @@ export function datiVuoti(): Dati {
     patrimonio: [],
     spunte: [],
     chiusure: [],
+    percorsi: [],
   };
 }
 

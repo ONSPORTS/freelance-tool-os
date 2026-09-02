@@ -11,6 +11,7 @@ import {
   Receipt,
   Scale,
   Settings,
+  Compass,
   Target,
   Users,
   type LucideIcon,
@@ -55,6 +56,7 @@ export const GRUPPI: { titolo: string; voci: Voce[] }[] = [
   {
     titolo: "Impostazioni",
     voci: [
+      { href: "/avvio", etichetta: "Configurazione", icona: Compass, pronta: true },
       { href: "/impostazioni", etichetta: "Parametri", icona: Settings, pronta: false },
       { href: "/dati", etichetta: "Dati e backup", icona: Database, pronta: true },
     ],

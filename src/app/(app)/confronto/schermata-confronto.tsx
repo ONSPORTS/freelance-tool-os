@@ -21,7 +21,12 @@ import {
   CurvaRegimi,
 } from "@/components/grafici/curva-regimi";
 import { useCalcoloAnno } from "@/lib/dati/hooks";
-import { confrontaRegimi, curvaConfronto, puntoDiIncrocio } from "@/lib/fisco/confronto";
+import {
+  confrontaRegimi,
+  curvaConfronto,
+  ingressoDaProspetto,
+  puntoDiIncrocio,
+} from "@/lib/fisco/confronto";
 import { parametriDi } from "@/lib/fisco/parametri";
 import { usePreferenze } from "@/lib/stato/preferenze";
 import { analizzaNumero, euro, euroTondo, perCampo, percentuale } from "@/lib/format";
@@ -42,14 +47,11 @@ export function SchermataConfronto() {
   // e da lì si muove.
   React.useEffect(() => {
     if (!calcolo || ricavi !== null) return;
-    const p = calcolo.prospetto;
-    setRicavi(Math.round(p.ricaviRilevanti) || 40_000);
-    const imponibileCosti = p.costiCalcolati
-      .filter((c) => c.dataPagamento)
-      .reduce((a, c) => a + c.imponibile, 0);
-    setCostiDeducibili(Math.round(imponibileCosti));
-    setCostiTotali(Math.round(p.costiPagatiTotale));
-    setIvaAcquisti(Math.round(p.costiCalcolati.filter((c) => c.dataPagamento).reduce((a, c) => a + c.iva, 0)));
+    const ing = ingressoDaProspetto(calcolo.prospetto);
+    setRicavi(Math.round(ing.ricavi) || 40_000);
+    setCostiDeducibili(Math.round(ing.costiDeducibili));
+    setCostiTotali(Math.round(ing.costiTotali));
+    setIvaAcquisti(Math.round(ing.ivaAcquisti));
   }, [calcolo, ricavi]);
 
   if (!calcolo || ricavi === null) {

@@ -288,6 +288,28 @@ const convalidaChiusura: Convalida<Dati["chiusure"][number]> = (riga, i, errori)
   };
 };
 
+/** L'avanzamento in un percorso di configurazione. */
+const convalidaPercorso: Convalida<Dati["percorsi"][number]> = (riga, i, errori) => {
+  const id = richiedeId(riga, "percorsi", i, errori);
+  if (!id) return null;
+  const contesto = riga.contesto;
+  if (contesto !== "primoAvvio" && contesto !== "aperturaAnno" && contesto !== "cambioRegime") {
+    errori.push(`percorsi, riga ${i + 1}: contesto «${String(contesto)}» sconosciuto.`);
+    return null;
+  }
+  const elencoDiId = (v: unknown): string[] =>
+    Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+  return {
+    id,
+    contesto,
+    anno: numero(riga.anno),
+    confermati: elencoDiId(riga.confermati),
+    saltati: elencoDiId(riga.saltati),
+    completatoIl: typeof riga.completatoIl === "string" ? riga.completatoIl : null,
+    aggiornatoIl: testo(riga.aggiornatoIl) || new Date().toISOString(),
+  };
+};
+
 const convalidaVocePatrimonio: Convalida<Dati["patrimonio"][number]> = (riga, i, errori) => {
   const id = richiedeId(riga, "patrimonio", i, errori);
   if (!id) return null;
@@ -425,6 +447,7 @@ export function analizzaBackup(testoGrezzo: string): RisultatoAnalisi {
   dati.patrimonio = convalidaElenco(contenuto.patrimonio, "patrimonio", convalidaVocePatrimonio, errori);
   dati.spunte = convalidaElenco(contenuto.spunte, "spunte", convalidaSpunta, errori);
   dati.chiusure = convalidaElenco(contenuto.chiusure, "chiusure", convalidaChiusura, errori);
+  dati.percorsi = convalidaElenco(contenuto.percorsi, "percorsi", convalidaPercorso, errori);
 
   if (errori.length > 0) return { ok: false, errori };
 

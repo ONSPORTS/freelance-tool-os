@@ -11,6 +11,7 @@ import { COLORI_SEMAFORO, SemaforoFiscale } from "@/components/fisco/semaforo-fi
 import { GraficoAndamento } from "@/components/grafici/andamento";
 import { GraficoConcentrazione } from "@/components/grafici/concentrazione";
 import { Guscio } from "@/components/guscio/guscio";
+import { InvitoPercorso } from "@/components/guscio/invito-percorso";
 import { andamentoMensile, giorniMediIncasso, portafoglioClienti } from "@/lib/analisi/dashboard";
 import { generaAvvisi, type Avviso } from "@/lib/analisi/avvisi";
 import { useCalcoloAnno, useDati } from "@/lib/dati/hooks";
@@ -74,6 +75,8 @@ export function Cruscotto() {
   return (
     <Guscio titolo={titolo} descrizione={descrizione}>
       <div className="space-y-6">
+        <InvitoPercorso anno={anno} oggi={oggi} />
+
         <SemaforoFiscale
           totale={p.incassatoLordo}
           segmenti={[

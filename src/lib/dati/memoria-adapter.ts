@@ -58,6 +58,7 @@ export class MemoriaAdapter implements StorageAdapter {
   readonly patrimonio = new DepositoMemoria<Dati["patrimonio"][number], string>((v) => v.id);
   readonly spunte = new DepositoMemoria<Dati["spunte"][number], string>((v) => v.id);
   readonly chiusure = new DepositoMemoria<Dati["chiusure"][number], number>((v) => v.anno);
+  readonly percorsi = new DepositoMemoria<Dati["percorsi"][number], string>((v) => v.id);
 
   private deposito(collezione: NomeCollezione) {
     return this[collezione] as DepositoMemoria<unknown, string | number>;

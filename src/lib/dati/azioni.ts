@@ -5,7 +5,15 @@ import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { parametriDi } from "@/lib/fisco/parametri";
 import type { ChiusuraAnno, DestinazioneCreditoIva } from "@/lib/fisco/chiusura";
 import type { Impostazioni, Regime } from "@/lib/fisco/tipi";
+import {
+  chiavePercorso,
+  percorsoVuoto,
+  NOME_CONTESTO,
+  type ContestoPercorso,
+  type StatoPercorso,
+} from "@/lib/onboarding/percorso";
 import { archivio } from "./archivio";
+import { datiDemoConservando } from "./demo";
 import type {
   Costo,
   Fattura,
@@ -371,4 +379,102 @@ export async function cambiaDestinazioneCreditoIva(
       await archivio().chiusure.salva(chiusura);
     },
   );
+}
+
+// ————————————————————————————————————————————————————————————
+// Percorsi di configurazione
+// ————————————————————————————————————————————————————————————
+
+async function percorso(contesto: ContestoPercorso, anno: number): Promise<StatoPercorso> {
+  const id = chiavePercorso(contesto, anno);
+  const esistente = await archivio().percorsi.leggi(id);
+  return esistente ?? percorsoVuoto(contesto, anno, new Date().toISOString());
+}
+
+/**
+ * Segna un passo come affrontato.
+ *
+ * Confermato e saltato sono due stati diversi e si escludono: un passo saltato
+ * a cui si risponde più tardi diventa confermato, e viceversa. L'app deve poter
+ * dire «questo valore l'hai scelto tu» oppure «questo è il predefinito», e per
+ * dirlo deve saperlo.
+ */
+export async function segnaPasso(
+  contesto: ContestoPercorso,
+  anno: number,
+  passo: string,
+  esito: "confermato" | "saltato",
+): Promise<void> {
+  const attuale = await percorso(contesto, anno);
+  const senzaIlPasso = {
+    confermati: attuale.confermati.filter((p) => p !== passo),
+    saltati: attuale.saltati.filter((p) => p !== passo),
+  };
+  await archivio().percorsi.salva({
+    ...attuale,
+    confermati:
+      esito === "confermato" ? [...senzaIlPasso.confermati, passo] : senzaIlPasso.confermati,
+    saltati: esito === "saltato" ? [...senzaIlPasso.saltati, passo] : senzaIlPasso.saltati,
+    aggiornatoIl: new Date().toISOString(),
+  });
+}
+
+/** Chiude il percorso. Non blocca niente: resta ripercorribile. */
+export async function completaPercorso(
+  contesto: ContestoPercorso,
+  anno: number,
+): Promise<void> {
+  const attuale = await percorso(contesto, anno);
+  await archivio().percorsi.salva({
+    ...attuale,
+    completatoIl: new Date().toISOString(),
+    aggiornatoIl: new Date().toISOString(),
+  });
+  toast.conferma(`${NOME_CONTESTO[contesto]} completato`, async () => {
+    await archivio().percorsi.salva(attuale);
+  });
+}
+
+/** Ricomincia da capo un percorso già affrontato. */
+export async function ripartiPercorso(
+  contesto: ContestoPercorso,
+  anno: number,
+): Promise<void> {
+  const attuale = await percorso(contesto, anno);
+  await archivio().percorsi.salva(percorsoVuoto(contesto, anno, new Date().toISOString()));
+  toast.conferma(`${NOME_CONTESTO[contesto]} ricominciato`, async () => {
+    await archivio().percorsi.salva(attuale);
+  });
+}
+
+/**
+ * Scrive le impostazioni di un anno da dentro il percorso.
+ *
+ * Passa da `impostazioniDellAnno` perché un anno nuovo potrebbe non averle
+ * ancora: risponder a una domanda deve poterle creare, non fallire in silenzio.
+ */
+export async function aggiornaImpostazioni(
+  anno: number,
+  modifiche: Partial<Impostazioni>,
+): Promise<void> {
+  const attuali = await impostazioniDellAnno(anno);
+  await archivio().impostazioni.salva({ ...attuali, ...modifiche, anno });
+}
+
+/**
+ * Carica il dataset dimostrativo dal percorso di primo avvio.
+ *
+ * Sostituisce i documenti ma non la configurazione: le risposte appena date
+ * restano, e le schermate si popolano con le regole scelte da chi guarda.
+ * L'archivio precedente viene tenuto da parte per l'annullamento.
+ */
+export async function caricaDatasetDimostrativo(): Promise<void> {
+  const precedente = await archivio().leggiTutto();
+  await archivio().scriviTutto(
+    datiDemoConservando(precedente, { impostazioni: true, percorsi: true }),
+    "sostituisci",
+  );
+  toast.conferma("Dati dimostrativi caricati", async () => {
+    await archivio().scriviTutto(precedente, "sostituisci");
+  });
 }

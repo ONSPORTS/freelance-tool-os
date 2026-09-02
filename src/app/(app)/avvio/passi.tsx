@@ -1,0 +1,609 @@
+"use client";
+
+import * as React from "react";
+import { ArrowRight, Check } from "lucide-react";
+import { Card, CardInterna } from "@/components/ui/card";
+import { Chip } from "@/components/ui/chip";
+import { Etichetta } from "@/components/ui/etichetta";
+import { Input } from "@/components/ui/input";
+import { Segmenti } from "@/components/ui/segmenti";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { confrontaRegimi, ingressoDaProspetto } from "@/lib/fisco/confronto";
+import type { Riporto } from "@/lib/fisco/chiusura";
+import type { Impostazioni, ParametriAnno } from "@/lib/fisco/tipi";
+import type { ContestoCalcolo } from "@/lib/onboarding/percorso";
+import { euro, interoIt, percentuale } from "@/lib/format";
+import { cn } from "@/lib/utils";
+
+export type Modifica = (modifiche: Partial<Impostazioni>) => void;
+
+/**
+ * I controlli di ogni passo.
+ *
+ * Uno `switch` su un elenco chiuso invece di un campo `render` dentro la
+ * definizione del passo: il modulo `percorso.ts` resta puro e testabile, e i
+ * componenti restano qui dove possono usare React.
+ */
+export function ControlloPasso({
+  passo,
+  calcolo,
+  onModifica,
+}: {
+  passo: string;
+  calcolo: ContestoCalcolo;
+  onModifica: Modifica;
+}) {
+  const imp = calcolo.impostazioni;
+  const par = calcolo.parametri;
+
+  switch (passo) {
+    case "regime":
+      return (
+        <Segmenti
+          etichettaGruppo="Regime fiscale"
+          valore={imp.regime}
+          onChange={(regime) => onModifica({ regime })}
+          opzioni={[
+            { valore: "forfettario", etichetta: "Forfettario" },
+            { valore: "ordinario", etichetta: "Ordinario" },
+          ]}
+        />
+      );
+
+    case "ateco":
+      return (
+        <div className="space-y-2">
+          <Select
+            value={imp.gruppoAteco}
+            onValueChange={(codice) => {
+              const gruppo = par.gruppiAteco.find((g) => g.codice === codice);
+              onModifica({
+                gruppoAteco: codice,
+                coefficienteRedditivita: gruppo?.coefficiente ?? imp.coefficienteRedditivita,
+              });
+            }}
+          >
+            <SelectTrigger className="w-full" aria-label="Gruppo di attività">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {par.gruppiAteco.map((g) => (
+                <SelectItem key={g.codice} value={g.codice}>
+                  {percentuale(g.coefficiente)} — {g.descrizione}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-etichetta text-inchiostro-tenue">
+            Coefficiente applicato: {percentuale(imp.coefficienteRedditivita)}. Il resto è
+            considerato costo forfettario e non si tassa.
+          </p>
+        </div>
+      );
+
+    case "sostitutiva":
+      return (
+        <div className="space-y-3">
+          <Interruttore
+            etichetta="Attività nuova, aperta da meno di cinque anni"
+            attivo={imp.nuovaAttivita}
+            onCambia={(nuovaAttivita) =>
+              onModifica({
+                nuovaAttivita,
+                aliquotaSostitutiva: nuovaAttivita
+                  ? par.aliquotaSostitutivaNuovaAttivita
+                  : par.aliquotaSostitutiva,
+              })
+            }
+          />
+          <p className="text-etichetta text-inchiostro-tenue">
+            Aliquota applicata: {percentuale(imp.aliquotaSostitutiva)}. Nel dubbio lascia il{" "}
+            {percentuale(par.aliquotaSostitutiva)}: pagare di meno e scoprire dopo di non
+            averne diritto è il modo peggiore di sbagliare.
+          </p>
+        </div>
+      );
+
+    case "gestione":
+      return (
+        <Select
+          value={imp.gestione}
+          onValueChange={(gestione) =>
+            onModifica({ gestione: gestione as Impostazioni["gestione"] })
+          }
+        >
+          <SelectTrigger className="w-full" aria-label="Gestione previdenziale">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="separata">
+              Gestione Separata INPS — {percentuale(par.aliquotaGestioneSeparata)} del reddito
+            </SelectItem>
+            <SelectItem value="artigiani">
+              Artigiani e commercianti — fissi più eccedenza
+            </SelectItem>
+            <SelectItem value="cassa">Cassa professionale</SelectItem>
+          </SelectContent>
+        </Select>
+      );
+
+    case "iva":
+      return (
+        <Segmenti
+          etichettaGruppo="Periodicità della liquidazione IVA"
+          valore={imp.periodicitaIva}
+          onChange={(periodicitaIva) => onModifica({ periodicitaIva })}
+          opzioni={[
+            { valore: "trimestrale", etichetta: "Trimestrale" },
+            { valore: "mensile", etichetta: "Mensile" },
+          ]}
+        />
+      );
+
+    case "ritenutaRivalsa":
+      return (
+        <div className="space-y-3">
+          <Interruttore
+            etichetta={`Addebito la rivalsa previdenziale del ${percentuale(imp.aliquotaRivalsa)}`}
+            attivo={imp.rivalsaAttiva}
+            onCambia={(rivalsaAttiva) => onModifica({ rivalsaAttiva })}
+          />
+          <Interruttore
+            etichetta={`Subisco la ritenuta d'acconto del ${percentuale(imp.aliquotaRitenuta)}`}
+            attivo={imp.ritenutaAttiva}
+            onCambia={(ritenutaAttiva) => onModifica({ ritenutaAttiva })}
+            disabilitato={imp.regime === "forfettario"}
+            nota={
+              imp.regime === "forfettario"
+                ? "Nel forfettario la ritenuta non si applica mai: l'interruttore resta spento."
+                : undefined
+            }
+          />
+          <Interruttore
+            etichetta="Addebito il bollo da 2 € al cliente"
+            attivo={imp.bolloAddebitato}
+            onCambia={(bolloAddebitato) => onModifica({ bolloAddebitato })}
+            nota="Se non lo addebiti resta un tuo costo, e l'app lo conta come tale."
+          />
+        </div>
+      );
+
+    case "pagamenti":
+      return (
+        <CampoNumerico
+          etichetta="Giorni dall'emissione"
+          valore={imp.terminiPagamento}
+          onCambia={(terminiPagamento) => onModifica({ terminiPagamento })}
+          suffisso="giorni"
+        />
+      );
+
+    case "obiettivi":
+      return (
+        <div className="grid gap-3 sm:grid-cols-3">
+          <CampoNumerico
+            etichetta="Netto desiderato all'anno"
+            valore={imp.nettoDesiderato}
+            onCambia={(nettoDesiderato) => onModifica({ nettoDesiderato })}
+            suffisso="€"
+          />
+          <CampoNumerico
+            etichetta="Costi fissi annui"
+            valore={imp.costiFissiAnnui}
+            onCambia={(costiFissiAnnui) => onModifica({ costiFissiAnnui })}
+            suffisso="€"
+          />
+          <CampoNumerico
+            etichetta="Accantonamento"
+            valore={Math.round(imp.percentualeAccantonamento * 100)}
+            onCambia={(v) =>
+              onModifica({ percentualeAccantonamento: Math.min(90, Math.max(0, v)) / 100 })
+            }
+            suffisso="%"
+          />
+        </div>
+      );
+
+    default:
+      return null;
+  }
+}
+
+function Interruttore({
+  etichetta,
+  attivo,
+  onCambia,
+  nota,
+  disabilitato = false,
+}: {
+  etichetta: string;
+  attivo: boolean;
+  onCambia: (v: boolean) => void;
+  nota?: string;
+  disabilitato?: boolean;
+}) {
+  const id = React.useId();
+  return (
+    <div className="flex items-start gap-3">
+      <Switch
+        id={id}
+        checked={attivo}
+        onCheckedChange={onCambia}
+        disabled={disabilitato}
+        className="mt-0.5"
+      />
+      <div className="min-w-0">
+        <label htmlFor={id} className="cursor-pointer text-corpo">
+          {etichetta}
+        </label>
+        {nota && <p className="text-etichetta text-inchiostro-tenue">{nota}</p>}
+      </div>
+    </div>
+  );
+}
+
+function CampoNumerico({
+  etichetta,
+  valore,
+  onCambia,
+  suffisso,
+}: {
+  etichetta: string;
+  valore: number;
+  onCambia: (v: number) => void;
+  suffisso: string;
+}) {
+  return (
+    <div>
+      <Etichetta>{etichetta}</Etichetta>
+      <div className="mt-1.5 flex items-center gap-2">
+        <Input
+          type="number"
+          inputMode="numeric"
+          className="cifre w-full"
+          value={String(valore)}
+          onChange={(e) => onCambia(Number(e.target.value) || 0)}
+        />
+        <span className="shrink-0 text-etichetta text-inchiostro-tenue">{suffisso}</span>
+      </div>
+    </div>
+  );
+}
+
+// ————————————————————————————————————————————————————————————
+// I due passi di sola lettura
+// ————————————————————————————————————————————————————————————
+
+/**
+ * I riporti in arrivo dalla chiusura, da confermare uno per uno.
+ *
+ * La conferma non cambia gli importi — quelli si ricalcolano sempre dai
+ * documenti — e non deve fingere di farlo. Serve a costringere lo sguardo su
+ * ogni riga: è l'unico momento dell'anno in cui qualcuno guarda davvero il
+ * saldo di apertura, e un riporto sbagliato non produce nessun errore.
+ */
+export function RiportiDaConfermare({
+  riporto,
+  confermati,
+  onConferma,
+}: {
+  riporto: Riporto;
+  confermati: string[];
+  onConferma: (voce: string) => void;
+}) {
+  const voci: { id: string; etichetta: string; valore: string; nota: string }[] = [
+    {
+      id: "saldoCassa",
+      etichetta: "Saldo di cassa",
+      valore: euro(riporto.saldoCassa),
+      nota: `Quello che c'era in cassa il 31 dicembre ${riporto.daAnno}: diventa il saldo di apertura.`,
+    },
+    {
+      id: "accantonato",
+      etichetta: "Tasse accantonate",
+      valore: euro(riporto.accantonato),
+      nota: "Sono già sul conto ma servono a pagare il saldo di giugno: restano fuori dalla liquidità disponibile.",
+    },
+    {
+      id: "creditoIva",
+      etichetta: "Credito IVA",
+      valore: euro(riporto.creditoIva),
+      nota:
+        riporto.destinazioneCreditoIva === "compensazione"
+          ? "Destinato alla compensazione: entra come credito iniziale nella liquidazione."
+          : "Chiesto a rimborso: non riduce i versamenti dell'anno nuovo.",
+    },
+    {
+      id: "creditoImposte",
+      etichetta: "Crediti d'imposta",
+      valore: euro(riporto.creditoImposte),
+      nota: "Ritenute eccedenti e versamenti in eccesso: si scomputano dal saldo di quest'anno.",
+    },
+    {
+      id: "fattureDaIncassare",
+      etichetta: "Fatture da incassare",
+      valore: euro(riporto.fattureDaIncassare.importo),
+      nota: `${interoIt.format(riporto.fattureDaIncassare.numero)} fatture emesse nel ${riporto.daAnno}: diventano ricavo nell'anno in cui rientrano, l'IVA è già stata liquidata.`,
+    },
+    {
+      id: "costiDaPagare",
+      etichetta: "Costi da pagare",
+      valore: euro(riporto.costiDaPagare.importo),
+      nota: `${interoIt.format(riporto.costiDaPagare.numero)} documenti del ${riporto.daAnno}: si deducono nell'anno del pagamento, l'IVA era detraibile subito.`,
+    },
+  ];
+
+  return (
+    <div className="space-y-2">
+      {voci.map((v) => {
+        const fatto = confermati.includes(v.id);
+        return (
+          <CardInterna
+            key={v.id}
+            className={cn(
+              "flex flex-wrap items-start justify-between gap-3 p-4 transition-colors",
+              fatto && "bg-positivo-tenue",
+            )}
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-corpo font-medium">{v.etichetta}</p>
+              <p className="mt-0.5 text-etichetta text-inchiostro-tenue">{v.nota}</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="cifre text-corpo font-semibold tabular-nums">{v.valore}</span>
+              <button
+                type="button"
+                onClick={() => onConferma(v.id)}
+                aria-pressed={fatto}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-etichetta font-medium transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accento focus-visible:ring-offset-2",
+                  fatto
+                    ? "bg-[#0B8A63] text-white"
+                    : "bg-superficie-alt text-inchiostro-tenue hover:bg-bordo/60",
+                )}
+              >
+                <Check className="size-3.5" aria-hidden />
+                {fatto ? "Visto" : "Conferma"}
+              </button>
+            </div>
+          </CardInterna>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Il confronto fra i due regimi sui numeri reali di chi sta leggendo.
+ *
+ * Non un esempio: i ricavi incassati e i costi pagati che ha davvero
+ * registrato. È la differenza fra «l'ordinario di solito conviene sopra i
+ * tot mila euro» e «a te, quest'anno, sarebbero rimasti in tasca X in più».
+ */
+export function ConfrontoDeiRegimi({
+  calcolo,
+  precedente,
+}: {
+  calcolo: ContestoCalcolo;
+  /** L'anno precedente, da usare quando quello corrente è ancora vuoto. */
+  precedente?: ContestoCalcolo | null;
+}) {
+  // Il cambio di regime si affronta a gennaio, quando l'anno nuovo non ha
+  // ancora un incasso: i numeri veri sono quelli dell'anno appena chiuso, e
+  // sono quelli che vanno mostrati — dicendo di che anno sono.
+  const conNumeri =
+    calcolo.prospetto.ricaviRilevanti > 0
+      ? calcolo
+      : precedente && precedente.prospetto.ricaviRilevanti > 0
+        ? precedente
+        : calcolo;
+  const annoDelConfronto = conNumeri.prospetto.anno;
+  const suAnnoPrecedente = annoDelConfronto !== calcolo.prospetto.anno;
+
+  const ingresso = ingressoDaProspetto(conNumeri.prospetto);
+  const confronto = confrontaRegimi(ingresso, conNumeri.impostazioni, conNumeri.parametri);
+
+  if (ingresso.ricavi <= 0) {
+    return (
+      <Card className="border border-bordo">
+        <div className="p-5 text-corpo text-inchiostro-tenue">
+          Non ci sono ancora incassi registrati: senza numeri veri il confronto sarebbe un
+          esempio, e un esempio non aiuta a decidere. Registra qualche fattura e torna qui.
+        </div>
+      </Card>
+    );
+  }
+
+  const righe: { voce: string; forfettario: string; ordinario: string; nota?: string }[] = [
+    {
+      voce: "Ricavi incassati",
+      forfettario: euro(confronto.forfettario.ricavi),
+      ordinario: euro(confronto.ordinario.ricavi),
+    },
+    {
+      voce: "Costi riconosciuti",
+      forfettario: euro(confronto.forfettario.costiRiconosciuti),
+      ordinario: euro(confronto.ordinario.costiRiconosciuti),
+      nota: "Nel forfettario i costi non si deducono: lo Stato li presume nel coefficiente.",
+    },
+    {
+      voce: "Reddito lordo",
+      forfettario: euro(confronto.forfettario.redditoLordo),
+      ordinario: euro(confronto.ordinario.redditoLordo),
+    },
+    {
+      voce: "Contributi",
+      forfettario: euro(confronto.forfettario.contributi),
+      ordinario: euro(confronto.ordinario.contributi),
+    },
+    {
+      voce: "Imposte",
+      forfettario: euro(confronto.forfettario.imposte),
+      ordinario: euro(confronto.ordinario.imposte),
+      nota: "Sostitutiva unica da una parte, IRPEF a scaglioni più addizionali dall'altra.",
+    },
+    {
+      voce: "Pressione",
+      forfettario: percentuale(confronto.forfettario.pressione),
+      ordinario: percentuale(confronto.ordinario.pressione),
+    },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {suAnnoPrecedente && (
+        <p className="text-etichetta text-inchiostro-tenue">
+          Il {calcolo.prospetto.anno} non ha ancora incassi: il confronto è calcolato sui
+          numeri del {annoDelConfronto}, l&apos;ultimo anno con dati veri.
+        </p>
+      )}
+
+      <Card scura className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-etichetta text-white/60">Netto in tasca a confronto</p>
+            {/*
+              Il segno non aggiunge niente a «a favore del»: dire due volte la
+              stessa direzione, una col meno e una a parole, confonde. Resta
+              l'importo, e la direzione la dice la frase.
+            */}
+            <p className="cifre mt-2 text-kpi-sm font-semibold text-white">
+              {euro(
+                Math.abs(confronto.ordinario.nettoInTasca - confronto.forfettario.nettoInTasca),
+              )}
+            </p>
+            <p className="mt-1 text-etichetta text-white/60">
+              differenza a favore{" "}
+              {confronto.ordinario.nettoInTasca >= confronto.forfettario.nettoInTasca
+                ? "dell'ordinario"
+                : "del forfettario"}
+              , sui tuoi {euro(confronto.ricavi)} di ricavi del {annoDelConfronto}
+            </p>
+          </div>
+          <Chip tono="chiaro" className="shrink-0">
+            {confronto.forfettarioApplicabile ? "Entrambi applicabili" : "Solo ordinario"}
+          </Chip>
+        </div>
+        <p className="mt-4 text-corpo text-white/70">{confronto.verdetto}</p>
+      </Card>
+
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-corpo">
+          <thead>
+            <tr className="border-b border-bordo">
+              <th className="py-2 text-left text-etichetta font-medium text-inchiostro-tenue">
+                Voce
+              </th>
+              <th className="py-2 text-right text-etichetta font-medium text-inchiostro-tenue">
+                Forfettario
+              </th>
+              <th className="py-2 text-right text-etichetta font-medium text-inchiostro-tenue">
+                Ordinario
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {righe.map((r) => (
+              <tr key={r.voce} className="border-b border-bordo last:border-0">
+                <td className="py-2.5 pr-3">
+                  {r.voce}
+                  {r.nota && (
+                    <span className="block text-micro text-inchiostro-tenue">{r.nota}</span>
+                  )}
+                </td>
+                <td className="cifre py-2.5 text-right tabular-nums">{r.forfettario}</td>
+                <td className="cifre py-2.5 text-right tabular-nums">{r.ordinario}</td>
+              </tr>
+            ))}
+            <tr className="border-t-2 border-inchiostro/10">
+              <td className="py-2.5 pr-3 font-semibold">Netto in tasca</td>
+              <td className="cifre py-2.5 text-right font-semibold tabular-nums">
+                {euro(confronto.forfettario.nettoInTasca)}
+              </td>
+              <td className="cifre py-2.5 text-right font-semibold tabular-nums">
+                {euro(confronto.ordinario.nettoInTasca)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <CardInterna className="p-4">
+        <p className="text-etichetta font-semibold">Cosa cambia in fattura, concretamente</p>
+        <ul className="mt-2 space-y-1.5">
+          {CAMBIAMENTI_IN_FATTURA.map((c) => (
+            <li key={c} className="flex items-start gap-2 text-etichetta text-inchiostro-tenue">
+              <ArrowRight className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              {c}
+            </li>
+          ))}
+        </ul>
+      </CardInterna>
+    </div>
+  );
+}
+
+const CAMBIAMENTI_IN_FATTURA = [
+  "Ogni fattura riporta l'IVA al 22 %: il cliente paga di più, ma quei soldi non sono tuoi e vanno versati alla scadenza della liquidazione.",
+  "Sparisce il bollo da 2 €, che si applica solo alle fatture senza IVA sopra 77,47 €.",
+  "Le fatture verso imprese e professionisti subiscono la ritenuta d'acconto del 20 %: incassi meno subito, ma è un anticipo che si scomputa a fine anno.",
+  "I costi tornano deducibili e l'IVA sugli acquisti torna detraibile: conservare le fatture passive smette di essere facoltativo.",
+  "Al posto dell'imposta sostitutiva si applicano IRPEF a scaglioni, addizionale regionale e comunale — e tornano utilizzabili detrazioni e fondo pensione.",
+];
+
+export function riepilogoImpostazioni(
+  imp: Impostazioni,
+  par: ParametriAnno,
+): { passo: string; voce: string; valore: string }[] {
+  return [
+    { passo: "regime", voce: "Regime", valore: imp.regime === "forfettario" ? "Forfettario" : "Ordinario" },
+    {
+      passo: "ateco",
+      voce: "Coefficiente di redditività",
+      valore: imp.regime === "forfettario" ? percentuale(imp.coefficienteRedditivita) : "—",
+    },
+    {
+      passo: "sostitutiva",
+      voce: "Imposta sostitutiva",
+      valore: imp.regime === "forfettario" ? percentuale(imp.aliquotaSostitutiva) : "—",
+    },
+    {
+      passo: "gestione",
+      voce: "Cassa previdenziale",
+      valore:
+        imp.gestione === "separata"
+          ? `Gestione Separata (${percentuale(par.aliquotaGestioneSeparata)})`
+          : imp.gestione === "artigiani"
+            ? "Artigiani e commercianti"
+            : "Cassa professionale",
+    },
+    {
+      passo: "iva",
+      voce: "Liquidazione IVA",
+      valore: imp.regime === "ordinario" ? (imp.periodicitaIva === "mensile" ? "Mensile" : "Trimestrale") : "—",
+    },
+    {
+      passo: "ritenutaRivalsa",
+      voce: "Rivalsa e ritenuta",
+      valore: `${imp.rivalsaAttiva ? "rivalsa sì" : "rivalsa no"} · ${imp.ritenutaAttiva ? "ritenuta sì" : "ritenuta no"}`,
+    },
+    {
+      passo: "pagamenti",
+      voce: "Termini di pagamento",
+      valore: `${interoIt.format(imp.terminiPagamento)} giorni`,
+    },
+    {
+      passo: "obiettivi",
+      voce: "Accantonamento",
+      valore: `${percentuale(imp.percentualeAccantonamento)} su ogni incasso`,
+    },
+  ];
+}

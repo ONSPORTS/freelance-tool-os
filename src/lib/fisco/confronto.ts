@@ -46,6 +46,27 @@ export type IngressoConfronto = {
   ivaAcquisti: number;
 };
 
+/**
+ * Gli ingressi del confronto ricavati dai numeri reali di un anno.
+ *
+ * Sta qui e non nella schermata perché lo usano sia il simulatore sia il
+ * percorso di cambio di regime: se divergessero, i due mostrerebbero due
+ * confronti diversi sugli stessi dati.
+ */
+export function ingressoDaProspetto(p: {
+  ricaviRilevanti: number;
+  costiPagatiTotale: number;
+  costiCalcolati: { dataPagamento?: string | null; imponibile: number; iva: number }[];
+}): IngressoConfronto {
+  const pagati = p.costiCalcolati.filter((c) => c.dataPagamento);
+  return {
+    ricavi: round2(p.ricaviRilevanti),
+    costiDeducibili: somma(...pagati.map((c) => c.imponibile)),
+    costiTotali: round2(p.costiPagatiTotale),
+    ivaAcquisti: somma(...pagati.map((c) => c.iva)),
+  };
+}
+
 function scenario(
   regime: "forfettario" | "ordinario",
   ing: IngressoConfronto,
