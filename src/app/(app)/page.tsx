@@ -1,7 +1,7 @@
 import { Cruscotto } from "./cruscotto";
 
 export const metadata = {
-  title: "Cruscotto · Freelance Flow",
+  title: "Cruscotto · Flowlance",
 };
 
 export default function PaginaCruscotto() {

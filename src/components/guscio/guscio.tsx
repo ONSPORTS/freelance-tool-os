@@ -56,11 +56,13 @@ export function Guscio({
     : undefined;
 
   return (
-    <div className="flex min-h-dvh">
+    // `print:block` scioglie il flex: in stampa non c'è una colonna laterale
+    // accanto a cui stare, e il documento deve partire dal margine.
+    <div className="flex min-h-dvh print:block">
       <BarraLaterale />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 border-b border-bordo bg-fondo/85 backdrop-blur-sm">
+        <header className="sticky top-0 z-30 border-b border-bordo bg-fondo/85 backdrop-blur-sm print:hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-8">
             <div className="flex min-w-0 items-center gap-2">
               <MenuMobile />
@@ -93,7 +95,7 @@ export function Guscio({
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-5 sm:px-5 sm:py-6 lg:px-8">{children}</main>
+        <main className="flex-1 px-4 py-5 sm:px-5 sm:py-6 lg:px-8 print:p-0">{children}</main>
       </div>
     </div>
   );
@@ -106,7 +108,7 @@ function Marchio() {
         <Wallet className="size-4" aria-hidden />
       </span>
       <span className="font-display text-corpo font-semibold leading-tight">
-        Freelance Flow
+        Flowlance
       </span>
     </Link>
   );
@@ -139,7 +141,7 @@ function BarraLaterale() {
   return (
     <nav
       aria-label="Sezioni"
-      className="hidden w-60 shrink-0 flex-col gap-6 border-r border-bordo bg-superficie px-3 py-5 lg:flex"
+      className="hidden w-60 shrink-0 flex-col gap-6 border-r border-bordo bg-superficie px-3 py-5 lg:flex print:!hidden"
     >
       <Marchio />
       <ElencoSezioni />

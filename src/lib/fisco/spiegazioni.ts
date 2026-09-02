@@ -471,14 +471,30 @@ export function prospettoDettagliato(
       formato: "euro",
       formula: "Somma dei versamenti registrati, esclusi quelli di IVA.",
     },
-    {
-      id: "saldo",
-      etichetta: "Saldo residuo da versare",
-      valore: p.saldoResiduo,
-      formato: "euro",
-      formula: `${euro(p.totaleDovuto)} − ${euro(p.giaVersato)} già versati, mai sotto zero.`,
-    },
   ];
+
+  // Il credito che arriva dalla chiusura dell'anno prima compare solo quando
+  // c'è: una riga da zero euro in un prospetto è rumore.
+  if (p.creditoAnnoPrecedente > 0) {
+    acconti.push({
+      id: "credito-anno-precedente",
+      etichetta: "Credito dall'anno precedente",
+      valore: p.creditoAnnoPrecedente,
+      formato: "euro",
+      formula: `Ritenute eccedenti e versamenti in eccesso riportati dalla chiusura del ${p.anno - 1}. Si scomputa prima dal saldo, poi dagli acconti: ${euro(p.creditoUtilizzatoSuSaldo)} sono già serviti a coprire il saldo.`,
+    });
+  }
+
+  acconti.push({
+    id: "saldo",
+    etichetta: "Saldo residuo da versare",
+    valore: p.saldoResiduo,
+    formato: "euro",
+    formula:
+      p.creditoAnnoPrecedente > 0
+        ? `${euro(p.totaleDovuto)} − ${euro(p.giaVersato)} già versati − ${euro(p.creditoUtilizzatoSuSaldo)} di credito, mai sotto zero.`
+        : `${euro(p.totaleDovuto)} − ${euro(p.giaVersato)} già versati, mai sotto zero.`,
+  });
 
   if (!p.acconti.dovuti) {
     acconti.push({

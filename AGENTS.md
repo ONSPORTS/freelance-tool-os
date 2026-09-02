@@ -10,9 +10,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Convenzioni di questo repository
 
-Il progetto si chiama **Freelance Flow** (fino a settembre 2026 "Freelance Finance
-OS": il vecchio nome sopravvive solo nel nome del database IndexedDB e nel
-marcatore dei backup storici, dove cambiarlo perderebbe dati).
+Il progetto si chiama **Flowlance**. Si è chiamato "Freelance Finance OS" e poi
+"Freelance Flow": i nomi vecchi sopravvivono solo nel nome del database
+IndexedDB — dove il nome È la chiave dell'archivio — e nell'elenco dei marcatori
+di backup accettati in lettura. Cambiarli perderebbe dati.
 
 - **Messaggi di commit**: in italiano, prima riga all'imperativo. Chiudere con
   `Co-Authored-By` quando il commit è scritto da un agente; **non** aggiungere

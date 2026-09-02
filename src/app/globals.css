@@ -132,3 +132,72 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* ————————————————————————————————————————————————————————————
+   Stampa: il prospetto per il commercialista
+   ————————————————————————————————————————————————————————————
+   Il documento vive già nel DOM, nascosto a schermo. Qui si spegne l'app e si
+   accende lui. Niente librerie e niente finestre nuove: `window.print()` e
+   basta, il browser fa il PDF da sé.
+
+   Le stampanti e i browser omettono per impostazione predefinita i colori di
+   sfondo: il documento non ne usa, si regge su filetti e corpo tipografico.
+   `print-color-adjust` resta comunque dichiarato per il poco colore che c'è.
+*/
+@page {
+  size: A4;
+  /* Margine inferiore più largo: ci sta il numero di pagina del browser. */
+  margin: 14mm 14mm 16mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff;
+    color: #000;
+    /* 9pt di base: la catena di calcolo completa sta in due pagine A4. */
+    font-size: 9pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Le ombre stampano come rettangoli grigi sporchi. */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Nessun blocco si spezza lasciando l'intestazione sola in fondo. */
+  [data-documento="prospetto"] section,
+  [data-documento="prospetto"] header,
+  [data-documento="prospetto"] footer,
+  [data-documento="prospetto"] tr {
+    break-inside: avoid;
+  }
+
+  /* Un titolo di sezione non resta mai come ultima riga di pagina. */
+  [data-documento="prospetto"] h1,
+  [data-documento="prospetto"] h2 {
+    break-after: avoid;
+  }
+
+  /* Niente righe orfane o vedove nei paragrafi di nota. */
+  [data-documento="prospetto"] p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* I collegamenti sulla carta non si cliccano: restano testo. */
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /*
+    Solo il prospetto ha un documento per la carta. Le altre schermate, se
+    qualcuno preme Ctrl+P, stampano quello che vedono: è il comportamento che
+    il browser dà per scontato e non c'è motivo di impedirlo.
+  */
+  [data-documento="prospetto"] {
+    color: #000;
+  }
+}

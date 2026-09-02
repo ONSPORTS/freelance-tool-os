@@ -37,7 +37,7 @@ export class DatabaseFinanze extends Dexie {
   percorsi!: EntityTable<StatoPercorso, "id">;
 
   // Il nome del database resta quello originale anche dopo il rename del
-  // progetto in Freelance Flow: in IndexedDB il nome È la chiave dell'archivio,
+  // progetto in Flowlance: in IndexedDB il nome È la chiave dell'archivio,
   // cambiarlo aprirebbe un database nuovo e vuoto lasciando i dati esistenti
   // orfani. Nessun vantaggio, un modo silenzioso di perdere un anno di fatture.
   constructor(nome = "freelance-finance-os") {

@@ -6,13 +6,13 @@ const DESCRIZIONE =
   "Il cruscotto economico, fiscale e finanziario del libero professionista italiano. I dati restano nel tuo browser.";
 
 export const metadata: Metadata = {
-  title: "Freelance Flow",
+  title: "Flowlance",
   description: DESCRIZIONE,
-  applicationName: "Freelance Flow",
+  applicationName: "Flowlance",
   openGraph: {
-    title: "Freelance Flow",
+    title: "Flowlance",
     description: DESCRIZIONE,
-    siteName: "Freelance Flow",
+    siteName: "Flowlance",
     locale: "it_IT",
     type: "website",
   },

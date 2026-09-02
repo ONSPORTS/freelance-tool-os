@@ -12,8 +12,9 @@ import { Guscio } from "@/components/guscio/guscio";
 import { RigaDelProspetto } from "@/components/fisco/riga-prospetto";
 import { AvvisoParametri } from "@/components/fisco/avviso-parametri";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
-import { esportazioneProspettoConsentita } from "@/lib/fisco/chiusura";
+import { Printer } from "lucide-react";
+import { DocumentoProspettoStampa } from "@/components/fisco/documento-prospetto";
+import { documentoProspetto, stampaConsentita } from "@/lib/fisco/stampa";
 import { useCalcoloAnno } from "@/lib/dati/hooks";
 import { parametriDi } from "@/lib/fisco/parametri";
 import { dettaglioSoglia, prospettoDettagliato } from "@/lib/fisco/spiegazioni";
@@ -42,31 +43,33 @@ export function SchermataFisco() {
 
   const { prospetto: p, impostazioni: imp } = calcolo;
   const soglia = dettaglioSoglia(p, imp);
-  const esportazione = esportazioneProspettoConsentita(parametriDi(anno));
+  const parametri = parametriDi(anno);
+  const stampa = stampaConsentita(parametri);
+  const documento = documentoProspetto(p, imp, parametri, oggi);
 
   return (
     <Guscio
       titolo="Imposte e contributi"
       descrizione={`Prospetto ${anno} · calcolo per cassa · regime ${imp.regime}`}
       azioni={
-        // L'export vero arriva più avanti; il blocco no, quello serve da subito.
-        // Un prospetto che sembra definitivo e poggia su aliquote dell'anno
-        // prima non deve poter uscire dall'app, nemmeno per sbaglio.
+        // `window.print()` e basta: il documento è già nel DOM, nascosto a
+        // schermo, e il foglio di stampa spegne l'app e accende lui. Il browser
+        // fa il PDF da sé, senza librerie e senza che i dati escano dal
+        // dispositivo — che è il punto dell'intero progetto.
         <Button
           variante="contorno"
-          disabled
-          title={
-            esportazione.consentita
-              ? "L'export del prospetto arriva con la fase successiva."
-              : esportazione.motivo
-          }
+          disabled={!stampa.consentita}
+          title={stampa.consentita ? undefined : stampa.motivo}
+          onClick={() => window.print()}
         >
-          <Download className="size-4" aria-hidden />
-          Esporta il prospetto
+          <Printer className="size-4" aria-hidden />
+          Stampa il prospetto
         </Button>
       }
     >
-      <div className="mx-auto max-w-4xl space-y-4">
+      {/* Quello che si vede a schermo si spegne in stampa: al suo posto va il
+          documento impaginato, che è la stessa sostanza in un'altra forma. */}
+      <div className="mx-auto max-w-4xl space-y-4 print:hidden">
         <section aria-label="Sintesi" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Kpi etichetta="Reddito imponibile" valore={euro(p.imponibile)} taglia="kpiSm" />
           <Kpi etichetta="Imposte dovute" valore={euro(p.totaleImposte)} taglia="kpiSm" />
@@ -155,6 +158,12 @@ export function SchermataFisco() {
           </CardCorpo>
         </Card>
       </div>
+
+      {/*
+        Il documento per la carta. Sta nel DOM ma è invisibile a schermo: in
+        stampa il guscio si spegne e resta solo lui, già impaginato.
+      */}
+      <DocumentoProspettoStampa doc={documento} />
     </Guscio>
   );
 }

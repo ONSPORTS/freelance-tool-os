@@ -1,7 +1,7 @@
 import { ProvaSistema } from "./prova-sistema";
 
 export const metadata = {
-  title: "Sistema visivo · Freelance Flow",
+  title: "Sistema visivo · Flowlance",
 };
 
 export default function PaginaDesign() {

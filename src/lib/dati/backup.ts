@@ -16,19 +16,21 @@ import {
   type NomeCollezione,
 } from "./tipi";
 
-export const FORMATO = "freelance-flow";
+export const FORMATO = "flowlance";
 
 /**
- * Il nome precedente del progetto. I backup esportati prima del rename portano
- * questo marcatore e devono continuare a importarsi: un file di backup che
- * l'app rifiuta è un archivio perso.
+ * I nomi precedenti del progetto, in ordine cronologico.
+ *
+ * I backup esportati prima di un rename portano il marcatore di allora e devono
+ * continuare a importarsi: un file di backup che l'app rifiuta è un archivio
+ * perso. L'elenco cresce a ogni cambio di nome e non si accorcia mai.
  */
-export const FORMATO_STORICO = "freelance-finance-os";
+export const FORMATI_STORICI = ["freelance-finance-os", "freelance-flow"] as const;
 
-const FORMATI_ACCETTATI: readonly string[] = [FORMATO, FORMATO_STORICO];
+const FORMATI_ACCETTATI: readonly string[] = [FORMATO, ...FORMATI_STORICI];
 
 export type Backup = {
-  formato: typeof FORMATO | typeof FORMATO_STORICO;
+  formato: typeof FORMATO | (typeof FORMATI_STORICI)[number];
   versioneSchema: number;
   esportatoIl: string;
   dati: Dati;
@@ -51,7 +53,7 @@ export function serializzaBackup(backup: Backup): string {
   return `${JSON.stringify(backup, null, 2)}\n`;
 }
 
-/** Nome file parlante: `freelance-flow-2026-09-01.json`. */
+/** Nome file parlante: `flowlance-2026-09-01.json`. */
 export function nomeFileBackup(adesso = new Date()): string {
   return `${FORMATO}-${adesso.toISOString().slice(0, 10)}.json`;
 }
@@ -409,7 +411,7 @@ export function analizzaBackup(testoGrezzo: string): RisultatoAnalisi {
     return {
       ok: false,
       errori: [
-        "Questo file non è un backup di Freelance Flow: manca il marcatore di formato.",
+        "Questo file non è un backup di Flowlance: manca il marcatore di formato.",
       ],
     };
   }
