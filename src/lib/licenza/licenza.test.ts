@@ -9,6 +9,7 @@ import {
   leggiChiave,
   type Licenza,
 } from "./chiave";
+import { controlloChiavePubblica } from "./presidio";
 import { verificaChiave } from "./verifica";
 import {
   GIORNI_DI_PROVA,
@@ -191,5 +192,47 @@ describe("lo stato della licenza", () => {
     expect(descrizione(statoLicenza(licenza, "2026-01-01", "2026-07-05"))).toBe(
       "Licenza scaduta il 30 giugno 2026",
     );
+  });
+});
+
+// ————————————————————————————————————————————————————————————
+// Il presidio sul build
+// ————————————————————————————————————————————————————————————
+
+describe("un build di produzione non esce senza chiave pubblica", () => {
+  it("in sviluppo il segnaposto passa: è il comportamento voluto", () => {
+    expect(controlloChiavePubblica("DA-GENERARE", "development")).toBeNull();
+    expect(controlloChiavePubblica("DA-GENERARE", "test")).toBeNull();
+    expect(controlloChiavePubblica("DA-GENERARE", undefined)).toBeNull();
+  });
+
+  it("in produzione il segnaposto ferma il build, e dice cosa manca", () => {
+    const messaggio = controlloChiavePubblica("DA-GENERARE", "production");
+    expect(messaggio).not.toBeNull();
+    // Il messaggio deve bastare da solo: cosa manca, dove, e cosa digitare.
+    expect(messaggio).toContain("src/lib/licenza/chiave-pubblica.ts");
+    expect(messaggio).toContain("node strumenti/licenza/genera-licenza.mjs --nuove-chiavi");
+    expect(messaggio).toContain("senza nessun sintomo visibile");
+  });
+
+  it("una chiave vuota vale come segnaposto", () => {
+    expect(controlloChiavePubblica("   ", "production")).not.toBeNull();
+  });
+
+  it("una chiave troncata non passa per buona", () => {
+    // Il caso silenzioso: un copia-incolla a metà pubblicherebbe un'app che
+    // rifiuta ogni licenza vera, e nessun test di unità se ne accorgerebbe.
+    const troncata = PUBBLICA.slice(0, 20);
+    const messaggio = controlloChiavePubblica(troncata, "production");
+    expect(messaggio).toContain("Ed25519");
+    expect(messaggio).toContain("32 byte");
+  });
+
+  it("caratteri fuori dall'alfabeto base64url non passano", () => {
+    expect(controlloChiavePubblica("non una chiave!!", "production")).toContain("Ed25519");
+  });
+
+  it("una chiave vera lascia passare il build", () => {
+    expect(controlloChiavePubblica(PUBBLICA, "production")).toBeNull();
   });
 });

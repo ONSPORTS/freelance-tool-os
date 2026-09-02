@@ -16,9 +16,15 @@ node strumenti/licenza/genera-licenza.mjs --nuove-chiavi
 ```
 
 Crea la coppia Ed25519, scrive la privata in `chiavi/privata.pem` e stampa la
-pubblica. **Incolla la pubblica in `src/lib/licenza/chiave-pubblica.ts`** e fai
-il deploy: finché lì c'è il segnaposto `DA-GENERARE`, l'app dichiara di non
-poter verificare nessuna licenza — e non blocca nessuno.
+pubblica. **Incolla la pubblica in `src/lib/licenza/chiave-pubblica.ts`.**
+
+Finché lì c'è il segnaposto `DA-GENERARE`, `next dev` funziona e l'app dichiara
+di non poter verificare nessuna licenza, senza bloccare nessuno — comodo mentre
+si sviluppa. **`next build` invece si ferma**, e dice cosa manca: un'app di
+produzione senza chiave pubblica uscirebbe senza alcun controllo di licenza e
+senza un sintomo che lo faccia notare. Il controllo sta in `next.config.ts`, che
+ogni `next build` legge comunque lo si invochi, e scarta anche una chiave
+incollata a metà.
 
 Si fa una volta sola. Rigenerare la coppia invalida tutte le licenze già
 emesse, che andrebbero riemesse una per una.
