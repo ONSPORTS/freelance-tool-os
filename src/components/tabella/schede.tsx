@@ -51,7 +51,9 @@ export function SchedaTesta({
       <div className="min-w-0">
         {sopra && <p className="cifre text-etichetta text-inchiostro-tenue">{sopra}</p>}
         <p className="truncate text-corpo font-medium">{titolo}</p>
-        {sotto && <p className="truncate text-etichetta text-inchiostro-tenue">{sotto}</p>}
+        {/* Due righe invece di una troncata: «riporto dal 2026, di cui 3.247,00 €
+            già accantonati» tagliato a metà non dice niente. */}
+        {sotto && <p className="line-clamp-2 text-etichetta text-inchiostro-tenue">{sotto}</p>}
       </div>
       {valore !== undefined && (
         <div className="shrink-0 text-right">

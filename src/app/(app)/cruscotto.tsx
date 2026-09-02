@@ -238,9 +238,13 @@ function RigaAvviso({ avviso }: { avviso: Avviso }) {
   return (
     <li className="flex flex-wrap items-start gap-3 px-4 py-3 sm:px-6">
       <Icona className={cn("mt-0.5 size-4 shrink-0", colore)} aria-hidden />
-      {/* Sul telefono il testo si stringe quanto serve; da tablet in su resta
-          largo abbastanza da non spezzarsi in righe di due parole. */}
-      <p className="min-w-0 flex-1 text-corpo sm:min-w-64">{avviso.testo}</p>
+      {/*
+        Il minimo serve a far scattare il flex-wrap: con `min-w-0` il testo si
+        restringeva all'infinito e su 320 px veniva fuori una parola per riga
+        con il collegamento di fianco, invece di due righe pulite. 48 sul
+        telefono, 64 da tablet in su.
+      */}
+      <p className="min-w-48 flex-1 text-corpo sm:min-w-64">{avviso.testo}</p>
       {avviso.azione && (
         <Link
           href={avviso.azione.href}
@@ -258,7 +262,7 @@ function RigaScadenza({ scadenza, oggi }: { scadenza: Adempimento; oggi: string 
   const imminente = giorni <= 15;
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
-      <span className="flex min-w-0 items-center gap-3">
+      <span className="flex min-w-48 flex-1 items-center gap-3">
         <CalendarClock
           className={cn("size-4 shrink-0", imminente ? "text-attenzione" : "text-inchiostro-tenue")}
           aria-hidden
@@ -272,7 +276,8 @@ function RigaScadenza({ scadenza, oggi }: { scadenza: Adempimento; oggi: string 
           </span>
         </span>
       </span>
-      <span className="cifre shrink-0 text-corpo font-medium">
+      {/* Come nello scadenzario: andando a capo l'importo resta a destra. */}
+      <span className="cifre ml-auto shrink-0 text-corpo font-medium">
         {scadenza.importo === null ? (
           <span className="text-etichetta font-normal text-inchiostro-tenue">
             adempimento dichiarativo
