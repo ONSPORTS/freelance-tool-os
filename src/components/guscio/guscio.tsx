@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Wallet } from "lucide-react";
+import { Menu, Search, Wallet } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -11,6 +11,9 @@ import { Segmenti } from "@/components/ui/segmenti";
 import { useCalcoloAnno } from "@/lib/dati/hooks";
 import { cambiaRegime } from "@/lib/dati/azioni";
 import { usePreferenze } from "@/lib/stato/preferenze";
+import { useComandi } from "@/lib/stato/comandi";
+import { Paletta, Tasto } from "@/components/comandi/paletta";
+import { ScorciatoieGlobali } from "@/components/comandi/tasti";
 import { GRUPPI, type Voce } from "./navigazione";
 import { SelettorePeriodo } from "./selettore-periodo";
 import type { StatoDellAnno } from "./stato-anno";
@@ -59,6 +62,10 @@ export function Guscio({
     // `print:block` scioglie il flex: in stampa non c'è una colonna laterale
     // accanto a cui stare, e il documento deve partire dal margine.
     <div className="flex min-h-dvh print:block">
+      {/* La palette e i tasti stanno nel guscio: valgono su ogni schermata, e
+          il guscio è l'unica cosa che ogni schermata ha davvero in comune. */}
+      <Paletta />
+      <ScorciatoieGlobali />
       <BarraLaterale />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -66,6 +73,7 @@ export function Guscio({
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-8">
             <div className="flex min-w-0 items-center gap-2">
               <MenuMobile />
+              <BottoneCerca />
               <div className="min-w-0">
               <h1 className="truncate font-display text-kpi-sm font-semibold">{titolo}</h1>
               {descrizione && (
@@ -98,6 +106,35 @@ export function Guscio({
         <main className="flex-1 px-4 py-5 sm:px-5 sm:py-6 lg:px-8 print:p-0">{children}</main>
       </div>
     </div>
+  );
+}
+
+/**
+ * L'ingresso della palette per chi non conosce ⌘K.
+ *
+ * Le scorciatoie sono un acceleratore, non un requisito: tutto quello che
+ * fanno deve restare a un clic di distanza. Il badge accanto insegna la
+ * combinazione a chi la userà la prossima volta.
+ */
+function BottoneCerca() {
+  const apri = useComandi((s) => s.apriPaletta);
+  return (
+    <button
+      type="button"
+      onClick={apri}
+      aria-label="Apri i comandi"
+      className={cn(
+        "flex shrink-0 items-center gap-2 rounded-campo border border-bordo bg-superficie px-2 py-1.5 text-inchiostro-tenue transition-colors",
+        "hover:border-inchiostro-tenue/40 hover:text-inchiostro",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accento focus-visible:ring-offset-2 focus-visible:ring-offset-fondo",
+      )}
+    >
+      <Search className="size-4" aria-hidden />
+      <span className="hidden text-etichetta sm:inline">Cerca</span>
+      <span className="hidden sm:inline">
+        <Tasto>⌘K</Tasto>
+      </span>
+    </button>
   );
 }
 

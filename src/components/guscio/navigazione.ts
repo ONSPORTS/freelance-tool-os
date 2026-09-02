@@ -5,6 +5,7 @@ import {
   CalendarCheck,
   Database,
   FileText,
+  Keyboard,
   LayoutDashboard,
   Percent,
   PiggyBank,
@@ -16,49 +17,41 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
+import { DESTINAZIONI, type Destinazione } from "@/lib/comandi/vocabolario";
 
-export type Voce = {
-  href: string;
-  etichetta: string;
-  icona: LucideIcon;
-  /** Le schermate delle fasi successive restano visibili ma inattive. */
-  pronta: boolean;
+export type Voce = Destinazione & { icona: LucideIcon };
+
+/**
+ * Le rotte vivono in `lib/comandi/vocabolario`, che è puro; qui si aggiungono
+ * soltanto le icone. La barra laterale e la palette leggono così lo stesso
+ * elenco: una schermata nuova compare in entrambe, o in nessuna delle due.
+ */
+const ICONE: Record<string, LucideIcon> = {
+  "/": LayoutDashboard,
+  "/fatture": FileText,
+  "/costi": Receipt,
+  "/clienti": Users,
+  "/fisco": Percent,
+  "/iva": Coins,
+  "/confronto": Scale,
+  "/scadenzario": CalendarClock,
+  "/chiusura": CalendarCheck,
+  "/cashflow": BarChart3,
+  "/patrimonio": PiggyBank,
+  "/pianificazione": Target,
+  "/avvio": Compass,
+  "/impostazioni": Settings,
+  "/dati": Database,
+  "/scorciatoie": Keyboard,
 };
 
-export const GRUPPI: { titolo: string; voci: Voce[] }[] = [
-  {
-    titolo: "Ogni giorno",
-    voci: [
-      { href: "/", etichetta: "Cruscotto", icona: LayoutDashboard, pronta: true },
-      { href: "/fatture", etichetta: "Fatture", icona: FileText, pronta: true },
-      { href: "/costi", etichetta: "Costi", icona: Receipt, pronta: true },
-      { href: "/clienti", etichetta: "Clienti", icona: Users, pronta: true },
-    ],
-  },
-  {
-    titolo: "Fisco",
-    voci: [
-      { href: "/fisco", etichetta: "Imposte e contributi", icona: Percent, pronta: true },
-      { href: "/iva", etichetta: "IVA", icona: Coins, pronta: true },
-      { href: "/confronto", etichetta: "Confronto regimi", icona: Scale, pronta: true },
-      { href: "/scadenzario", etichetta: "Scadenzario", icona: CalendarClock, pronta: true },
-      { href: "/chiusura", etichetta: "Chiusura d'anno", icona: CalendarCheck, pronta: true },
-    ],
-  },
-  {
-    titolo: "Finanza",
-    voci: [
-      { href: "/cashflow", etichetta: "Cashflow", icona: BarChart3, pronta: true },
-      { href: "/patrimonio", etichetta: "Patrimonio", icona: PiggyBank, pronta: true },
-      { href: "/pianificazione", etichetta: "Pianificazione", icona: Target, pronta: true },
-    ],
-  },
-  {
-    titolo: "Impostazioni",
-    voci: [
-      { href: "/avvio", etichetta: "Configurazione", icona: Compass, pronta: true },
-      { href: "/impostazioni", etichetta: "Parametri", icona: Settings, pronta: false },
-      { href: "/dati", etichetta: "Dati e backup", icona: Database, pronta: true },
-    ],
-  },
-];
+/** L'ordine dei gruppi nel menu, che non è quello alfabetico. */
+const ORDINE = ["Ogni giorno", "Fisco", "Finanza", "Impostazioni"];
+
+export const GRUPPI: { titolo: string; voci: Voce[] }[] = ORDINE.map((titolo) => ({
+  titolo,
+  voci: DESTINAZIONI.filter((d) => d.gruppo === titolo).map((d) => ({
+    ...d,
+    icona: ICONE[d.href] ?? FileText,
+  })),
+}));

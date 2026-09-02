@@ -27,6 +27,9 @@ export function BarraStrumenti({
         />
         <Input
           type="search"
+          // Il tasto «/» cerca questo campo per portarci il cursore: la ricerca
+          // della schermata viene prima della palette, quando c'è.
+          data-ricerca
           value={ricerca}
           onChange={(e) => onRicerca(e.target.value)}
           placeholder={segnaposto}

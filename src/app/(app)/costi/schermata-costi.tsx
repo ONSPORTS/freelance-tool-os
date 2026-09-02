@@ -40,6 +40,7 @@ import { ordinaPer, prossimoOrdinamento, type Ordinamento } from "@/components/t
 import { eliminaCosto, salvaCosto, segnaPagato } from "@/lib/dati/azioni";
 import { useCalcoloAnno, useDati } from "@/lib/dati/hooks";
 import { usePreferenze } from "@/lib/stato/preferenze";
+import { useRichiesta } from "@/lib/stato/comandi";
 import { dentroPeriodo, etichettaPeriodo } from "@/lib/periodo";
 import { data as fmtData, euro, num, percentuale } from "@/lib/format";
 import { CATEGORIE_COSTO } from "@/lib/dati/categorie";
@@ -85,6 +86,8 @@ export function SchermataCosti() {
       setFiltroStato(richiesto as FiltroStato);
     }
   }, []);
+
+  useRichiesta("nuovoCosto", () => setModuloAperto(true));
 
   const forfettario = calcolo?.impostazioni.regime === "forfettario";
 

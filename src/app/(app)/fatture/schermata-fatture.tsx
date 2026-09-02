@@ -45,6 +45,7 @@ import {
 } from "@/lib/dati/azioni";
 import { useCalcoloAnno, useDati } from "@/lib/dati/hooks";
 import { usePreferenze } from "@/lib/stato/preferenze";
+import { useRichiesta } from "@/lib/stato/comandi";
 import { dentroPeriodo, etichettaPeriodo } from "@/lib/periodo";
 import { data as fmtData, euro, iniziali, coloreDaNome } from "@/lib/format";
 import { fatturaGrezza } from "@/lib/fisco/documenti";
@@ -90,6 +91,16 @@ export function SchermataFatture() {
       setFiltroStato(richiesto as FiltroStato);
     }
   }, []);
+
+  // Quello che chiede la palette: «nuova fattura» apre il modulo, «apri
+  // fattura 2026/03» porta qui con la ricerca già compilata e i filtri aperti,
+  // altrimenti la fattura cercata resterebbe nascosta da un filtro di ieri.
+  useRichiesta("nuovaFattura", () => setModuloAperto(true));
+  useRichiesta("cercaFatture", (r) => {
+    setRicerca(r.testo);
+    setFiltroStato("tutte");
+    setFiltroCliente("tutti");
+  });
 
   const clienti = React.useMemo(() => dati?.clienti ?? [], [dati]);
   const nomeCliente = React.useCallback(

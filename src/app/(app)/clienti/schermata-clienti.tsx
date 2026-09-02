@@ -31,6 +31,8 @@ import { archivio } from "@/lib/dati/archivio";
 import { useCalcoloAnno, useDati } from "@/lib/dati/hooks";
 import { CANALI_ACQUISIZIONE } from "@/lib/dati/categorie";
 import { usePreferenze } from "@/lib/stato/preferenze";
+import { useRichiesta } from "@/lib/stato/comandi";
+import { toast } from "@/components/ui/toast";
 import { coloreDaNome, euro, iniziali, num, percentuale } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +53,40 @@ export function SchermataClienti() {
       giorniMedi: giorniMediIncasso(fatture),
     };
   }, [dati, calcolo, anno]);
+
+  // «Apri cliente» dalla palette: qui non c'è una scheda per cliente da aprire,
+  // c'è una riga in un portafoglio. Portarcela sotto gli occhi ed evidenziarla
+  // è quello che la voce promette; l'evidenza si spegne da sola, perché una
+  // riga colorata che resta tale diventa un'informazione falsa.
+  const [evidenziato, setEvidenziato] = React.useState<string | null>(null);
+  useRichiesta(
+    "cercaClienti",
+    (r) => {
+      const trovato = dati?.clienti.find((c) => c.nome === r.testo);
+      if (!trovato) return;
+      setEvidenziato(trovato.id);
+      // Dopo il render: la riga potrebbe non essere ancora nel DOM.
+      requestAnimationFrame(() => {
+        const riga = document.querySelector(`[data-cliente="${trovato.id}"]`);
+        // Il portafoglio è quello dell'anno scelto in testa: un cliente senza
+        // fatture nell'anno scelto qui non c'è. Meglio dirlo che scorrere a vuoto.
+        if (!riga) {
+          toast.avviso(`${trovato.nome} non ha fatture nel ${anno}`);
+          return;
+        }
+        riga.scrollIntoView({ block: "center", behavior: "smooth" });
+      });
+    },
+    // Finché Dexie non ha risposto il cliente non si può trovare: la richiesta
+    // aspetta invece di essere consumata a vuoto.
+    Boolean(dati),
+  );
+
+  React.useEffect(() => {
+    if (!evidenziato) return;
+    const t = window.setTimeout(() => setEvidenziato(null), 4000);
+    return () => window.clearTimeout(t);
+  }, [evidenziato]);
 
   if (!dati || !calcolo || !analisi) {
     return (
@@ -157,7 +193,11 @@ export function SchermataClienti() {
                     {portafoglio.map((r) => {
                       const cliente = dati.clienti.find((c) => c.id === r.id);
                       return (
-                        <TabellaRiga key={r.id}>
+                        <TabellaRiga
+                          key={r.id}
+                          data-cliente={r.id}
+                          className={evidenziato === r.id ? "bg-accento-tenue" : undefined}
+                        >
                           <TabellaCella className="min-w-44">
                             <span className="flex items-center gap-2">
                               <span
@@ -247,7 +287,11 @@ export function SchermataClienti() {
                 {portafoglio.map((r) => {
                   const cliente = dati.clienti.find((c) => c.id === r.id);
                   return (
-                    <Scheda key={r.id}>
+                    <Scheda
+                      key={r.id}
+                      data-cliente={r.id}
+                      className={evidenziato === r.id ? "bg-accento-tenue" : undefined}
+                    >
                       <SchedaTesta
                         titolo={
                           <span className="flex items-center gap-2">
