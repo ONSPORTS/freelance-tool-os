@@ -121,3 +121,59 @@ export function giorniInParole(giorni: number): string {
   if (giorni === 1) return "scade domani";
   return `scade fra ${giorni} giorni`;
 }
+
+// ————————————————————————————————————————————————————————————
+// Quando una chiave nuova sostituisce quella salvata
+// ————————————————————————————————————————————————————————————
+
+export type EsitoSostituzione =
+  | { sostituisci: true }
+  | { sostituisci: false; motivo: string };
+
+/**
+ * Una chiave nuova prende il posto di quella salvata solo se migliora — o
+ * almeno non peggiora — la situazione.
+ *
+ * Il caso da evitare è un cliente che si blocca da solo: incolla la stringa
+ * sbagliata — una licenza vecchia ritrovata in una mail, quella di una prova,
+ * quella di un altro — e l'app, che fino a un istante prima era attiva fino al
+ * 2027, si ritrova scaduta. La chiave buona intanto è stata sovrascritta, e chi
+ * non l'ha più a portata di mano resta in sola lettura senza aver fatto niente
+ * di sbagliato se non un copia-incolla.
+ *
+ * Perciò la sostituzione è un'operazione che può essere rifiutata, e il rifiuto
+ * non tocca nulla: quella salvata resta dov'è. La firma è già stata verificata
+ * quando si arriva qui; qui si guardano solo le date.
+ *
+ * @param attuale la licenza salvata e verificata, o `null` se non ce n'è una.
+ */
+export function valutaSostituzione(
+  nuova: Licenza,
+  attuale: Licenza | null,
+  oggi: string,
+): EsitoSostituzione {
+  if (giorniTra(oggi, nuova.scadenza) < 0) {
+    return {
+      sostituisci: false,
+      motivo:
+        `Questa licenza è scaduta il ${dataEstesa(nuova.scadenza)}` +
+        `${attuale ? ": quella attuale resta al suo posto." : ". Serve una licenza ancora valida."}`,
+    };
+  }
+
+  // Il confronto ha senso solo con una licenza ancora viva: sostituire una
+  // scaduta è sempre un miglioramento, quale che sia la data.
+  const attualeViva = attuale !== null && giorniTra(oggi, attuale.scadenza) >= 0;
+
+  if (attualeViva && nuova.scadenza < attuale.scadenza) {
+    return {
+      sostituisci: false,
+      motivo:
+        `Questa licenza scade prima di quella attiva: ${dataEstesa(nuova.scadenza)} ` +
+        `invece del ${dataEstesa(attuale.scadenza)}. Non è stato cambiato niente. ` +
+        "Se vuoi usarla lo stesso, rimuovi prima la chiave salvata.",
+    };
+  }
+
+  return { sostituisci: true };
+}

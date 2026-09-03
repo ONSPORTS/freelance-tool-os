@@ -23,6 +23,7 @@ import {
   preavviso,
   solaLettura,
   statoLicenza,
+  valutaSostituzione,
 } from "./stato";
 
 // ————————————————————————————————————————————————————————————
@@ -258,5 +259,84 @@ describe("un build di produzione non esce senza chiave pubblica", () => {
 
   it("una chiave vera lascia passare il build", () => {
     expect(controlloChiavePubblica(PUBBLICA, "production")).toBeNull();
+  });
+});
+
+// ————————————————————————————————————————————————————————————
+// Sostituire la chiave salvata
+//
+// Lo scenario da non far succedere mai: un cliente con la licenza in regola
+// incolla la stringa sbagliata e si ritrova in sola lettura.
+// ————————————————————————————————————————————————————————————
+
+describe("una chiave nuova sostituisce quella salvata solo se non peggiora", () => {
+  const OGGI = "2026-09-02";
+  const attiva: Licenza = {
+    email: "gabriele@esempio.it",
+    scadenza: "2027-12-31",
+    emessaIl: "2026-09-02",
+  };
+
+  it("**una licenza scaduta non sostituisce quella attiva**", () => {
+    // Il caso vero: `--anni 0`, intestatario diverso, scadenza già passata.
+    const scaduta: Licenza = {
+      email: "altro@esempio.it",
+      scadenza: "2026-08-20",
+      emessaIl: "2025-08-20",
+    };
+    const esito = valutaSostituzione(scaduta, attiva, OGGI);
+    expect(esito.sostituisci).toBe(false);
+    if (esito.sostituisci) return;
+    expect(esito.motivo).toContain("scaduta");
+    expect(esito.motivo).toContain("20 agosto 2026");
+    expect(esito.motivo).toContain("quella attuale resta al suo posto");
+  });
+
+  it("una licenza scaduta non entra nemmeno quando non c'è niente di salvato", () => {
+    const scaduta: Licenza = { email: "x@y.it", scadenza: "2026-08-20", emessaIl: "2025-08-20" };
+    const esito = valutaSostituzione(scaduta, null, OGGI);
+    expect(esito.sostituisci).toBe(false);
+    if (esito.sostituisci) return;
+    expect(esito.motivo).toContain("ancora valida");
+  });
+
+  it("una licenza che scade prima di quella attiva viene rifiutata, e dice come procedere", () => {
+    const piuCorta: Licenza = { email: "x@y.it", scadenza: "2027-06-30", emessaIl: "2026-09-02" };
+    const esito = valutaSostituzione(piuCorta, attiva, OGGI);
+    expect(esito.sostituisci).toBe(false);
+    if (esito.sostituisci) return;
+    expect(esito.motivo).toContain("30 giugno 2027");
+    expect(esito.motivo).toContain("31 dicembre 2027");
+    // Non un vicolo cieco: la strada per farlo lo stesso è scritta.
+    expect(esito.motivo).toContain("rimuovi prima la chiave salvata");
+  });
+
+  it("un rinnovo che allunga passa", () => {
+    const rinnovo: Licenza = { email: attiva.email, scadenza: "2028-12-31", emessaIl: "2027-11-01" };
+    expect(valutaSostituzione(rinnovo, attiva, OGGI).sostituisci).toBe(true);
+  });
+
+  it("reincollare la stessa licenza non è un peggioramento", () => {
+    expect(valutaSostituzione(attiva, attiva, OGGI).sostituisci).toBe(true);
+  });
+
+  it("con la stessa scadenza si può correggere l'intestatario", () => {
+    const stessoGiorno: Licenza = { ...attiva, email: "nuova@esempio.it" };
+    expect(valutaSostituzione(stessoGiorno, attiva, OGGI).sostituisci).toBe(true);
+  });
+
+  it("l'ultimo giorno di validità una licenza è ancora buona", () => {
+    const oggiScade: Licenza = { email: "x@y.it", scadenza: OGGI, emessaIl: "2025-09-02" };
+    expect(valutaSostituzione(oggiScade, null, OGGI).sostituisci).toBe(true);
+  });
+
+  it("quando quella salvata è già scaduta, una valida entra comunque", () => {
+    const vecchiaScaduta: Licenza = { ...attiva, scadenza: "2026-01-31" };
+    const nuova: Licenza = { email: "x@y.it", scadenza: "2026-12-31", emessaIl: OGGI };
+    expect(valutaSostituzione(nuova, vecchiaScaduta, OGGI).sostituisci).toBe(true);
+  });
+
+  it("la prima licenza su un'app senza niente di salvato entra", () => {
+    expect(valutaSostituzione(attiva, null, OGGI).sostituisci).toBe(true);
   });
 });

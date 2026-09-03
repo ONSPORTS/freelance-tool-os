@@ -17,6 +17,7 @@ import {
   descrizione,
   giorniInParole,
   solaLettura,
+  valutaSostituzione,
   type StatoLicenza,
 } from "@/lib/licenza/stato";
 import { useLicenza, useStatoLicenza } from "@/lib/stato/licenza";
@@ -35,6 +36,7 @@ export function SchermataLicenza() {
   const oggi = React.useMemo(() => new Date().toISOString().slice(0, 10), []);
   const stato = useStatoLicenza(oggi);
   const chiaveSalvata = useLicenza((s) => s.chiave);
+  const licenzaSalvata = useLicenza((s) => s.licenza);
   const imposta = useLicenza((s) => s.imposta);
   const segnaNonVerificabile = useLicenza((s) => s.segnaNonVerificabile);
 
@@ -52,6 +54,16 @@ export function SchermataLicenza() {
       if (!esito.verificabile) segnaNonVerificabile(esito.motivo);
       return;
     }
+
+    // La firma è buona, ma non basta: una licenza scaduta o più corta di quella
+    // già attiva non deve poter sostituire niente. Chi incolla la stringa
+    // sbagliata non deve ritrovarsi in sola lettura per un copia-incolla.
+    const sostituzione = valutaSostituzione(esito.licenza, licenzaSalvata, oggi);
+    if (!sostituzione.sostituisci) {
+      setErrore(sostituzione.motivo);
+      return;
+    }
+
     imposta(bozza.trim(), esito.licenza);
     segnaNonVerificabile(null);
     setBozza("");
