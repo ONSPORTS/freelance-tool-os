@@ -8,6 +8,7 @@ import {
   importAnnullabile,
   type DaScrivere,
 } from "./importazioni";
+import { salvaFattura, segnaIncassata } from "./azioni";
 import type { Cliente } from "./tipi";
 import type { Costo, Fattura } from "@/lib/fisco/tipi";
 
@@ -163,5 +164,56 @@ describe("annullare un import", () => {
     await dimenticaImport();
     expect(await importAnnullabile()).toBeNull();
     expect(await archivio().fatture.conta()).toBe(1); // i dati restano
+  });
+});
+
+// ————————————————————————————————————————————————————————————
+// Nel database non entra nulla che si possa ricalcolare
+// ————————————————————————————————————————————————————————————
+
+describe("i campi derivati non finiscono in archivio", () => {
+  it("**salvare una fattura calcolata scrive i soli campi grezzi**", async () => {
+    // Le azioni della riga — «segna incassata», «annulla l'incasso», «elimina»
+    // — ricevono la fattura *calcolata*. Senza normalizzazione finivano in
+    // archivio anche `stato`, `iva`, `totale`, `scadenza` e gli altri derivati:
+    // 23 campi invece di 9. Nessun numero sbagliato oggi, perché il motore
+    // ricalcola tutto, ma una copia congelata dentro l'archivio è esattamente
+    // la premessa di un numero plausibile e sbagliato domani.
+    const calcolata = {
+      ...fattura("f1"),
+      stato: "daIncassare",
+      scadenza: "2026-03-03",
+      giorniRitardo: 12,
+      nettoIncasso: 1_000,
+      iva: 220,
+      totale: 1_220,
+      ritenuta: 0,
+      rivalsa: 0,
+      bollo: 0,
+      ricavoRilevante: 1_000,
+    } as unknown as Fattura;
+
+    await salvaFattura(calcolata);
+    const salvata = await archivio().fatture.leggi("f1");
+    expect(Object.keys(salvata ?? {}).sort()).toEqual([
+      "clienteId",
+      "dataEmissione",
+      "dataIncasso",
+      "descrizione",
+      "id",
+      "imponibile",
+      "numero",
+      "tipoRicavo",
+    ]);
+  });
+
+  it("segnare incassata non riporta dentro i derivati", async () => {
+    await archivio().fatture.salva(fattura("f2"));
+    const calcolata = { ...fattura("f2"), stato: "daIncassare", totale: 1_220 } as unknown as Fattura;
+    await segnaIncassata(calcolata, "2026-04-01");
+    const salvata = await archivio().fatture.leggi("f2");
+    expect(salvata?.dataIncasso).toBe("2026-04-01");
+    expect(Object.keys(salvata ?? {})).not.toContain("stato");
+    expect(Object.keys(salvata ?? {})).not.toContain("totale");
   });
 });

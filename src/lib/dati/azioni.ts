@@ -1,6 +1,8 @@
 "use client";
 
-import { toast, type Raggruppamento } from "@/components/ui/toast";
+// Dal modulo puro e non da `components/ui`: il livello dei dati non deve
+// dipendere dalla presentazione, e così i test girano senza toccare JSX.
+import { toast, type Raggruppamento } from "@/lib/stato/toast";
 import { dimenticaImport } from "./importazioni";
 import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { parametriDi } from "@/lib/fisco/parametri";
@@ -14,6 +16,7 @@ import {
   type StatoPercorso,
 } from "@/lib/onboarding/percorso";
 import { archivio } from "./archivio";
+import { costoGrezzo, fatturaGrezza } from "@/lib/fisco/documenti";
 import { datiDemoConservando } from "./demo";
 import type {
   Cliente,
@@ -89,7 +92,12 @@ export async function salvaFattura(fattura: Fattura, messaggio = "Fattura aggior
     fattura.id,
     messaggio,
     async () => {
-      await archivio().fatture.salva(fattura);
+      // Normalizzata qui e non nei punti di chiamata: le azioni della riga
+      // passano la fattura *calcolata*, e senza questo passaggio finivano in
+      // archivio anche `stato`, `iva`, `totale` e gli altri dodici derivati —
+      // 23 campi invece di 9, contro la regola per cui nel database non entra
+      // nulla che si possa ricalcolare. Un punto solo, che nessuno può saltare.
+      await archivio().fatture.salva(fatturaGrezza(fattura));
     },
     GRUPPO_FATTURE,
   );
@@ -160,7 +168,7 @@ export async function salvaCosto(costo: Costo, messaggio = "Costo aggiornato") {
     costo.id,
     messaggio,
     async () => {
-      await archivio().costi.salva(costo);
+      await archivio().costi.salva(costoGrezzo(costo));
     },
     GRUPPO_COSTI,
   );

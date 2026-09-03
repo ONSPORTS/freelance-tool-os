@@ -144,7 +144,7 @@ export function calcolaCosto(costo: Costo, imp: Impostazioni): CostoCalcolato {
  * si possa ricalcolare. Aggiungere un derivato senza toccare questa funzione
  * non lo fa finire per sbaglio nell'archivio.
  */
-export function fatturaGrezza(f: FatturaCalcolata): Fattura {
+export function fatturaGrezza(f: Fattura | FatturaCalcolata): Fattura {
   return {
     id: f.id,
     dataEmissione: f.dataEmissione,
@@ -158,7 +158,7 @@ export function fatturaGrezza(f: FatturaCalcolata): Fattura {
   };
 }
 
-export function costoGrezzo(c: CostoCalcolato): Costo {
+export function costoGrezzo(c: Costo | CostoCalcolato): Costo {
   return {
     id: c.id,
     dataDocumento: c.dataDocumento,
