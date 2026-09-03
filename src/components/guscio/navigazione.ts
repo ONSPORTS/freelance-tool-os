@@ -7,6 +7,7 @@ import {
   FileText,
   Key,
   Keyboard,
+  FileSpreadsheet,
   LayoutDashboard,
   Percent,
   PiggyBank,
@@ -43,6 +44,7 @@ const ICONE: Record<string, LucideIcon> = {
   "/avvio": Compass,
   "/impostazioni": Settings,
   "/dati": Database,
+  "/importa": FileSpreadsheet,
   "/licenza": Key,
   "/scorciatoie": Keyboard,
 };

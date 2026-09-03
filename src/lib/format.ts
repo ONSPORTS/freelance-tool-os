@@ -159,6 +159,51 @@ export function analizzaNumero(grezzo: string): number | null {
   return Number.isFinite(valore) ? valore : null;
 }
 
+/**
+ * Una data scritta a mano o esportata da un gestionale → ISO `aaaa-mm-gg`.
+ *
+ * Accetta quello che si trova davvero nei file italiani: `31/12/2026`,
+ * `31-12-2026`, `31.12.2026`, l'anno a due cifre, e l'ISO che esce dai
+ * gestionali. La regola per distinguere `03/04/2026` è che in Italia il primo
+ * numero è il giorno: sempre, anche quando sarebbe un mese valido. Un file
+ * americano importato così darebbe date sbagliate — ed è per questo che
+ * l'anteprima mostra le date formattate prima di scrivere qualcosa.
+ *
+ * @returns `null` se non è una data, o se è una data impossibile come il
+ * 31 febbraio: meglio scartare la riga che salvare un giorno che non esiste.
+ */
+export function analizzaData(grezzo: string): string | null {
+  const pulito = grezzo.trim();
+  if (pulito === "") return null;
+
+  const iso = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(pulito);
+  const italiana = /^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2}|\d{4})$/.exec(pulito);
+
+  let anno: number;
+  let mese: number;
+  let giorno: number;
+  if (iso) {
+    [anno, mese, giorno] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+  } else if (italiana) {
+    giorno = Number(italiana[1]);
+    mese = Number(italiana[2]);
+    anno = Number(italiana[3]);
+    // Due cifre: la finestra è quella dei gestionali, 70→1970, 69→2069.
+    if (italiana[3].length === 2) anno += anno >= 70 ? 1900 : 2000;
+  } else {
+    return null;
+  }
+
+  if (mese < 1 || mese > 12 || giorno < 1 || giorno > 31) return null;
+  const data = new Date(Date.UTC(anno, mese - 1, giorno));
+  // Il rimbalzo di `Date` trasformerebbe il 31 febbraio nel 3 marzo: qui invece
+  // si scarta, perché una data inventata in un registro fiscale non si nota più.
+  if (data.getUTCFullYear() !== anno || data.getUTCMonth() !== mese - 1 || data.getUTCDate() !== giorno) {
+    return null;
+  }
+  return `${String(anno).padStart(4, "0")}-${String(mese).padStart(2, "0")}-${String(giorno).padStart(2, "0")}`;
+}
+
 /** Percentuale digitata: «22», «22%», «0,22» sopra 1 diventa 22 → 0,22. */
 export function analizzaPercentuale(grezzo: string): number | null {
   const valore = analizzaNumero(grezzo);

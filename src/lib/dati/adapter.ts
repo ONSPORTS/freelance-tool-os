@@ -7,7 +7,7 @@
  * Per i test esiste anche un adapter in memoria: la stessa suite gira su
  * entrambi, così l'interfaccia resta un contratto vero e non una decorazione.
  */
-import type { Dati, NomeCollezione } from "./tipi";
+import type { Dati, Importazione, NomeCollezione } from "./tipi";
 
 /** Una collezione di entità con chiave `K`. */
 export interface Deposito<T, K extends string | number = string> {
@@ -45,6 +45,12 @@ export interface StorageAdapter {
   /** Le chiusure sono indicizzate per anno, come le impostazioni. */
   readonly chiusure: Deposito<Dati["chiusure"][number], number>;
   readonly percorsi: Deposito<Dati["percorsi"][number]>;
+  /**
+   * Gli import annullabili. Fuori da `COLLEZIONI` di proposito: non entrano nel
+   * backup, perché un annulla ripristinato su un altro archivio disferebbe
+   * modifiche che lì non sono mai state fatte.
+   */
+  readonly importazioni: Deposito<Importazione>;
 
   /** Legge tutto, in una sola transazione dove la tecnologia lo consente. */
   leggiTutto(): Promise<Dati>;

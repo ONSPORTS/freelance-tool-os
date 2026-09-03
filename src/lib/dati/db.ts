@@ -11,6 +11,7 @@ import type {
   VersamentoF24,
   SpuntaAdempimento,
   VocePatrimonio,
+  Importazione,
 } from "./tipi";
 
 /**
@@ -21,7 +22,7 @@ import type {
  * liquidazione IVA) e il cliente (concentrazione del portafoglio).
  * Nessun campo derivato è indicizzato, perché nessun campo derivato è salvato.
  */
-export const VERSIONE_SCHEMA = 4;
+export const VERSIONE_SCHEMA = 5;
 
 export class DatabaseFinanze extends Dexie {
   impostazioni!: EntityTable<Impostazioni, "anno">;
@@ -35,6 +36,7 @@ export class DatabaseFinanze extends Dexie {
   spunte!: EntityTable<SpuntaAdempimento, "id">;
   chiusure!: EntityTable<ChiusuraAnno, "anno">;
   percorsi!: EntityTable<StatoPercorso, "id">;
+  importazioni!: EntityTable<Importazione, "id">;
 
   // Il nome del database resta quello originale anche dopo il rename del
   // progetto in Flowlance: in IndexedDB il nome È la chiave dell'archivio,
@@ -69,6 +71,12 @@ export class DatabaseFinanze extends Dexie {
     // esattamente lo stato di partenza.
     this.version(4).stores({
       percorsi: "id, [contesto+anno]",
+    });
+    // Versione 5: l'import annullabile. Una riga sola alla volta — l'import
+    // successivo prende il posto del precedente — e nessuna migrazione: chi non
+    // ha mai importato trova la tabella vuota, cioè «niente da annullare».
+    this.version(5).stores({
+      importazioni: "id, eseguitaIl",
     });
   }
 }

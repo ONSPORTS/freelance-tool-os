@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Database, Download, Sparkles, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardCorpo, CardInterna, CardSottotitolo, CardTitolo } from "@/components/ui/card";
@@ -125,6 +126,10 @@ export function PannelloDati() {
           <Button scrive variante="contorno" onClick={importa} disabled={inCorso}>
             <Upload className="size-4" aria-hidden />
             Importa
+          </Button>
+          {/* Il CSV è un flusso a quattro passi: vive in una schermata sua. */}
+          <Button variante="contorno" asChild>
+            <Link href="/importa">Da CSV</Link>
           </Button>
         </>
       }

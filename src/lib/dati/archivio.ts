@@ -24,12 +24,16 @@ export function impostaSolaLettura(predicato: () => boolean): void {
 }
 
 export function archivio(): StorageAdapter {
+  // L'adapter iniettato viene prima della guardia: quella serve a non aprire
+  // IndexedDB durante la generazione statica, e un adapter già scelto — quello
+  // in memoria dei test — non apre proprio niente.
+  if (istanza) return istanza;
   if (typeof window === "undefined") {
     throw new Error(
       "L'archivio è disponibile solo nel browser: i dati non lasciano il dispositivo.",
     );
   }
-  if (!istanza) istanza = conSolaLettura(new DexieAdapter(), () => bloccato());
+  istanza = conSolaLettura(new DexieAdapter(), () => bloccato());
   return istanza;
 }
 

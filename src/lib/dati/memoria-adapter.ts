@@ -1,5 +1,5 @@
 import type { Deposito, EsitoImport, ModalitaImport, StorageAdapter } from "./adapter";
-import { COLLEZIONI, datiVuoti, type Dati, type NomeCollezione } from "./tipi";
+import { COLLEZIONI, datiVuoti, type Dati, type Importazione, type NomeCollezione } from "./tipi";
 
 /**
  * Adapter in memoria. Esiste perché la suite di test possa girare sull'interfaccia
@@ -59,6 +59,7 @@ export class MemoriaAdapter implements StorageAdapter {
   readonly spunte = new DepositoMemoria<Dati["spunte"][number], string>((v) => v.id);
   readonly chiusure = new DepositoMemoria<Dati["chiusure"][number], number>((v) => v.anno);
   readonly percorsi = new DepositoMemoria<Dati["percorsi"][number], string>((v) => v.id);
+  readonly importazioni = new DepositoMemoria<Importazione, string>((v) => v.id);
 
   private deposito(collezione: NomeCollezione) {
     return this[collezione] as DepositoMemoria<unknown, string | number>;

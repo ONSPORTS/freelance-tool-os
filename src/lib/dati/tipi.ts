@@ -52,6 +52,45 @@ export type SpuntaAdempimento = {
   completatoIl: string;
 };
 
+/**
+ * Una modifica fatta da un import, per poterla disfare.
+ *
+ * Tre forme, perché tre sono i modi in cui un import tocca l'archivio: crea una
+ * riga, ne sostituisce una esistente, o somma un importo dentro un totale
+ * mensile — le spese personali, che nell'archivio non sono righe ma il mese in
+ * cui cadono.
+ */
+export type ModificaImport =
+  | { tipo: "creato"; collezione: NomeCollezione; id: string | number }
+  | { tipo: "sostituito"; collezione: NomeCollezione; precedente: unknown }
+  | { tipo: "sommato"; collezione: "movimentiPersonali"; id: string; campo: string; delta: number };
+
+/**
+ * Un import annullabile.
+ *
+ * Persistito, perché di un import sbagliato ci si accorge il giorno dopo
+ * guardando il cruscotto, non nella schermata d'esito. E **chirurgico**: non
+ * un'istantanea dell'archivio ma l'elenco puntuale di ciò che l'import ha
+ * fatto. Un'istantanea, ripristinata il giorno dopo, cancellerebbe anche le
+ * fatture inserite a mano nel frattempo — un annulla che distrugge lavoro non
+ * è un annulla.
+ *
+ * Ne esiste al massimo uno: l'import successivo prende il posto del precedente.
+ */
+/**
+ * Non è una collezione di `COLLEZIONI`, e quindi non entra nel backup: un
+ * annulla che viaggia dentro un file e viene ripristinato su un archivio
+ * diverso disferebbe cose che non ha mai fatto. Vive in una tabella sua.
+ */
+export type Importazione = {
+  id: string;
+  eseguitaIl: string;
+  nomeFile: string;
+  destinazione: "fattura" | "costo";
+  conteggi: { fatture: number; costi: number; personali: number; clienti: number; scartate: number };
+  modifiche: ModificaImport[];
+};
+
 export type VocePatrimonio = {
   id: string;
   tipo: "attivo" | "passivo";

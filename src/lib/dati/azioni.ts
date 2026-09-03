@@ -1,6 +1,7 @@
 "use client";
 
 import { toast } from "@/components/ui/toast";
+import { dimenticaImport } from "./importazioni";
 import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { parametriDi } from "@/lib/fisco/parametri";
 import type { ChiusuraAnno, DestinazioneCreditoIva } from "@/lib/fisco/chiusura";
@@ -333,6 +334,12 @@ export async function chiudiAnno(
   opzioni: { applicaRegime?: { anno: number; regime: Regime } } = {},
 ): Promise<void> {
   await archivio().chiusure.salva(chiusura);
+
+  // Chiudere consuma l'annulla dell'ultimo import: da qui in avanti i riporti
+  // dell'anno successivo poggiano su questi numeri, e toglierli da sotto senza
+  // che la chiusura se ne accorga darebbe la cosa peggiore che questo progetto
+  // possa produrre — un numero plausibile e sbagliato.
+  await dimenticaImport();
 
   const regime = opzioni.applicaRegime;
   let impostazioniPrecedenti: Impostazioni | undefined;

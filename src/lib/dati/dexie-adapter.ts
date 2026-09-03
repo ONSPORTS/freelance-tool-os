@@ -1,7 +1,7 @@
 import type { Table } from "dexie";
 import { db as dbCondiviso, type DatabaseFinanze } from "./db";
 import type { Deposito, EsitoImport, ModalitaImport, StorageAdapter } from "./adapter";
-import { COLLEZIONI, datiVuoti, type Dati, type NomeCollezione } from "./tipi";
+import { COLLEZIONI, datiVuoti, type Dati, type Importazione, type NomeCollezione } from "./tipi";
 
 /**
  * Implementazione su IndexedDB.
@@ -43,6 +43,7 @@ export class DexieAdapter implements StorageAdapter {
   readonly spunte: StorageAdapter["spunte"];
   readonly chiusure: StorageAdapter["chiusure"];
   readonly percorsi: StorageAdapter["percorsi"];
+  readonly importazioni: StorageAdapter["importazioni"];
 
   constructor(database: DatabaseFinanze = dbCondiviso()) {
     this.database = database;
@@ -64,6 +65,9 @@ export class DexieAdapter implements StorageAdapter {
     );
     this.percorsi = deposito(
       database.percorsi as unknown as Table<Dati["percorsi"][number], string>,
+    );
+    this.importazioni = deposito(
+      database.importazioni as unknown as Table<Importazione, string>,
     );
   }
 

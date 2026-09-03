@@ -43,6 +43,7 @@ export function conSolaLettura(
 
   return {
     ...protetti,
+    importazioni: depositoProtetto(base.importazioni, "importazioni", bloccato),
     get nome() {
       return base.nome;
     },
