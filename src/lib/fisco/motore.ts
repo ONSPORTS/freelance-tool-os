@@ -10,7 +10,9 @@ import { limita, nonNegativo, rapporto, round2, somma } from "./aritmetica";
 import { interoIt } from "../format";
 import { annoDi, calcolaCosto, calcolaFattura } from "./documenti";
 import { dateCosto, dateFattura, ripartisci } from "./competenza";
+import { calcolaNota, dateNota, type NotaCalcolata } from "./note";
 import type {
+  NotaCredito,
   Costo,
   CostoCalcolato,
   Fattura,
@@ -26,6 +28,8 @@ export type IngressoMotore = {
   parametri: ParametriAnno;
   fatture: Fattura[];
   costi: Costo[];
+  /** Le note di credito emesse. Stornano ricavi e IVA con le stesse due date. */
+  note?: NotaCredito[];
   versamenti?: VersamentoF24[];
   /**
    * Le impostazioni degli altri anni presenti in archivio.
@@ -110,6 +114,28 @@ export type Prospetto = {
   ivaDetraibilePagata: number;
   bolloACarico: number;
   fatturatoEmesso: number;
+
+  /**
+   * Note di credito, tenute separate e mai annegate nei totali.
+   *
+   * `stornoIncassato` è già sottratto da `compensiIncassati` e da
+   * `ricaviRilevanti`; `stornoEmesso` da `fatturatoEmesso`. Restano qui in
+   * chiaro perché un fatturato che cala senza dire perché è il modo più veloce
+   * di far perdere fiducia in un prospetto.
+   */
+  note: {
+    /** Storni con data di rimborso nell'anno: hanno già ridotto i ricavi per cassa. */
+    stornoIncassato: number;
+    /** Storni con data documento nell'anno: hanno già ridotto il fatturato emesso. */
+    stornoEmesso: number;
+    /** IVA che le note tolgono al debito dell'anno. */
+    ivaStornata: number;
+    /** Emesse e non ancora rimborsate: ridurranno i ricavi quando il denaro torna. */
+    stornoDaRimborsare: number;
+    numero: number;
+    /** Quanto delle note emesse non è agganciato a nessuna fattura. */
+    nonRiconciliato: number;
+  };
 
   /** Soglie del regime forfettario */
   soglia: {
@@ -202,6 +228,7 @@ export type Prospetto = {
   /** Documenti già calcolati, per non ripetere il lavoro a valle. */
   fattureCalcolate: FatturaCalcolata[];
   costiCalcolati: CostoCalcolato[];
+  noteCalcolate: NotaCalcolata[];
 };
 
 /** IRPEF a scaglioni progressivi. */
@@ -333,20 +360,39 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   const costiCalcolati = ingresso.costi.map((c) =>
     calcolaCosto(c, impostazioniDi(annoDi(c.dataDocumento))),
   );
+  const noteCalcolate = (ingresso.note ?? []).map((n) =>
+    calcolaNota(n, impostazioniDi(annoDi(n.dataDocumento))),
+  );
 
   // — A · Base di calcolo ————————————————————————————————
   // Due criteri, una funzione sola: la cassa comanda sulle imposte, la data del
   // documento sull'IVA e sul bollo.
   const rf = ripartisci(fattureCalcolate, anno, dateFattura);
   const rc = ripartisci(costiCalcolati, anno, dateCosto);
+  // Le note passano dalla stessa funzione delle fatture e dei costi: due date,
+  // due criteri. La data del rimborso comanda sui ricavi, quella del documento
+  // sull'IVA — esattamente come incasso ed emissione su una fattura.
+  const rn = ripartisci(noteCalcolate, anno, dateNota);
   const incassateNellAnno = rf.perCassa;
   const emesseNellAnno = rf.perCompetenza;
   const pagatiNellAnno = rc.perCassa;
 
-  const compensiIncassati = somma(...incassateNellAnno.map((f) => f.imponibile));
+  // Gli storni entrano nei ricavi con il segno meno, alla data in cui il denaro
+  // è tornato indietro. Una nota emessa e non ancora rimborsata non riduce
+  // ancora niente di cassa, come una fattura emessa e non incassata.
+  const stornoIncassato = somma(...rn.perCassa.map((n) => n.imponibile));
+  const stornoEmesso = somma(...rn.perCompetenza.map((n) => n.imponibile));
+  const ivaStornata = somma(...rn.perCompetenza.map((n) => n.iva));
+  const stornoDaRimborsare = somma(
+    ...[...rn.sospesi, ...rn.versoAnniSuccessivi].map((n) => n.imponibile),
+  );
+
+  const compensiIncassati = round2(
+    somma(...incassateNellAnno.map((f) => f.imponibile)) - stornoIncassato,
+  );
   const rivalsaIncassata = somma(...incassateNellAnno.map((f) => f.rivalsa));
   const ricaviRilevanti = somma(compensiIncassati, rivalsaIncassata);
-  const ivaIncassata = somma(...incassateNellAnno.map((f) => f.iva));
+  const ivaIncassata = round2(somma(...incassateNellAnno.map((f) => f.iva)) - ivaStornata);
   const incassatoLordo = somma(ricaviRilevanti, ivaIncassata);
 
   const costiPagatiTotale = somma(...pagatiNellAnno.map((c) => c.totale));
@@ -355,7 +401,9 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   // Il bollo segue la data del documento: è dovuto all'emissione.
   const bolloACarico = somma(...emesseNellAnno.map((f) => f.bolloACarico));
 
-  const fatturatoEmesso = somma(...emesseNellAnno.map((f) => f.ricavoRilevante));
+  const fatturatoEmesso = round2(
+    somma(...emesseNellAnno.map((f) => f.ricavoRilevante)) - stornoEmesso,
+  );
   const inSospeso = somma(...rf.sospesi.map((f) => f.ricavoRilevante));
 
   // La soglia si misura sui compensi percepiti, non sull'emesso: l'emesso resta
@@ -537,8 +585,17 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
     creditoAnnoPrecedente,
     creditoUtilizzatoSuSaldo: round2(creditoSuSaldo),
 
+    note: {
+      stornoIncassato,
+      stornoEmesso,
+      ivaStornata,
+      stornoDaRimborsare,
+      numero: noteCalcolate.length,
+      nonRiconciliato: somma(...noteCalcolate.map((n) => n.residuo)),
+    },
     fattureCalcolate,
     costiCalcolati,
+    noteCalcolate,
   };
 }
 

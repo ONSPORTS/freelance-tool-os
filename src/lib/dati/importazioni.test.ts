@@ -30,6 +30,7 @@ function daScrivere(extra: Partial<DaScrivere> = {}): DaScrivere {
     nomeFile: "storico.csv",
     destinazione: "fattura",
     fatture: [],
+    note: [],
     costi: [],
     clienti: [],
     personali: [],

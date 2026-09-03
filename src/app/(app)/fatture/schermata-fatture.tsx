@@ -50,6 +50,7 @@ import { useRichiesta } from "@/lib/stato/comandi";
 import { dentroPeriodo, etichettaPeriodo } from "@/lib/periodo";
 import { data as fmtData, euro, iniziali, coloreDaNome } from "@/lib/format";
 import { fatturaGrezza } from "@/lib/fisco/documenti";
+import { stornoPerFattura } from "@/lib/fisco/note";
 import type { FatturaCalcolata } from "@/lib/fisco/tipi";
 import type { Fattura } from "@/lib/dati/tipi";
 import { ModuloFattura } from "./modulo-fattura";
@@ -102,6 +103,13 @@ export function SchermataFatture() {
     setFiltroStato("tutte");
     setFiltroCliente("tutti");
   });
+
+  // Il netto di ogni fattura viste le note: calcolato, non salvato. Si legge
+  // qui e sulla nota, e da nessuna delle due parti sta in archivio.
+  const storni = React.useMemo(
+    () => stornoPerFattura(dati?.note ?? [], calcolo?.prospetto.fattureCalcolate ?? []),
+    [dati, calcolo],
+  );
 
   const clienti = React.useMemo(() => dati?.clienti ?? [], [dati]);
   const nomeCliente = React.useCallback(
@@ -357,6 +365,10 @@ export function SchermataFatture() {
                           tipo="valuta" etichetta="Imponibile" valore={f.imponibile}
                           onSalva={(v) => aggiorna(f, { imponibile: Number(v) })}
                         />
+                        {/* Il netto dopo le note: sta sotto l'imponibile e non
+                            al posto suo, perché l'imponibile della fattura non
+                            cambia — cambia quanto ne resta. */}
+                        <Storno storno={storni.get(f.id)} />
                       </TabellaCella>
                       {mostraIva && (
                         <TabellaCella numerica className="text-inchiostro-tenue">
@@ -451,6 +463,11 @@ export function SchermataFatture() {
                     voci={[
                       { etichetta: "Emissione", valore: fmtData(f.dataEmissione) },
                       { etichetta: "Imponibile", valore: euro(f.imponibile) },
+                      {
+                        etichetta: "Netto dopo le note",
+                        valore: euro(storni.get(f.id)?.netto ?? f.imponibile),
+                        mostra: (storni.get(f.id)?.stornato ?? 0) > 0,
+                      },
                       { etichetta: "IVA", valore: euro(f.iva), mostra: f.iva > 0 },
                       { etichetta: "Ritenuta", valore: euro(f.ritenuta), mostra: f.ritenuta > 0 },
                     ]}
@@ -515,6 +532,22 @@ function Avatar({ nome }: { nome: string }) {
       style={{ backgroundColor: coloreDaNome(nome) }}
     >
       {iniziali(nome)}
+    </span>
+  );
+}
+
+/**
+ * Quanto resta di una fattura dopo le note di credito che la rettificano.
+ *
+ * Non compare quando non c'è niente da stornare: una riga in più su ogni
+ * fattura, per dire «nessuno storno», sarebbe rumore su tutta la tabella.
+ */
+function Storno({ storno }: { storno?: { stornato: number; netto: number; note: { numero: string }[] } }) {
+  if (!storno || storno.stornato === 0) return null;
+  return (
+    <span className="mt-0.5 block px-2 text-right text-micro text-inchiostro-tenue">
+      <span className="text-negativo">− {euro(storno.stornato)}</span> ·{" "}
+      <span title={storno.note.map((n) => n.numero).join(", ")}>netto {euro(storno.netto)}</span>
     </span>
   );
 }

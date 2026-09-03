@@ -32,6 +32,7 @@ const ETICHETTE: Record<NomeCollezione, string> = {
   impostazioni: "Impostazioni per anno",
   clienti: "Clienti",
   fatture: "Fatture",
+  note: "Note di credito",
   costi: "Costi",
   movimentiPersonali: "Movimenti personali",
   movimentiAttivita: "Movimenti dell'attività",

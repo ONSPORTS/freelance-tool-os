@@ -15,7 +15,7 @@ import { analizzaData, analizzaNumero, analizzaPercentuale } from "@/lib/format"
 import { round2 } from "@/lib/fisco/aritmetica";
 import { campoDi } from "./parser";
 import type { Destinazione, Mappatura } from "./campi";
-import type { Cliente, Costo, Fattura } from "@/lib/dati/tipi";
+import type { Cliente, Costo, Fattura, NotaCredito } from "@/lib/dati/tipi";
 
 /** Che cosa fare con le righe già presenti in archivio. */
 export type SuiDuplicati = "importa" | "salta" | "sostituisci";
@@ -53,10 +53,13 @@ export type SpesaPersonale = {
 };
 
 export type FatturaLetta = { riga: number; fattura: Fattura; nomeCliente: string };
+export type NotaLetta = { riga: number; nota: NotaCredito; nomeCliente: string };
 export type CostoLetto = { riga: number; costo: Costo };
 
 export type Lettura = {
   fatture: FatturaLetta[];
+  /** Le righe riconosciute come note di credito dalla colonna «Tipo di documento». */
+  note: NotaLetta[];
   costi: CostoLetto[];
   personali: SpesaPersonale[];
   scartate: RigaScartata[];
@@ -65,6 +68,19 @@ export type Lettura = {
   /** Righe che coincidono con qualcosa di già presente. */
   duplicati: { riga: number; descrizione: string; idEsistente: string }[];
 };
+
+/**
+ * Le diciture con cui i gestionali chiamano una nota di credito.
+ *
+ * Confrontate senza spazi né punteggiatura, così «Nota di credito», «NOTA
+ * CREDITO» e «nota_di_credito» cadono tutte insieme.
+ */
+const DICITURE_NOTA = ["notadicredito", "notacredito", "nc", "notedicredito", "creditnote", "reso"];
+
+export function eNotaDiCredito(valore: string): boolean {
+  const v = chiaveNome(valore);
+  return v !== "" && DICITURE_NOTA.includes(v);
+}
 
 const TIPI_RICAVO: Record<string, Fattura["tipoRicavo"]> = {
   ricorrente: "ricorrente",
@@ -106,6 +122,7 @@ export function interpreta(
   const m = piano.mappatura;
   const out: Lettura = {
     fatture: [],
+    note: [],
     costi: [],
     personali: [],
     scartate: [],
@@ -182,6 +199,29 @@ export function interpreta(
 
       const numero = campoDi(riga, m.numero ?? null) || `IMP-${++progressivo}`;
       const dataIncasso = analizzaData(campoDi(riga, m.dataCassa ?? null));
+
+      // Una nota di credito non è una fattura col meno: è un documento a sé, e
+      // la colonna «Documento» dei gestionali lo dice già.
+      if (eNotaDiCredito(campoDi(riga, m.documento ?? null))) {
+        out.note.push({
+          riga: numeroRiga,
+          nomeCliente: nome,
+          nota: {
+            id: id(),
+            dataDocumento: data,
+            numero,
+            clienteId,
+            descrizione,
+            imponibile: round2(Math.abs(importo)),
+            aliquotaIva: aliquota,
+            // La colonna dell'incasso, su una nota, è la data del rimborso.
+            dataRimborso: dataIncasso,
+            riconciliazioni: [],
+          },
+        });
+        return;
+      }
+
       const tipo = TIPI_RICAVO[campoDi(riga, m.tipoRicavo ?? null).toLowerCase()] ?? "progetto";
 
       const esistente = fattureEsistenti.get(`${chiaveNome(numero)}|${data}`);

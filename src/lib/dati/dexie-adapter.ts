@@ -42,6 +42,7 @@ export class DexieAdapter implements StorageAdapter {
   readonly patrimonio: StorageAdapter["patrimonio"];
   readonly spunte: StorageAdapter["spunte"];
   readonly chiusure: StorageAdapter["chiusure"];
+  readonly note: StorageAdapter["note"];
   readonly percorsi: StorageAdapter["percorsi"];
   readonly importazioni: StorageAdapter["importazioni"];
 
@@ -66,6 +67,7 @@ export class DexieAdapter implements StorageAdapter {
     this.percorsi = deposito(
       database.percorsi as unknown as Table<Dati["percorsi"][number], string>,
     );
+    this.note = deposito(database.note as unknown as Table<Dati["note"][number], string>);
     this.importazioni = deposito(
       database.importazioni as unknown as Table<Importazione, string>,
     );

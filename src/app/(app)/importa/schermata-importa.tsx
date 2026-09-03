@@ -124,20 +124,26 @@ export function SchermataImporta() {
       : mappatura.data === null || mappatura.imponibile === null || mappatura.controparte === null;
 
   const daImportare =
-    (lettura?.fatture.length ?? 0) + (lettura?.costi.length ?? 0) + (lettura?.personali.length ?? 0);
+    (lettura?.fatture.length ?? 0) +
+    (lettura?.note.length ?? 0) +
+    (lettura?.costi.length ?? 0) +
+    (lettura?.personali.length ?? 0);
 
   async function importa() {
     if (!lettura || !dati) return;
     setInCorso(true);
     try {
       const clientiNuovi = lettura.clientiDaCreare.map((nome) => {
-        const id = lettura.fatture.find((f) => f.nomeCliente === nome)?.fattura.clienteId;
+        const id =
+          lettura.fatture.find((f) => f.nomeCliente === nome)?.fattura.clienteId ??
+          lettura.note.find((n) => n.nomeCliente === nome)?.nota.clienteId;
         return { id: id ?? crypto.randomUUID(), nome, canaleAcquisizione: "Altro", note: "" };
       });
       const registrazione = await eseguiImport({
         nomeFile,
         destinazione,
         fatture: lettura.fatture.map((f) => f.fattura),
+        note: lettura.note.map((n) => n.nota),
         costi: lettura.costi.map((c) => c.costo),
         clienti: clientiNuovi,
         personali: lettura.personali,
@@ -363,6 +369,7 @@ export function SchermataImporta() {
             <CardCorpo className="space-y-4 pt-0">
               <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <Conteggio etichetta="Fatture" valore={esito.conteggi.fatture} />
+                <Conteggio etichetta="Note di credito" valore={esito.conteggi.note} />
                 <Conteggio etichetta="Costi" valore={esito.conteggi.costi} />
                 <Conteggio etichetta="Spese personali" valore={esito.conteggi.personali} />
                 <Conteggio etichetta="Clienti creati" valore={esito.conteggi.clienti} />

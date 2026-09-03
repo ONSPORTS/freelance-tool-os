@@ -52,9 +52,37 @@ export function prospettoDettagliato(
       etichetta: "Compensi incassati nell'anno",
       valore: p.compensiIncassati,
       formato: "euro",
-      formula: `Somma degli imponibili delle fatture con data di incasso nel ${p.anno}. Conta quando il denaro è arrivato, non quando hai emesso la fattura.`,
+      formula:
+        p.note.stornoIncassato > 0
+          ? `Fatture incassate nel ${p.anno}, meno ${euro(p.note.stornoIncassato)} di note di credito rimborsate nell'anno.`
+          : `Somma degli imponibili delle fatture con data di incasso nel ${p.anno}. Conta quando il denaro è arrivato, non quando hai emesso la fattura.`,
     },
   ];
+  // Voce a sé e non annegata nel totale: un fatturato che cala senza dire
+  // perché è il modo più veloce di far perdere fiducia a un prospetto.
+  if (p.note.stornoIncassato > 0) {
+    base.push({
+      id: "storno-note",
+      etichetta: "di cui storni da note di credito",
+      valore: -p.note.stornoIncassato,
+      formato: "euro",
+      formula: `${p.note.numero === 1 ? "Una nota di credito rimborsata" : "Note di credito rimborsate"} nel ${p.anno}: il denaro è tornato al cliente, quindi non è ricavo.`,
+      nota:
+        p.note.nonRiconciliato > 0
+          ? `${euro(p.note.nonRiconciliato)} non sono riconciliati a nessuna fattura: riducono comunque i ricavi.`
+          : undefined,
+    });
+  }
+  if (p.note.stornoDaRimborsare > 0) {
+    base.push({
+      id: "storno-da-rimborsare",
+      etichetta: "Note di credito emesse e non ancora rimborsate",
+      valore: p.note.stornoDaRimborsare,
+      formato: "euro",
+      formula:
+        "Hanno già ridotto l'IVA a debito alla data del documento, ma i ricavi caleranno solo quando il denaro tornerà indietro.",
+    });
+  }
   if (p.rivalsaIncassata > 0) {
     base.push({
       id: "rivalsa",

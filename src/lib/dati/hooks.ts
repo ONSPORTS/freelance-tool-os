@@ -55,6 +55,7 @@ function archivioDa(dati: Dati): ArchivioPerAnni {
   return {
     impostazioni: dati.impostazioni,
     fatture: dati.fatture,
+    note: dati.note,
     costi: dati.costi,
     versamenti: dati.versamenti,
     movimentiAttivita: dati.movimentiAttivita,

@@ -392,6 +392,21 @@ export function datiDemo(): Dati {
     ],
     clienti: CLIENTI,
     fatture: costruisciFatture(),
+    // Una nota di credito nel dataset: serve a vedere subito com'è fatta la
+    // schermata e come compare la voce separata nel prospetto e nell'IVA.
+    note: [
+      {
+        id: "nc-01",
+        dataDocumento: "2026-07-24",
+        numero: "NC/2026/1",
+        clienteId: "cli-gamma",
+        descrizione: "Storno parziale retainer 3° trimestre, servizio non erogato",
+        imponibile: 400,
+        aliquotaIva: 0.22,
+        dataRimborso: "2026-08-05",
+        riconciliazioni: [{ fatturaId: "fat-016", imponibile: 400 }],
+      },
+    ],
     costi: costruisciCosti(),
     movimentiPersonali: costruisciMovimentiPersonali(),
     movimentiAttivita: costruisciMovimentiAttivita(),

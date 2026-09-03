@@ -158,6 +158,47 @@ const convalidaFattura: Convalida<Dati["fatture"][number]> = (riga, i, errori) =
   };
 };
 
+/**
+ * Una nota di credito.
+ *
+ * L'imponibile si normalizza in positivo anche qui: un backup scritto a mano, o
+ * uscito da una versione futura che decidesse altrimenti, non deve poter far
+ * entrare in archivio uno storno che aumenta il fatturato.
+ */
+const convalidaNota: Convalida<Dati["note"][number]> = (riga, i, errori) => {
+  const id = richiedeId(riga, "note", i, errori);
+  if (!id) return null;
+  const dataDocumento = dataOpzionale(riga.dataDocumento);
+  if (!dataDocumento) {
+    errori.push(`note, riga ${i + 1}: data del documento mancante o non in formato aaaa-mm-gg.`);
+    return null;
+  }
+  const imponibile = numero(riga.imponibile, Number.NaN);
+  if (!Number.isFinite(imponibile)) {
+    errori.push(`note, riga ${i + 1}: imponibile mancante o non numerico.`);
+    return null;
+  }
+  const grezze = Array.isArray(riga.riconciliazioni) ? riga.riconciliazioni : [];
+  const riconciliazioni = grezze
+    .filter(oggetto)
+    .map((r) => ({ fatturaId: testo(r.fatturaId), imponibile: Math.abs(numero(r.imponibile)) }))
+    .filter((r) => r.fatturaId !== "" && r.imponibile > 0);
+
+  return {
+    id,
+    dataDocumento,
+    numero: testo(riga.numero),
+    clienteId: testo(riga.clienteId),
+    descrizione: testo(riga.descrizione),
+    imponibile: Math.abs(imponibile),
+    ...(typeof riga.aliquotaIva === "number"
+      ? { aliquotaIva: fraZeroEUno(riga.aliquotaIva, 0) }
+      : {}),
+    dataRimborso: dataOpzionale(riga.dataRimborso),
+    riconciliazioni,
+  };
+};
+
 const convalidaCosto: Convalida<Dati["costi"][number]> = (riga, i, errori) => {
   const id = richiedeId(riga, "costi", i, errori);
   if (!id) return null;
@@ -438,6 +479,7 @@ export function analizzaBackup(testoGrezzo: string): RisultatoAnalisi {
   dati.impostazioni = convalidaElenco(contenuto.impostazioni, "impostazioni", convalidaImpostazioni, errori);
   dati.clienti = convalidaElenco(contenuto.clienti, "clienti", convalidaCliente, errori);
   dati.fatture = convalidaElenco(contenuto.fatture, "fatture", convalidaFattura, errori);
+  dati.note = convalidaElenco(contenuto.note, "note", convalidaNota, errori);
   dati.costi = convalidaElenco(contenuto.costi, "costi", convalidaCosto, errori);
   dati.movimentiPersonali = convalidaElenco(
     contenuto.movimentiPersonali, "movimentiPersonali", convalidaMovimentoPersonale, errori,

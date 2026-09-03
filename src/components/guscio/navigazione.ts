@@ -8,6 +8,7 @@ import {
   Key,
   Keyboard,
   FileSpreadsheet,
+  FileMinus2,
   LayoutDashboard,
   Percent,
   PiggyBank,
@@ -31,6 +32,7 @@ export type Voce = Destinazione & { icona: LucideIcon };
 const ICONE: Record<string, LucideIcon> = {
   "/": LayoutDashboard,
   "/fatture": FileText,
+  "/note": FileMinus2,
   "/costi": Receipt,
   "/clienti": Users,
   "/fisco": Percent,

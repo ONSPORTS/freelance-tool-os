@@ -12,6 +12,7 @@ import type {
   SpuntaAdempimento,
   VocePatrimonio,
   Importazione,
+  NotaCredito,
 } from "./tipi";
 
 /**
@@ -22,12 +23,13 @@ import type {
  * liquidazione IVA) e il cliente (concentrazione del portafoglio).
  * Nessun campo derivato è indicizzato, perché nessun campo derivato è salvato.
  */
-export const VERSIONE_SCHEMA = 5;
+export const VERSIONE_SCHEMA = 6;
 
 export class DatabaseFinanze extends Dexie {
   impostazioni!: EntityTable<Impostazioni, "anno">;
   clienti!: EntityTable<Cliente, "id">;
   fatture!: EntityTable<Fattura, "id">;
+  note!: EntityTable<NotaCredito, "id">;
   costi!: EntityTable<Costo, "id">;
   movimentiPersonali!: EntityTable<MovimentoPersonale, "id">;
   movimentiAttivita!: EntityTable<MovimentoAttivita, "id">;
@@ -77,6 +79,12 @@ export class DatabaseFinanze extends Dexie {
     // ha mai importato trova la tabella vuota, cioè «niente da annullare».
     this.version(5).stores({
       importazioni: "id, eseguitaIl",
+    });
+    // Versione 6: le note di credito. Tabella nuova, nessuna migrazione: chi non
+    // ne ha mai emessa una la trova vuota, ed è esattamente lo stato di prima —
+    // nessuno storno, nessun effetto su ricavi e IVA.
+    this.version(6).stores({
+      note: "id, dataDocumento, dataRimborso, clienteId, numero",
     });
   }
 }

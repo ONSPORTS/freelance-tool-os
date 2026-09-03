@@ -4,7 +4,7 @@
  */
 import type { ChiusuraAnno } from "@/lib/fisco/chiusura";
 import type { StatoPercorso } from "@/lib/onboarding/percorso";
-import type { Costo, Fattura, Impostazioni, VersamentoF24 } from "@/lib/fisco/tipi";
+import type { Costo, Fattura, Impostazioni, NotaCredito, VersamentoF24 } from "@/lib/fisco/tipi";
 
 export type Cliente = {
   id: string;
@@ -87,7 +87,14 @@ export type Importazione = {
   eseguitaIl: string;
   nomeFile: string;
   destinazione: "fattura" | "costo";
-  conteggi: { fatture: number; costi: number; personali: number; clienti: number; scartate: number };
+  conteggi: {
+    fatture: number;
+    note: number;
+    costi: number;
+    personali: number;
+    clienti: number;
+    scartate: number;
+  };
   modifiche: ModificaImport[];
 };
 
@@ -99,13 +106,14 @@ export type VocePatrimonio = {
   valore: number;
 };
 
-export type { ChiusuraAnno, Costo, Fattura, Impostazioni, StatoPercorso, VersamentoF24 };
+export type { ChiusuraAnno, Costo, Fattura, Impostazioni, NotaCredito, StatoPercorso, VersamentoF24 };
 
 /** Le collezioni persistite. Il nome è anche la chiave nel file di backup. */
 export const COLLEZIONI = [
   "impostazioni",
   "clienti",
   "fatture",
+  "note",
   "costi",
   "movimentiPersonali",
   "movimentiAttivita",
@@ -122,6 +130,8 @@ export type Dati = {
   impostazioni: Impostazioni[];
   clienti: Cliente[];
   fatture: Fattura[];
+  /** Note di credito emesse: stornano ricavi e IVA con le stesse due date. */
+  note: NotaCredito[];
   costi: Costo[];
   movimentiPersonali: MovimentoPersonale[];
   movimentiAttivita: MovimentoAttivita[];
@@ -142,6 +152,7 @@ export function datiVuoti(): Dati {
     impostazioni: [],
     clienti: [],
     fatture: [],
+    note: [],
     costi: [],
     movimentiPersonali: [],
     movimentiAttivita: [],

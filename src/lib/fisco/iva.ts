@@ -9,6 +9,7 @@
 import { nonNegativo, round2, somma } from "./aritmetica";
 import { annoDi, meseDi } from "./documenti";
 import type { CostoCalcolato, FatturaCalcolata, Impostazioni, ParametriAnno } from "./tipi";
+import type { NotaCalcolata } from "./note";
 
 export type PeriodoIva = {
   /** 1-12 per i mesi, 1-4 per i trimestri. */
@@ -31,6 +32,11 @@ export type LiquidazioneIva = {
   periodicita: Impostazioni["periodicitaIva"];
   /** Credito IVA riportato dall'anno precedente, quando destinato a compensazione. */
   creditoIniziale: number;
+  /**
+   * IVA tolta dal debito dalle note di credito, mese per mese e in totale.
+   * Voce a sé: un debito che cala senza dire perché non si controlla.
+   */
+  stornoNote: { perMese: number[]; totale: number };
   mesi: PeriodoIva[];
   trimestri: PeriodoIva[];
   totaleDebito: number;
@@ -68,16 +74,28 @@ export function calcolaIva(
   imp: Impostazioni,
   par: ParametriAnno,
   creditoIniziale = 0,
+  note: NotaCalcolata[] = [],
 ): LiquidazioneIva {
   const anno = imp.anno;
   const applicabile = imp.regime !== "forfettario";
   const mensile = imp.periodicitaIva === "mensile";
 
-  const debitoMese = Array.from({ length: 12 }, (_, i) =>
+  // Le note seguono la data del documento come le fatture, e tolgono dal debito
+  // del mese in cui sono emesse — non da quello in cui il denaro torna.
+  const stornoMese = Array.from({ length: 12 }, (_, i) =>
     somma(
-      ...fatture
-        .filter((f) => annoDi(f.dataEmissione) === anno && meseDi(f.dataEmissione) === i + 1)
-        .map((f) => f.iva),
+      ...note
+        .filter((n) => annoDi(n.dataDocumento) === anno && meseDi(n.dataDocumento) === i + 1)
+        .map((n) => n.iva),
+    ),
+  );
+  const debitoMese = Array.from({ length: 12 }, (_, i) =>
+    round2(
+      somma(
+        ...fatture
+          .filter((f) => annoDi(f.dataEmissione) === anno && meseDi(f.dataEmissione) === i + 1)
+          .map((f) => f.iva),
+      ) - stornoMese[i],
     ),
   );
   const creditoMese = Array.from({ length: 12 }, (_, i) =>
@@ -155,6 +173,7 @@ export function calcolaIva(
     applicabile,
     periodicita: imp.periodicitaIva,
     creditoIniziale: nonNegativo(creditoIniziale),
+    stornoNote: { perMese: stornoMese, totale: somma(...stornoMese) },
     mesi,
     trimestri,
     totaleDebito,

@@ -17,11 +17,14 @@ import {
 } from "@/lib/onboarding/percorso";
 import { archivio } from "./archivio";
 import { costoGrezzo, fatturaGrezza } from "@/lib/fisco/documenti";
+import { notaGrezza } from "@/lib/fisco/note";
+import { round2 } from "@/lib/fisco/aritmetica";
 import { datiDemoConservando } from "./demo";
 import type {
   Cliente,
   Costo,
   Fattura,
+  NotaCredito,
   MovimentoAttivita,
   MovimentoPersonale,
   VersamentoF24,
@@ -150,6 +153,70 @@ export function prossimoNumero(fatture: Fattura[], anno: number): string {
  * Prima le celle di `/clienti` scrivevano dritte nell'archivio, senza conferma
  * e senza annullamento: una nota cancellata per sbaglio non si recuperava.
  */
+// ————————————————————————————————————————————————————————————
+// Note di credito
+// ————————————————————————————————————————————————————————————
+
+const GRUPPO_NOTE: Raggruppamento = {
+  chiave: "nota-aggiornata",
+  molti: (n) => `${n} note aggiornate`,
+};
+
+export async function salvaNota(nota: NotaCredito, messaggio = "Nota di credito aggiornata") {
+  await conAnnullamento(
+    archivio().note,
+    nota.id,
+    messaggio,
+    async () => {
+      await archivio().note.salva(notaGrezza(nota));
+    },
+    GRUPPO_NOTE,
+  );
+}
+
+export async function creaNota(nota: Omit<NotaCredito, "id">): Promise<NotaCredito> {
+  const nuova: NotaCredito = { ...nota, id: nuovoId() };
+  await archivio().note.salva(notaGrezza(nuova));
+  toast.conferma(`Nota di credito ${nuova.numero || "senza numero"} creata`, async () => {
+    await archivio().note.elimina(nuova.id);
+  });
+  return nuova;
+}
+
+export async function eliminaNota(nota: NotaCredito) {
+  await archivio().note.elimina(nota.id);
+  toast.conferma(`Nota ${nota.numero || "senza numero"} eliminata`, async () => {
+    await archivio().note.salva(notaGrezza(nota));
+  });
+}
+
+/** Segna il rimborso: è la data che fa scendere i ricavi per cassa. */
+export async function segnaRimborsata(nota: NotaCredito, dataRimborso?: string) {
+  const data = dataRimborso ?? new Date().toISOString().slice(0, 10);
+  await salvaNota({ ...nota, dataRimborso: data }, "Segnata come rimborsata");
+}
+
+export async function annullaRimborso(nota: NotaCredito) {
+  await salvaNota({ ...nota, dataRimborso: null }, "Rimborso rimosso");
+}
+
+/**
+ * Aggancia o sgancia una nota da una fattura.
+ *
+ * `imponibile` a zero toglie l'aggancio. Il residuo non si tocca: si ricalcola.
+ */
+export async function riconcilia(nota: NotaCredito, fatturaId: string, imponibile: number) {
+  const altre = (nota.riconciliazioni ?? []).filter((r) => r.fatturaId !== fatturaId);
+  const importo = round2(Math.abs(imponibile));
+  await salvaNota(
+    {
+      ...nota,
+      riconciliazioni: importo > 0 ? [...altre, { fatturaId, imponibile: importo }] : altre,
+    },
+    importo > 0 ? "Nota riconciliata" : "Riconciliazione rimossa",
+  );
+}
+
 export async function salvaCliente(cliente: Cliente, messaggio = "Cliente aggiornato") {
   await conAnnullamento(
     archivio().clienti,

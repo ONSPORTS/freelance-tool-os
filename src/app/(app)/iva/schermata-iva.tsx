@@ -90,7 +90,16 @@ export function SchermataIva() {
     >
       <div className="mx-auto max-w-4xl space-y-4">
         <section aria-label="Sintesi" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <Kpi etichetta="IVA a debito" valore={euro(iva.totaleDebito)} taglia="kpiSm" nota="sulle fatture emesse" />
+          <Kpi
+            etichetta="IVA a debito"
+            valore={euro(iva.totaleDebito)}
+            taglia="kpiSm"
+            nota={
+              iva.stornoNote.totale > 0
+                ? `sulle fatture emesse, al netto di ${euro(iva.stornoNote.totale)} di note di credito`
+                : "sulle fatture emesse"
+            }
+          />
           <Kpi etichetta="IVA a credito" valore={euro(iva.totaleCredito)} taglia="kpiSm" nota="sugli acquisti detraibili" />
           <Kpi etichetta="Saldo dell'anno" valore={euro(iva.saldoAnno)} taglia="kpiSm" nota="debito meno credito" />
           <Kpi
@@ -126,6 +135,25 @@ export function SchermataIva() {
           </CardCorpo>
 
           {/* Da tablet in su: nove colonne di liquidazione. */}
+          {/* Le note come voce a sé, sopra la tabella: un debito che cala senza
+              dire perché non si controlla, e questa è la riga che lo spiega. */}
+          {iva.stornoNote.totale > 0 && (
+            <CardCorpo className="pt-0">
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-campo border border-bordo bg-superficie-alt px-3 py-2">
+                <span className="text-etichetta">
+                  Note di credito emesse nel {anno}
+                  <span className="text-inchiostro-tenue">
+                    {" "}
+                    · già sottratte dal debito del mese in cui sono state emesse
+                  </span>
+                </span>
+                <span className="cifre text-etichetta font-medium text-negativo">
+                  − {euro(iva.stornoNote.totale)}
+                </span>
+              </div>
+            </CardCorpo>
+          )}
+
           <ContenitoreTabella data-scroll-ok className="hidden px-2 pb-2 md:block">
             <Tabella>
               <TabellaTesta>

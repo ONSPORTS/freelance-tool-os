@@ -36,6 +36,8 @@ export interface StorageAdapter {
   readonly impostazioni: Deposito<Dati["impostazioni"][number], number>;
   readonly clienti: Deposito<Dati["clienti"][number]>;
   readonly fatture: Deposito<Dati["fatture"][number]>;
+  /** Note di credito emesse: stornano ricavi e IVA. */
+  readonly note: Deposito<Dati["note"][number]>;
   readonly costi: Deposito<Dati["costi"][number]>;
   readonly movimentiPersonali: Deposito<Dati["movimentiPersonali"][number]>;
   readonly movimentiAttivita: Deposito<Dati["movimentiAttivita"][number]>;
@@ -69,6 +71,7 @@ export function depositiDi(
     impostazioni: adapter.impostazioni,
     clienti: adapter.clienti,
     fatture: adapter.fatture,
+    note: adapter.note,
     costi: adapter.costi,
     movimentiPersonali: adapter.movimentiPersonali,
     movimentiAttivita: adapter.movimentiAttivita,

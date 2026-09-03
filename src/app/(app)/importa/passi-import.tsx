@@ -148,6 +148,9 @@ export function Anteprima({
             ? `${lettura.fatture.length} fatture`
             : `${lettura.costi.length} costi`}
         </Chip>
+        {lettura.note.length > 0 && (
+          <Chip tono="accento">{lettura.note.length} note di credito</Chip>
+        )}
         {lettura.personali.length > 0 && (
           <Chip tono="neutro">{lettura.personali.length} spese personali</Chip>
         )}

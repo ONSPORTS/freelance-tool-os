@@ -45,6 +45,7 @@ export type Destinazione = {
 export const DESTINAZIONI: Destinazione[] = [
   { href: "/", etichetta: "Cruscotto", gruppo: "Ogni giorno", tasto: "c", sinonimi: ["home", "dashboard", "riepilogo"], pronta: true },
   { href: "/fatture", etichetta: "Fatture", gruppo: "Ogni giorno", tasto: "f", sinonimi: ["ricavi", "incassi", "emesse"], pronta: true },
+  { href: "/note", etichetta: "Note di credito", gruppo: "Ogni giorno", tasto: "e", sinonimi: ["storno", "storni", "nota credito", "reso", "rimborso"], pronta: true },
   { href: "/costi", etichetta: "Costi", gruppo: "Ogni giorno", tasto: "o", sinonimi: ["spese", "uscite", "fornitori"], pronta: true },
   { href: "/clienti", etichetta: "Clienti", gruppo: "Ogni giorno", tasto: "l", sinonimi: ["portafoglio", "anagrafica"], pronta: true },
   { href: "/fisco", etichetta: "Imposte e contributi", gruppo: "Fisco", tasto: "i", sinonimi: ["tasse", "prospetto", "irpef", "inps"], pronta: true },

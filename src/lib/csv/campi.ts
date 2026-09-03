@@ -113,6 +113,17 @@ export const CAMPI: Campo[] = [
     destinazioni: ["costo"],
   },
   {
+    chiave: "documento",
+    etichetta: "Tipo di documento",
+    obbligatorio: false,
+    predefinito: "tutte le righe sono fatture",
+    // Fatture in Cloud e diversi gestionali esportano già questa colonna: senza
+    // mapparla le note di credito entrerebbero come fatture, e il fatturato
+    // salirebbe invece di scendere.
+    indizi: ["documento", "tipo documento", "tipo", "tipologia documento"],
+    destinazioni: ["fattura"],
+  },
+  {
     chiave: "tipoRicavo",
     etichetta: "Tipo di ricavo",
     obbligatorio: false,

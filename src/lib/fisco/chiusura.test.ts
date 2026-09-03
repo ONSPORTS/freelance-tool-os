@@ -30,6 +30,7 @@ function archivioChiusura(chiusure: ChiusuraAnno[] = []): ArchivioPerAnni {
   return {
     impostazioni: [impostazioniChiusura2026(), impostazioniChiusura2027()],
     fatture: FATTURE_CHIUSURA,
+    note: [],
     costi: COSTI_CHIUSURA,
     versamenti: [],
     movimentiAttivita: [],

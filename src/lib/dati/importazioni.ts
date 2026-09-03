@@ -18,12 +18,13 @@
 import { round2 } from "@/lib/fisco/aritmetica";
 import { archivio } from "./archivio";
 import type { Cliente, Importazione, ModificaImport, MovimentoPersonale } from "./tipi";
-import type { Costo, Fattura } from "@/lib/fisco/tipi";
+import type { Costo, Fattura, NotaCredito } from "@/lib/fisco/tipi";
 
 export type DaScrivere = {
   nomeFile: string;
   destinazione: "fattura" | "costo";
   fatture: Fattura[];
+  note: NotaCredito[];
   costi: Costo[];
   clienti: Cliente[];
   /** Le spese personali già raggruppate per mese. */
@@ -41,6 +42,7 @@ export async function eseguiImport(dati: DaScrivere): Promise<Importazione> {
   // esiste già siamo nel caso «sostituisci», e il precedente va conservato.
   const fattureEsistenti = new Map((await a.fatture.tutti()).map((f) => [f.id, f]));
   const costiEsistenti = new Map((await a.costi.tutti()).map((c) => [c.id, c]));
+  const noteEsistenti = new Map((await a.note.tutti()).map((n) => [n.id, n]));
 
   for (const cliente of dati.clienti) {
     await a.clienti.salva(cliente);
@@ -54,6 +56,16 @@ export async function eseguiImport(dati: DaScrivere): Promise<Importazione> {
       precedente
         ? { tipo: "sostituito", collezione: "fatture", precedente }
         : { tipo: "creato", collezione: "fatture", id: fattura.id },
+    );
+  }
+
+  for (const nota of dati.note) {
+    const precedente = noteEsistenti.get(nota.id);
+    await a.note.salva(nota);
+    modifiche.push(
+      precedente
+        ? { tipo: "sostituito", collezione: "note", precedente }
+        : { tipo: "creato", collezione: "note", id: nota.id },
     );
   }
 
@@ -121,6 +133,7 @@ export async function eseguiImport(dati: DaScrivere): Promise<Importazione> {
     destinazione: dati.destinazione,
     conteggi: {
       fatture: dati.fatture.length,
+      note: dati.note.length,
       costi: dati.costi.length,
       personali: dati.personali.length,
       clienti: dati.clienti.length,

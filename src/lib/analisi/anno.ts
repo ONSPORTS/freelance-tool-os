@@ -28,6 +28,7 @@ import { parametriDi } from "@/lib/fisco/parametri";
 import type {
   Costo,
   Fattura,
+  NotaCredito,
   Impostazioni,
   ParametriAnno,
   VersamentoF24,
@@ -57,6 +58,7 @@ export type AnnoCalcolato = {
 export type ArchivioPerAnni = {
   impostazioni: Impostazioni[];
   fatture: Fattura[];
+  note: NotaCredito[];
   costi: Costo[];
   versamenti: VersamentoF24[];
   movimentiAttivita: MovimentoAttivita[];
@@ -125,6 +127,7 @@ export function calcolaAnno(
     impostazioni,
     parametri,
     fatture: archivio.fatture,
+    note: archivio.note,
     costi: archivio.costi,
     versamenti: archivio.versamenti,
     impostazioniPerAnno: archivio.impostazioni,
@@ -138,6 +141,7 @@ export function calcolaAnno(
     impostazioni,
     parametri,
     entrata.creditoIvaInLiquidazione,
+    prospetto.noteCalcolate,
   );
 
   const cashflow = calcolaCashflow({

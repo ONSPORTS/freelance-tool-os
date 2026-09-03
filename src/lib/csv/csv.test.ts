@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { campoDi, leggiCsv, separatoreProbabile } from "./parser";
 import { mappaturaAutomatica, campiDi } from "./campi";
-import { interpreta, sembraPersonale, valoriDistinti, type Piano } from "./importa";
+import {
+  eNotaDiCredito,
+  interpreta,
+  sembraPersonale,
+  valoriDistinti,
+  type Piano,
+} from "./importa";
 import { cella, componiCsv, costiCsv, fattureCsv, numeroCsv } from "./esporta";
 import { analizzaData } from "@/lib/format";
 import type { Cliente, Costo, Fattura } from "@/lib/dati/tipi";
@@ -497,5 +503,73 @@ describe("un CSV che Excel italiano apre senza chiedere niente", () => {
     expect(cella(null)).toBe("");
     expect(numeroCsv(1234.5)).toBe("1234,50");
     expect(componiCsv(["A"], [["x"]])).toBe("﻿A\r\nx\r\n");
+  });
+});
+
+// ————————————————————————————————————————————————————————————
+// La colonna «Documento»
+// ————————————————————————————————————————————————————————————
+
+describe("le note di credito arrivano riconosciute dal CSV", () => {
+  const intestazioni = ["Data", "Documento", "Numero", "Cliente", "Imponibile", "IVA", "Incasso"];
+  const piano = (): Piano => ({
+    destinazione: "fattura",
+    mappatura: mappaturaAutomatica(intestazioni, "fattura"),
+    valoriPersonali: [],
+    suiDuplicati: "importa",
+    aliquotaPredefinita: 0.22,
+    spesePersonaliFisse: false,
+  });
+
+  const righe = [
+    ["01/02/2026", "Fattura", "2026/001", "Alfa Srl", "1.000,00", "22", "20/02/2026"],
+    ["10/03/2026", "Nota di credito", "NC/1", "Alfa Srl", "500,00", "22", "05/04/2026"],
+    ["12/03/2026", "NOTA CREDITO", "NC/2", "Beta Spa", "300,00", "22", ""],
+  ];
+
+  it("la colonna «Documento» viene mappata da sola", () => {
+    expect(mappaturaAutomatica(intestazioni, "fattura").documento).toBe(1);
+  });
+
+  it("**le note escono separate dalle fatture, non col meno davanti**", () => {
+    contatore = 0;
+    const l = interpreta(righe, piano(), VUOTO, { id: idFinto });
+    expect(l.fatture).toHaveLength(1);
+    expect(l.note).toHaveLength(2);
+    expect(l.note.map((n) => n.nota.numero)).toEqual(["NC/1", "NC/2"]);
+    expect(l.note[0].nota.imponibile).toBe(500);
+  });
+
+  it("sulla nota la colonna dell'incasso è la data del rimborso", () => {
+    contatore = 0;
+    const l = interpreta(righe, piano(), VUOTO, { id: idFinto });
+    expect(l.note[0].nota.dataRimborso).toBe("2026-04-05");
+    expect(l.note[1].nota.dataRimborso).toBeNull();
+  });
+
+  it("riconosce le diciture che usano i gestionali, e non altro", () => {
+    expect(eNotaDiCredito("Nota di credito")).toBe(true);
+    expect(eNotaDiCredito("NOTA CREDITO")).toBe(true);
+    expect(eNotaDiCredito("nota_di_credito")).toBe(true);
+    expect(eNotaDiCredito("NC")).toBe(true);
+    expect(eNotaDiCredito("Fattura")).toBe(false);
+    expect(eNotaDiCredito("")).toBe(false);
+    // «Notula» è un documento diverso: non deve cadere fra le note.
+    expect(eNotaDiCredito("Notula")).toBe(false);
+  });
+
+  it("senza la colonna tutte le righe restano fatture", () => {
+    contatore = 0;
+    const senza = { ...piano(), mappatura: { ...piano().mappatura, documento: null } };
+    const l = interpreta(righe, senza, VUOTO, { id: idFinto });
+    expect(l.fatture).toHaveLength(3);
+    expect(l.note).toHaveLength(0);
+  });
+
+  it("i clienti delle note si creano come quelli delle fatture, senza doppioni", () => {
+    contatore = 0;
+    const l = interpreta(righe, piano(), VUOTO, { id: idFinto });
+    expect(l.clientiDaCreare).toEqual(["Alfa Srl", "Beta Spa"]);
+    expect(l.note[0].nota.clienteId).toBe(l.fatture[0].fattura.clienteId);
   });
 });

@@ -146,6 +146,46 @@ export type Fattura = {
   dataIncasso?: string | null;
 };
 
+/**
+ * Nota di credito emessa: uno storno, non una fattura col meno davanti.
+ *
+ * È un documento a sé perché a sé lo tratta il fisco — ha una numerazione
+ * propria, riduce il volume d'affari e l'IVA a debito — e perché un imponibile
+ * negativo dentro `Fattura` si sarebbe infilato in ogni somma, ogni filtro e
+ * ogni grafico scritti finora, dove nessuno lo aspetta.
+ *
+ * `imponibile` è **positivo**: il segno lo dà il tipo di documento, non il
+ * numero. Chi scrive «-500» nel modulo intende cinquecento di storno, e
+ * conservarlo negativo aprirebbe la porta alla doppia negazione — il difetto
+ * che qui produce un totale plausibile e sbagliato.
+ */
+export type NotaCredito = {
+  id: string;
+  /** Comanda sull'IVA: il debito si riduce alla data del documento. */
+  dataDocumento: string;
+  numero: string;
+  clienteId: string;
+  descrizione: string;
+  /** Sempre positivo. Lo storno che rappresenta. */
+  imponibile: number;
+  aliquotaIva?: number;
+  /**
+   * Quando il denaro torna indietro davvero, o si compensa. Comanda sui ricavi
+   * per cassa, esattamente come `dataIncasso` su una fattura. `null` finché non
+   * è avvenuto: la nota esiste e riduce l'IVA, ma non ha ancora ridotto incassi.
+   */
+  dataRimborso?: string | null;
+  /**
+   * A quali fatture si riferisce, e per quanto.
+   *
+   * Più di una perché uno storno può coprire due mesi di retainer: senza questo
+   * si finisce per spezzare la nota in due note finte pur di farla stare, cioè
+   * si sporcano i dati per aggirare il vincolo. Il residuo — di qua e di là —
+   * non si salva, si calcola.
+   */
+  riconciliazioni?: { fatturaId: string; imponibile: number }[];
+};
+
 /** Costo come sta nel database. */
 export type Costo = {
   id: string;
