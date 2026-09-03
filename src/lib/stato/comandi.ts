@@ -15,6 +15,13 @@ import { create } from "zustand";
  */
 export type Richiesta =
   | { tipo: "nuovaFattura" }
+  /**
+   * Apre `/importa` col tipo di documenti già scelto.
+   *
+   * Arrivare dalle fatture e dover ridire che il file contiene fatture è un
+   * passo che l'app conosce già.
+   */
+  | { tipo: "importaCsv"; destinazione: "fattura" | "costo" }
   | { tipo: "nuovoCosto" }
   | { tipo: "cercaFatture"; testo: string }
   | { tipo: "cercaClienti"; testo: string };

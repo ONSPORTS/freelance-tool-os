@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSolaLettura } from "@/lib/stato/licenza";
 import { analizzaNumero, analizzaPercentuale, data as fmtData, euro, perCampo, percentuale } from "@/lib/format";
@@ -52,6 +53,29 @@ export function CellaModificabile({
   const [inModifica, setInModifica] = React.useState(false);
   const [bozza, setBozza] = React.useState("");
   const [errore, setErrore] = React.useState(false);
+  /**
+   * La spunta breve dopo il salvataggio.
+   *
+   * Una modifica in linea si conferma da sé — il valore nuovo è lì, nella
+   * cella — e un toast per dirlo occuperebbe spazio sopra la tabella su cui si
+   * sta ancora lavorando. La spunta dice «salvato» dove l'occhio è già; il
+   * toast resta, uno solo e raggruppato, perché è l'unico posto in cui vive
+   * l'Annulla, e un importo digitato male senza annulla non si recupera.
+   */
+  const [salvato, setSalvato] = React.useState(false);
+  React.useEffect(() => {
+    if (!salvato) return;
+    const t = window.setTimeout(() => setSalvato(false), 1400);
+    return () => window.clearTimeout(t);
+  }, [salvato]);
+
+  const conSpunta = React.useCallback(
+    (valore: string | number | null) => {
+      setSalvato(true);
+      return onSalva(valore);
+    },
+    [onSalva],
+  );
 
   const numerica = tipo === "valuta" || tipo === "percentuale";
 
@@ -72,20 +96,20 @@ export function CellaModificabile({
     if (testo === "") {
       // Il vuoto è legittimo solo dove il campo è opzionale (una data di incasso
       // che si toglie); altrove annulla senza scrivere.
-      if (tipo === "data") void onSalva(null);
+      if (tipo === "data") void conSpunta(null);
       chiudi();
       return;
     }
     if (tipo === "valuta") {
       const n = analizzaNumero(testo);
       if (n === null) return setErrore(true);
-      void onSalva(n);
+      void conSpunta(n);
     } else if (tipo === "percentuale") {
       const n = analizzaPercentuale(testo);
       if (n === null || n < 0 || n > 1) return setErrore(true);
-      void onSalva(n);
+      void conSpunta(n);
     } else {
-      void onSalva(testo);
+      void conSpunta(testo);
     }
     chiudi();
   }
@@ -96,7 +120,7 @@ export function CellaModificabile({
         aria-label={etichetta}
         disabled={disabilitata}
         value={String(valore ?? "")}
-        onChange={(e) => void onSalva(e.target.value)}
+        onChange={(e) => void conSpunta(e.target.value)}
         className={cn(
           "w-full cursor-pointer rounded-campo border border-transparent bg-transparent px-2 py-2 sm:py-1",
           "text-corpo text-inchiostro",
@@ -172,7 +196,17 @@ export function CellaModificabile({
         className,
       )}
     >
-      {mostrato}
+      <span className="inline-flex w-full items-center gap-1.5">
+        {numerica && <span className="flex-1" />}
+        <span className={numerica ? undefined : "flex-1"}>{mostrato}</span>
+        <Check
+          aria-hidden
+          className={cn(
+            "size-3.5 shrink-0 text-positivo transition-opacity duration-200",
+            salvato ? "opacity-100" : "opacity-0",
+          )}
+        />
+      </span>
     </button>
   );
 }

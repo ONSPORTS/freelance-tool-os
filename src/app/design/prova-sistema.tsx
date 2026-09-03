@@ -312,9 +312,9 @@ export function ProvaSistema() {
                     variante="contorno"
                     taglia="sm"
                     onClick={() =>
-                      toast.conferma("Fattura 2026/003 segnata come incassata", () =>
-                        toast.avviso("Modifica annullata"),
-                      )
+                      toast.conferma("Fattura 2026/003 segnata come incassata", () => {
+                        toast.avviso("Modifica annullata");
+                      })
                     }
                   >
                     Conferma con annulla

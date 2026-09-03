@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CheckCheck, FilePlus2, FileText, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BottoneImport } from "@/components/tabella/bottone-import";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { Stato } from "@/components/ui/stato";
@@ -176,10 +177,13 @@ export function SchermataFatture() {
       titolo="Fatture"
       descrizione={`Registro per data di emissione · ${etichettaPeriodo(periodo)}`}
       azioni={
-        <Button scrive onClick={() => setModuloAperto(true)}>
-          <FilePlus2 className="size-4" aria-hidden />
-          Nuova fattura
-        </Button>
+        <span className="flex flex-wrap items-center gap-2">
+          <BottoneImport destinazione="fattura" etichetta="Da CSV" />
+          <Button scrive onClick={() => setModuloAperto(true)}>
+            <FilePlus2 className="size-4" aria-hidden />
+            Nuova fattura
+          </Button>
+        </span>
       }
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -234,8 +238,13 @@ export function SchermataFatture() {
         ) : vuotoTotale ? (
           <Vuoto
             icona={FileText}
-            titolo="Registra la prima fattura per vedere il calcolo delle imposte."
-            azione={<Button scrive onClick={() => setModuloAperto(true)}>Nuova fattura</Button>}
+            titolo="Registra la prima fattura per vedere il calcolo delle imposte, oppure carica lo storico da un CSV."
+            azione={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button scrive onClick={() => setModuloAperto(true)}>Nuova fattura</Button>
+                <BottoneImport destinazione="fattura" />
+              </div>
+            }
           />
         ) : righe.length === 0 ? (
           <Vuoto

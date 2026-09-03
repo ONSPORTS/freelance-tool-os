@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CheckCheck, Receipt, ReceiptText, Trash2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BottoneImport } from "@/components/tabella/bottone-import";
 import { Card } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { Stato } from "@/components/ui/stato";
@@ -162,10 +163,13 @@ export function SchermataCosti() {
       titolo="Costi"
       descrizione={`Registro per data del documento · ${etichettaPeriodo(periodo)}`}
       azioni={
-        <Button scrive onClick={() => setModuloAperto(true)}>
-          <ReceiptText className="size-4" aria-hidden />
-          Nuovo costo
-        </Button>
+        <span className="flex flex-wrap items-center gap-2">
+          <BottoneImport destinazione="costo" etichetta="Da CSV" />
+          <Button scrive onClick={() => setModuloAperto(true)}>
+            <ReceiptText className="size-4" aria-hidden />
+            Nuovo costo
+          </Button>
+        </span>
       }
     >
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -220,8 +224,13 @@ export function SchermataCosti() {
         ) : vuotoTotale ? (
           <Vuoto
             icona={Receipt}
-            titolo="Nessun costo registrato: aggiungine uno per leggere il margine reale."
-            azione={<Button scrive onClick={() => setModuloAperto(true)}>Nuovo costo</Button>}
+            titolo="Nessun costo registrato: aggiungine uno per leggere il margine reale, oppure carica l'estratto conto da un CSV."
+            azione={
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button scrive onClick={() => setModuloAperto(true)}>Nuovo costo</Button>
+                <BottoneImport destinazione="costo" />
+              </div>
+            }
           />
         ) : righe.length === 0 ? (
           <Vuoto

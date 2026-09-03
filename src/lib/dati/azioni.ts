@@ -1,6 +1,6 @@
 "use client";
 
-import { toast } from "@/components/ui/toast";
+import { toast, type Raggruppamento } from "@/components/ui/toast";
 import { dimenticaImport } from "./importazioni";
 import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { parametriDi } from "@/lib/fisco/parametri";
@@ -16,6 +16,7 @@ import {
 import { archivio } from "./archivio";
 import { datiDemoConservando } from "./demo";
 import type {
+  Cliente,
   Costo,
   Fattura,
   MovimentoAttivita,
@@ -43,23 +44,55 @@ async function conAnnullamento<T extends { id: string }>(
   id: string,
   messaggio: string,
   azione: () => Promise<void>,
+  gruppo?: Raggruppamento,
 ): Promise<void> {
   const precedente = await deposito.leggi(id);
   await azione();
-  toast.conferma(messaggio, async () => {
-    if (precedente) await deposito.salva(precedente);
-    else await deposito.elimina(id);
-  });
+  toast.conferma(
+    messaggio,
+    async () => {
+      if (precedente) await deposito.salva(precedente);
+      else await deposito.elimina(id);
+    },
+    gruppo,
+  );
 }
+
+/**
+ * I gruppi delle modifiche in linea.
+ *
+ * Modificare una cella dopo l'altra è il gesto più frequente in questa app, e
+ * ogni modifica è una scrittura con il suo annullamento: senza raggruppamento
+ * diventano dodici toast sovrapposti sopra la tabella che si sta usando.
+ * L'annullamento del gruppo disfa tutte le modifiche, dall'ultima alla prima.
+ */
+const GRUPPO_FATTURE: Raggruppamento = {
+  chiave: "fattura-aggiornata",
+  molti: (n) => `${n} fatture aggiornate`,
+};
+const GRUPPO_COSTI: Raggruppamento = {
+  chiave: "costo-aggiornato",
+  molti: (n) => `${n} costi aggiornati`,
+};
+const GRUPPO_CLIENTI: Raggruppamento = {
+  chiave: "cliente-aggiornato",
+  molti: (n) => `${n} clienti aggiornati`,
+};
 
 // ————————————————————————————————————————————————————————————
 // Fatture
 // ————————————————————————————————————————————————————————————
 
 export async function salvaFattura(fattura: Fattura, messaggio = "Fattura aggiornata") {
-  await conAnnullamento(archivio().fatture, fattura.id, messaggio, async () => {
-    await archivio().fatture.salva(fattura);
-  });
+  await conAnnullamento(
+    archivio().fatture,
+    fattura.id,
+    messaggio,
+    async () => {
+      await archivio().fatture.salva(fattura);
+    },
+    GRUPPO_FATTURE,
+  );
 }
 
 export async function creaFattura(fattura: Omit<Fattura, "id">): Promise<Fattura> {
@@ -103,10 +136,34 @@ export function prossimoNumero(fatture: Fattura[], anno: number): string {
 // Costi
 // ————————————————————————————————————————————————————————————
 
+/**
+ * Salva un cliente.
+ *
+ * Prima le celle di `/clienti` scrivevano dritte nell'archivio, senza conferma
+ * e senza annullamento: una nota cancellata per sbaglio non si recuperava.
+ */
+export async function salvaCliente(cliente: Cliente, messaggio = "Cliente aggiornato") {
+  await conAnnullamento(
+    archivio().clienti,
+    cliente.id,
+    messaggio,
+    async () => {
+      await archivio().clienti.salva(cliente);
+    },
+    GRUPPO_CLIENTI,
+  );
+}
+
 export async function salvaCosto(costo: Costo, messaggio = "Costo aggiornato") {
-  await conAnnullamento(archivio().costi, costo.id, messaggio, async () => {
-    await archivio().costi.salva(costo);
-  });
+  await conAnnullamento(
+    archivio().costi,
+    costo.id,
+    messaggio,
+    async () => {
+      await archivio().costi.salva(costo);
+    },
+    GRUPPO_COSTI,
+  );
 }
 
 export async function creaCosto(costo: Omit<Costo, "id">): Promise<Costo> {

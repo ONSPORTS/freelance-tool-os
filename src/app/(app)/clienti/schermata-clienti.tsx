@@ -27,7 +27,7 @@ import {
 import { CellaModificabile } from "@/components/tabella/cella-modificabile";
 import { Guscio } from "@/components/guscio/guscio";
 import { portafoglioClienti, scadutoPerFascia, giorniMediIncasso } from "@/lib/analisi/dashboard";
-import { archivio } from "@/lib/dati/archivio";
+import { salvaCliente } from "@/lib/dati/azioni";
 import { useCalcoloAnno, useDati } from "@/lib/dati/hooks";
 import { CANALI_ACQUISIZIONE } from "@/lib/dati/categorie";
 import { usePreferenze } from "@/lib/stato/preferenze";
@@ -237,7 +237,7 @@ export function SchermataClienti() {
                                 valore={cliente.canaleAcquisizione || "Altro"}
                                 opzioni={CANALI_ACQUISIZIONE.map((c) => ({ valore: c, etichetta: c }))}
                                 onSalva={(v) =>
-                                  void archivio().clienti.salva({ ...cliente, canaleAcquisizione: String(v) })
+                                  void salvaCliente({ ...cliente, canaleAcquisizione: String(v) })
                                 }
                               />
                             )}
@@ -252,7 +252,7 @@ export function SchermataClienti() {
                                 suggerimento={cliente.note || undefined}
                                 className="line-clamp-2"
                                 onSalva={(v) =>
-                                  void archivio().clienti.salva({ ...cliente, note: String(v ?? "") })
+                                  void salvaCliente({ ...cliente, note: String(v ?? "") })
                                 }
                               />
                             )}
@@ -336,7 +336,7 @@ export function SchermataClienti() {
                             valore={cliente.canaleAcquisizione || "Altro"}
                             opzioni={CANALI_ACQUISIZIONE.map((c) => ({ valore: c, etichetta: c }))}
                             onSalva={(v) =>
-                              void archivio().clienti.salva({ ...cliente, canaleAcquisizione: String(v) })
+                              void salvaCliente({ ...cliente, canaleAcquisizione: String(v) })
                             }
                           />
                           <CellaModificabile
@@ -345,7 +345,7 @@ export function SchermataClienti() {
                             valore={cliente.note}
                             vuoto="Aggiungi una nota"
                             onSalva={(v) =>
-                              void archivio().clienti.salva({ ...cliente, note: String(v ?? "") })
+                              void salvaCliente({ ...cliente, note: String(v ?? "") })
                             }
                           />
                         </div>

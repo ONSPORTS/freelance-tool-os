@@ -27,6 +27,7 @@ import {
   type SuiDuplicati,
 } from "@/lib/csv/importa";
 import { usePreferenze } from "@/lib/stato/preferenze";
+import { useRichiesta } from "@/lib/stato/comandi";
 import { useSolaLettura } from "@/lib/stato/licenza";
 import type { Importazione } from "@/lib/dati/tipi";
 import { data as fmtData } from "@/lib/format";
@@ -65,6 +66,9 @@ export function SchermataImporta() {
   React.useEffect(() => {
     void importAnnullabile().then(setAnnullabile);
   }, [esito]);
+
+  // Il tipo arriva già scelto da chi apre l'import da Fatture o da Costi.
+  useRichiesta("importaCsv", (r) => setDestinazione(r.destinazione));
 
   const aliquotaPredefinita =
     calcolo?.impostazioni.regime === "forfettario" ? 0 : (calcolo?.parametri.aliquotaIvaOrdinaria ?? 0.22);
