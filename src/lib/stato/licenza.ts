@@ -5,7 +5,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { impostaSolaLettura } from "@/lib/dati/archivio";
 import type { Licenza } from "@/lib/licenza/chiave";
-import { CHIAVE_PUBBLICA, DA_CONFIGURARE } from "@/lib/licenza/chiave-pubblica";
+import { CHIAVE_PUBBLICA } from "@/lib/licenza/chiave-pubblica";
+import { chiavePubblicaConfigurata, motivoChiavePubblica } from "@/lib/licenza/presidio";
 import { verificaChiave } from "@/lib/licenza/verifica";
 import {
   preavviso,
@@ -86,9 +87,9 @@ export function useAvvioLicenza(oggi: string): void {
       // Una build senza chiave pubblica non può verificare niente: non deve
       // nemmeno far scadere la prova, o dopo due settimane bloccherebbe tutti
       // senza lasciare a nessuno il modo di sbloccarsi.
-      if (CHIAVE_PUBBLICA === DA_CONFIGURARE) {
+      if (!chiavePubblicaConfigurata(CHIAVE_PUBBLICA)) {
         segnaNonVerificabile(
-          "Questa build non ha una chiave pubblica configurata: nessuna licenza può essere verificata, e l'app resta scrivibile.",
+          `Questa build non ha una chiave pubblica utilizzabile: ${motivoChiavePubblica(CHIAVE_PUBBLICA)} Nessuna licenza può essere verificata, e l'app resta scrivibile.`,
         );
         return;
       }

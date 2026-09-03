@@ -16,7 +16,13 @@ node strumenti/licenza/genera-licenza.mjs --nuove-chiavi
 ```
 
 Crea la coppia Ed25519, scrive la privata in `chiavi/privata.pem` e stampa la
-pubblica. **Incolla la pubblica in `src/lib/licenza/chiave-pubblica.ts`.**
+pubblica. **Incolla la pubblica in `src/lib/licenza/chiave-pubblica.ts`,
+sostituendo la stringa di `CHIAVE_PUBBLICA`** — quel file esporta quella sola
+costante, ed è l'unica cosa da toccare.
+
+Se qualcosa non torna — l'app dice di non avere una chiave e il file sembra a
+posto — `npm run licenza:stato` mostra cosa legge davvero l'app: il valore, la
+lunghezza in byte, il verdetto e le righe di codice del file.
 
 Finché lì c'è il segnaposto `DA-GENERARE`, `next dev` funziona e l'app dichiara
 di non poter verificare nessuna licenza, senza bloccare nessuno — comodo mentre

@@ -9,7 +9,11 @@ import {
   leggiChiave,
   type Licenza,
 } from "./chiave";
-import { controlloChiavePubblica } from "./presidio";
+import {
+  chiavePubblicaConfigurata,
+  controlloChiavePubblica,
+  motivoChiavePubblica,
+} from "./presidio";
 import { verificaChiave } from "./verifica";
 import {
   GIORNI_DI_PROVA,
@@ -79,6 +83,26 @@ describe("il testo della chiave", () => {
     expect(motivo("FLW1.a!b.cd")).toContain("non validi");
     // Carico leggibile ma firma della lunghezza sbagliata.
     expect(motivo(`FLW1.${caricoDi(ACQUIRENTE)}.AAAA`)).toContain("Ed25519");
+  });
+
+  it("**una chiave vera è riconosciuta per la sua forma, non perché diversa da un segnaposto**", () => {
+    // La regressione: il segnaposto era esportato accanto alla chiave come
+    // `DA_CONFIGURARE`, e incollare la chiave vera *in quella costante* lasciava
+    // le due uguali. Il confronto d'identità continuava a dire «segnaposto» e
+    // l'app si comportava come una build senza chiave, senza un errore da
+    // nessuna parte. Ora il criterio è strutturale: una chiave da 32 byte è una
+    // chiave, comunque sia stato riordinato il file.
+    const vera = "pzYj5cd-EvJOoIhLmdYsbdz6qMDpvOBYzsqDbYeJaWo";
+    expect(chiavePubblicaConfigurata(vera)).toBe(true);
+    expect(motivoChiavePubblica(vera)).toBeNull();
+    expect(controlloChiavePubblica(vera, "production")).toBeNull();
+  });
+
+  it("il segnaposto, il vuoto e una chiave rotta danno motivi diversi", () => {
+    expect(motivoChiavePubblica("DA-GENERARE")).toContain("segnaposto");
+    expect(motivoChiavePubblica("  ")).toContain("segnaposto");
+    expect(motivoChiavePubblica(PUBBLICA.slice(0, 20))).toContain("Ed25519");
+    expect(motivoChiavePubblica("non una chiave!!")).toContain("caratteri non validi");
   });
 
   it("una chiave troncata non passa per buona", () => {
@@ -217,6 +241,26 @@ describe("un build di produzione non esce senza chiave pubblica", () => {
 
   it("una chiave vuota vale come segnaposto", () => {
     expect(controlloChiavePubblica("   ", "production")).not.toBeNull();
+  });
+
+  it("**una chiave vera è riconosciuta per la sua forma, non perché diversa da un segnaposto**", () => {
+    // La regressione: il segnaposto era esportato accanto alla chiave come
+    // `DA_CONFIGURARE`, e incollare la chiave vera *in quella costante* lasciava
+    // le due uguali. Il confronto d'identità continuava a dire «segnaposto» e
+    // l'app si comportava come una build senza chiave, senza un errore da
+    // nessuna parte. Ora il criterio è strutturale: una chiave da 32 byte è una
+    // chiave, comunque sia stato riordinato il file.
+    const vera = "pzYj5cd-EvJOoIhLmdYsbdz6qMDpvOBYzsqDbYeJaWo";
+    expect(chiavePubblicaConfigurata(vera)).toBe(true);
+    expect(motivoChiavePubblica(vera)).toBeNull();
+    expect(controlloChiavePubblica(vera, "production")).toBeNull();
+  });
+
+  it("il segnaposto, il vuoto e una chiave rotta danno motivi diversi", () => {
+    expect(motivoChiavePubblica("DA-GENERARE")).toContain("segnaposto");
+    expect(motivoChiavePubblica("  ")).toContain("segnaposto");
+    expect(motivoChiavePubblica(PUBBLICA.slice(0, 20))).toContain("Ed25519");
+    expect(motivoChiavePubblica("non una chiave!!")).toContain("caratteri non validi");
   });
 
   it("una chiave troncata non passa per buona", () => {

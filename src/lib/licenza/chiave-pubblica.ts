@@ -1,21 +1,26 @@
 /**
  * La chiave pubblica con cui si verificano le licenze.
  *
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │  QUI SI MODIFICA UNA COSA SOLA: la stringa qui sotto.                │
+ * │  Incolla la riga stampata da                                         │
+ * │      node strumenti/licenza/genera-licenza.mjs --nuove-chiavi        │
+ * │  Non aggiungere altre costanti: la chiave è questa e basta.          │
+ * └──────────────────────────────────────────────────────────────────────┘
+ *
  * Pubblica per costruzione: sta in un file JavaScript scaricato dal browser di
  * chiunque, e va bene così. Con questa si verifica soltanto; le licenze le
  * firma la chiave privata, che vive fuori da questo repository (vedi
  * `strumenti/licenza/`).
  *
- * Se un giorno la chiave privata dovesse essere sostituita, qui cambia una
- * riga e le licenze già emesse smettono di essere valide: vanno riemesse.
- */
-/**
- * Il segnaposto di una build che non ha ancora una chiave.
+ * `"DA-GENERARE"` è il valore di una build che una chiave non ce l'ha ancora:
+ * l'app lo dichiara e non blocca nessuno, ma `next build` in produzione si
+ * ferma. Chi decide se la chiave c'è è `chiavePubblicaConfigurata()` in
+ * `presidio.ts`, e lo decide guardando *la forma della chiave* — 32 byte in
+ * base64url — non un confronto con un segnaposto. Così qualunque chiave vera
+ * messa qui viene riconosciuta, comunque si sia riordinato il file.
  *
- * Riconoscerlo serve a dare un messaggio onesto — «questa build non verifica
- * licenze» — invece di rifiutare ogni chiave come se fosse contraffatta. Una
- * build così non blocca nessuno: vedi `nonVerificabile` in `stato.ts`.
+ * Sostituire la chiave un domani invalida tutte le licenze già emesse: vanno
+ * riemesse.
  */
-export const DA_CONFIGURARE = "DA-GENERARE";
-
-export const CHIAVE_PUBBLICA: string = DA_CONFIGURARE;
+export const CHIAVE_PUBBLICA: string = "pzYj5cd-EvJOoIhLmdYsbdz6qMDpvOBYzsqDbYeJaWo";

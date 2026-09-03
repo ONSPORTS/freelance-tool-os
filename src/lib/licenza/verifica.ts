@@ -12,7 +12,8 @@
  * a fermare chi non vuole essere fermato.
  */
 import { daBase64Url, leggiChiave, type Licenza } from "./chiave";
-import { CHIAVE_PUBBLICA, DA_CONFIGURARE } from "./chiave-pubblica";
+import { CHIAVE_PUBBLICA } from "./chiave-pubblica";
+import { chiavePubblicaConfigurata, motivoChiavePubblica } from "./presidio";
 
 export type EsitoVerifica =
   | { ok: true; licenza: Licenza }
@@ -53,12 +54,11 @@ export async function verificaChiave(
   testo: string,
   pubblicaB64: string = CHIAVE_PUBBLICA,
 ): Promise<EsitoVerifica> {
-  if (pubblicaB64 === DA_CONFIGURARE) {
+  if (!chiavePubblicaConfigurata(pubblicaB64)) {
     return {
       ok: false,
       verificabile: false,
-      motivo:
-        "Questa build non ha una chiave pubblica configurata: nessuna licenza può essere verificata.",
+      motivo: `Questa build non ha una chiave pubblica utilizzabile: ${motivoChiavePubblica(pubblicaB64)} Nessuna licenza può essere verificata.`,
     };
   }
 

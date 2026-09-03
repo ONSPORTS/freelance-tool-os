@@ -11,10 +11,52 @@
  * prima di qualunque cosa React.
  */
 import { daBase64Url } from "./chiave";
-import { DA_CONFIGURARE } from "./chiave-pubblica";
 
 /** I byte di una chiave pubblica Ed25519. */
 const BYTE_ED25519 = 32;
+
+/**
+ * Il valore che ha `CHIAVE_PUBBLICA` prima che qualcuno generi una coppia.
+ *
+ * Sta qui, in un modulo che nessuno ha motivo di aprire, e non accanto alla
+ * chiave: era esportato da `chiave-pubblica.ts` come `DA_CONFIGURARE`, e la
+ * vicinanza invitava a incollare la chiave vera lì invece che in
+ * `CHIAVE_PUBBLICA` — con il risultato che le due costanti restavano uguali,
+ * il confronto d'identità continuava a dire «segnaposto» e l'app si comportava
+ * come una build senza chiave, senza un errore da nessuna parte.
+ *
+ * Serve solo a scegliere le parole del messaggio. A decidere se la chiave c'è
+ * è la sua forma, qui sotto.
+ */
+const SEGNAPOSTO = "DA-GENERARE";
+
+/**
+ * La chiave è utilizzabile?
+ *
+ * Il criterio è strutturale — 32 byte che si decodificano da base64url — e non
+ * «diversa dal segnaposto». Una chiave vera passa perché *è* una chiave, non
+ * perché non somiglia a qualcos'altro: nessun modo di riorganizzare
+ * `chiave-pubblica.ts` può farla scambiare per un segnaposto. E ogni valore che
+ * una chiave non è — il segnaposto, il vuoto, un incollato a metà — non passa.
+ */
+export function chiavePubblicaConfigurata(chiave: string): boolean {
+  return daBase64Url(chiave)?.length === BYTE_ED25519;
+}
+
+/**
+ * Perché la chiave non va bene, in una riga. `null` se va bene.
+ * Distingue il segnaposto da una chiave rotta: sono due errori diversi.
+ */
+export function motivoChiavePubblica(chiave: string): string | null {
+  if (chiavePubblicaConfigurata(chiave)) return null;
+  if (chiave.trim() === "" || chiave === SEGNAPOSTO) {
+    return `è ancora il segnaposto «${SEGNAPOSTO}»: nessuna coppia è mai stata generata.`;
+  }
+  const byte = daBase64Url(chiave);
+  return `non è una chiave Ed25519: attesi ${BYTE_ED25519} byte in base64url, trovati ${
+    byte ? `${byte.length} byte` : "caratteri non validi"
+  }.`;
+}
 
 const COMANDO = "node strumenti/licenza/genera-licenza.mjs --nuove-chiavi";
 const FILE = "src/lib/licenza/chiave-pubblica.ts";
@@ -28,10 +70,11 @@ export function controlloChiavePubblica(
   ambiente: string | undefined,
 ): string | null {
   if (ambiente !== "production") return null;
+  if (chiavePubblicaConfigurata(chiave)) return null;
 
-  if (chiave === DA_CONFIGURARE || chiave.trim() === "") {
+  if (chiave.trim() === "" || chiave === SEGNAPOSTO) {
     return blocco(
-      `la chiave pubblica in ${FILE} è ancora il segnaposto «${DA_CONFIGURARE}».`,
+      `la chiave pubblica in ${FILE} ${motivoChiavePubblica(chiave)}`,
       [
         "Un build di produzione con il segnaposto pubblicherebbe l'app senza",
         "nessun controllo di licenza — e senza nessun sintomo visibile.",
@@ -47,21 +90,12 @@ export function controlloChiavePubblica(
     );
   }
 
-  const byte = daBase64Url(chiave);
-  if (!byte || byte.length !== BYTE_ED25519) {
-    return blocco(
-      `la chiave pubblica in ${FILE} non è una chiave Ed25519 valida.`,
-      [
-        `Attese ${BYTE_ED25519} byte in base64url, trovati ${byte ? byte.length : "caratteri non validi"}.`,
-        "Di solito è un copia-incolla troncato: ricopia per intero la riga stampata da",
-        `  ${COMANDO}`,
-        "",
-        "Meglio fermarsi qui che pubblicare un'app che rifiuta ogni licenza vera.",
-      ],
-    );
-  }
-
-  return null;
+  return blocco(`la chiave pubblica in ${FILE} ${motivoChiavePubblica(chiave)}`, [
+    "Di solito è un copia-incolla troncato: ricopia per intero la riga stampata da",
+    `  ${COMANDO}`,
+    "",
+    "Meglio fermarsi qui che pubblicare un'app che rifiuta ogni licenza vera.",
+  ]);
 }
 
 function blocco(sommario: string, righe: string[]): string {
