@@ -7,12 +7,15 @@ import { dimenticaImport } from "./importazioni";
 import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { parametriDi } from "@/lib/fisco/parametri";
 import {
+  conEsenzione,
+  conScaglioni,
   conValoreDichiarato,
   senzaDichiarazione,
+  type CampoAddizionale,
   type CampoUtente,
 } from "@/lib/fisco/parametri-utente";
 import type { ChiusuraAnno, DestinazioneCreditoIva } from "@/lib/fisco/chiusura";
-import type { Impostazioni, Regime } from "@/lib/fisco/tipi";
+import type { Impostazioni, Regime, ScaglioneIrpef } from "@/lib/fisco/tipi";
 import {
   chiavePercorso,
   percorsoVuoto,
@@ -454,7 +457,11 @@ export async function impostazioniDellAnno(anno: number): Promise<Impostazioni> 
     // li ha confermati e l'app non ha modo di sapere che il comune li ha
     // ritoccati. La schermata Parametri lo ricorda anno per anno.
     addizionaleRegionale: precedente.addizionaleRegionale,
+    scaglioniAddizionaleRegionale: precedente.scaglioniAddizionaleRegionale ?? null,
+    esenzioneAddizionaleRegionale: precedente.esenzioneAddizionaleRegionale ?? 0,
     addizionaleComunale: precedente.addizionaleComunale,
+    scaglioniAddizionaleComunale: precedente.scaglioniAddizionaleComunale ?? null,
+    esenzioneAddizionaleComunale: precedente.esenzioneAddizionaleComunale ?? 0,
     contributiFissi: precedente.contributiFissi,
     aliquotaSoggettivaCassa: precedente.aliquotaSoggettivaCassa,
     dichiarati: [...(precedente.dichiarati ?? [])],
@@ -625,6 +632,33 @@ export async function dichiaraParametro(
 ): Promise<void> {
   const attuali = await impostazioniDellAnno(anno);
   await archivio().impostazioni.salva(conValoreDichiarato(attuali, campo, valore));
+}
+
+/**
+ * Scrive gli scaglioni di un'addizionale, o torna all'aliquota unica.
+ *
+ * `conferma` è falso quando si sta solo scegliendo la forma della risposta:
+ * le righe partono dall'aliquota media, e finché nessuno le tocca il parametro
+ * resta predefinito — altrimenti il PDF si sbloccherebbe su numeri dell'app.
+ */
+export async function dichiaraScaglioni(
+  anno: number,
+  campo: CampoAddizionale,
+  scaglioni: ScaglioneIrpef[] | null,
+  conferma = true,
+): Promise<void> {
+  const attuali = await impostazioniDellAnno(anno);
+  await archivio().impostazioni.salva(conScaglioni(attuali, campo, scaglioni, conferma));
+}
+
+/** Scrive la soglia sotto la quale l'addizionale non è dovuta. */
+export async function dichiaraEsenzione(
+  anno: number,
+  campo: CampoAddizionale,
+  valore: number,
+): Promise<void> {
+  const attuali = await impostazioniDellAnno(anno);
+  await archivio().impostazioni.salva(conEsenzione(attuali, campo, valore));
 }
 
 /**

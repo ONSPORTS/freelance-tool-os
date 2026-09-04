@@ -52,3 +52,15 @@ export function limita(valore: number, minimo: number, massimo: number): number 
 export function nonNegativo(valore: number): number {
   return valore > 0 ? valore : 0;
 }
+
+/**
+ * Punti percentuali → frazione, senza la coda binaria.
+ *
+ * `1,62 / 100` in virgola mobile fa 0,016200000000000003, e quella coda finisce
+ * nell'archivio e nei backup. Non cambia un conto, ma sporca il dato salvato e
+ * si vede aprendo il file: sei decimali sono più di quanti ne abbia
+ * qualunque aliquota.
+ */
+export function frazioneDaPercentuale(punti: number): number {
+  return Number((punti / 100).toFixed(6));
+}

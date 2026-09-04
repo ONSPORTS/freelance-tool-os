@@ -7,6 +7,12 @@
  * del documento.)
  */
 import { limita, nonNegativo, rapporto, round2, somma } from "./aritmetica";
+import {
+  addizionaleComunaleDi,
+  addizionaleDovuta,
+  addizionaleRegionaleDi,
+} from "./addizionali";
+import { impostaProgressiva } from "./scaglioni";
 import { interoIt } from "../format";
 import { annoDi, calcolaCosto, calcolaFattura } from "./documenti";
 import { dateCosto, dateFattura, ripartisci } from "./competenza";
@@ -231,20 +237,10 @@ export type Prospetto = {
   noteCalcolate: NotaCalcolata[];
 };
 
-/** IRPEF a scaglioni progressivi. */
+/** IRPEF a scaglioni progressivi. La formula sta in `scaglioni.ts`: la
+ * condividono le addizionali regionali, che molte regioni applicano così. */
 export function irpefScaglioni(imponibile: number, scaglioni: ScaglioneIrpef[]): number {
-  if (imponibile <= 0) return 0;
-  let imposta = 0;
-  let precedente = 0;
-  for (const s of scaglioni) {
-    const tetto = s.limite ?? Number.POSITIVE_INFINITY;
-    const quota = Math.min(imponibile, tetto) - precedente;
-    if (quota <= 0) break;
-    imposta += quota * s.aliquota;
-    precedente = tetto;
-    if (imponibile <= tetto) break;
-  }
-  return round2(imposta);
+  return impostaProgressiva(imponibile, scaglioni);
 }
 
 /** Contributi previdenziali sulla base imponibile contributiva. */
@@ -447,10 +443,14 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   const irpefLorda = forfettario ? 0 : irpefScaglioni(imponibile, imp.scaglioniIrpef);
   const detrazioni = forfettario ? 0 : imp.detrazioniPersonali;
   const irpefNetta = forfettario ? 0 : round2(nonNegativo(irpefLorda - detrazioni));
+  // Aliquota unica o scaglioni, e la soglia di esenzione: la regola sta in un
+  // posto solo, perché qui e nel confronto fra regimi deve dare lo stesso conto.
   const addizionaleRegionale = forfettario
     ? 0
-    : round2(imponibile * imp.addizionaleRegionale);
-  const addizionaleComunale = forfettario ? 0 : round2(imponibile * imp.addizionaleComunale);
+    : addizionaleDovuta(imponibile, addizionaleRegionaleDi(imp));
+  const addizionaleComunale = forfettario
+    ? 0
+    : addizionaleDovuta(imponibile, addizionaleComunaleDi(imp));
   const totaleImposte = somma(
     impostaSostitutiva,
     irpefNetta,

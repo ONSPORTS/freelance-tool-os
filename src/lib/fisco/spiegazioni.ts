@@ -11,6 +11,11 @@
  * mandare al commercialista.
  */
 import { euro, interoIt, percentuale } from "@/lib/format";
+import {
+  addizionaleComunaleDi,
+  addizionaleRegionaleDi,
+  descriviAddizionale,
+} from "./addizionali";
 import { noteDelValore } from "./parametri-utente";
 import type { Prospetto } from "./motore";
 import type { Impostazioni, ParametriAnno } from "./tipi";
@@ -306,15 +311,16 @@ export function prospettoDettagliato(
       formato: "euro",
       // «L'aliquota della tua regione» si può dire solo a chi l'ha dichiarata.
       // Finché è la media dell'app va scritto, altrimenti nessuno riaprirebbe
-      // la domanda: le aliquote vere vanno dall'1,23 % a oltre il 3 %.
-      formula: `${euro(p.imponibile)} × ${percentuale(imp.addizionaleRegionale, 2)}, ${noteDelValore(imp, "addizionaleRegionale")}.`,
+      // la domanda: le aliquote vere vanno dall'1,23 % a oltre il 3 %, e in
+      // molte regioni sono scaglioni, non un'aliquota sola.
+      formula: `${descriviAddizionale(p.imponibile, addizionaleRegionaleDi(imp))}, ${noteDelValore(imp, "addizionaleRegionale")}.`,
     });
     imposte.push({
       id: "add-comunale",
       etichetta: "Addizionale comunale",
       valore: p.addizionaleComunale,
       formato: "euro",
-      formula: `${euro(p.imponibile)} × ${percentuale(imp.addizionaleComunale, 2)}, ${noteDelValore(imp, "addizionaleComunale")}.`,
+      formula: `${descriviAddizionale(p.imponibile, addizionaleComunaleDi(imp))}, ${noteDelValore(imp, "addizionaleComunale")}.`,
     });
   }
   imposte.push({

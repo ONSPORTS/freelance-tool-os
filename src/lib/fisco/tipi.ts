@@ -108,8 +108,24 @@ export type Impostazioni = {
   maggiorazioneTrimestrale: number;
 
   scaglioniIrpef: ScaglioneIrpef[];
+  /**
+   * Addizionali all'IRPEF: aliquota unica, oppure scaglioni propri.
+   *
+   * Molte regioni le applicano progressivamente come l'IRPEF, e con un'aliquota
+   * sola non sono rappresentabili: chi mettesse quella del proprio scaglione
+   * pagherebbe più del dovuto su tutta la parte bassa del reddito. Quando gli
+   * scaglioni ci sono comandano loro, e `addizionale*` resta il valore da cui
+   * si riparte se si torna all'aliquota unica.
+   *
+   * La soglia di esenzione non è una franchigia: sotto non si paga niente,
+   * sopra si paga sull'intero imponibile. `0` significa nessuna esenzione.
+   */
   addizionaleRegionale: number;
+  scaglioniAddizionaleRegionale?: ScaglioneIrpef[] | null;
+  esenzioneAddizionaleRegionale?: number;
   addizionaleComunale: number;
+  scaglioniAddizionaleComunale?: ScaglioneIrpef[] | null;
+  esenzioneAddizionaleComunale?: number;
   detrazioniPersonali: number;
   fondoPensione: number;
 

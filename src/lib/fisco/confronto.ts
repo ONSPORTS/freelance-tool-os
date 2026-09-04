@@ -10,6 +10,11 @@
 import { nonNegativo, rapporto, round2, somma } from "./aritmetica";
 import { interoIt } from "../format";
 import { contributiPrevidenziali, irpefScaglioni } from "./motore";
+import {
+  addizionaleComunaleDi,
+  addizionaleDovuta,
+  addizionaleRegionaleDi,
+} from "./addizionali";
 import type { Impostazioni, ParametriAnno } from "./tipi";
 
 export type ScenarioRegime = {
@@ -89,8 +94,8 @@ function scenario(
     ? round2(imponibile * imp.aliquotaSostitutiva)
     : somma(
         nonNegativo(irpefScaglioni(imponibile, imp.scaglioniIrpef) - imp.detrazioniPersonali),
-        round2(imponibile * imp.addizionaleRegionale),
-        round2(imponibile * imp.addizionaleComunale),
+        addizionaleDovuta(imponibile, addizionaleRegionaleDi(imp)),
+        addizionaleDovuta(imponibile, addizionaleComunaleDi(imp)),
       );
 
   const caricoTotale = somma(imposte, contributi);

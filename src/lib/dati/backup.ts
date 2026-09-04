@@ -9,6 +9,7 @@
  * scartati. Nel database non deve finire nulla che si possa ricalcolare.
  */
 import { VERSIONE_SCHEMA } from "./db";
+import type { ScaglioneIrpef } from "@/lib/fisco/tipi";
 import {
   COLLEZIONI,
   datiVuoti,
@@ -83,6 +84,18 @@ function numero(v: unknown, predefinito = 0): number {
  */
 function numeroOpzionale(v: unknown): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
+/** Scaglioni letti da un backup: `null` se non ce ne sono o sono illeggibili. */
+function leggiScaglioni(v: unknown): ScaglioneIrpef[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const letti = v
+    .filter((r): r is Record<string, unknown> => typeof r === "object" && r !== null)
+    .map((r) => ({
+      limite: typeof r.limite === "number" && Number.isFinite(r.limite) ? r.limite : null,
+      aliquota: numero(r.aliquota),
+    }));
+  return letti.length > 0 ? letti : null;
 }
 
 function booleano(v: unknown, predefinito = false): boolean {
@@ -440,6 +453,12 @@ const convalidaImpostazioni: Convalida<Dati["impostazioni"][number]> = (riga, i,
     percentualeAccantonamento: fraZeroEUno(riga.percentualeAccantonamento, 0.3),
     mesiFondoEmergenza: numero(riga.mesiFondoEmergenza, 6),
     costiFissiAnnui: numeroOpzionale(riga.costiFissiAnnui),
+    // Le addizionali possono avere scaglioni propri: un backup più vecchio non
+    // li ha, e l'assenza vale «aliquota unica», che è com'era davvero.
+    scaglioniAddizionaleRegionale: leggiScaglioni(riga.scaglioniAddizionaleRegionale),
+    esenzioneAddizionaleRegionale: numero(riga.esenzioneAddizionaleRegionale),
+    scaglioniAddizionaleComunale: leggiScaglioni(riga.scaglioniAddizionaleComunale),
+    esenzioneAddizionaleComunale: numero(riga.esenzioneAddizionaleComunale),
     // Un backup scritto prima della schermata Parametri non ha l'elenco: vale
     // «niente confermato», che è la verità di quel backup.
     dichiarati: Array.isArray(riga.dichiarati)

@@ -14,7 +14,8 @@
  * finisce dal commercialista non deve contenere numeri che nessuno ha detto.
  */
 import { aliquota, analizzaNumero, euro, interoIt } from "@/lib/format";
-import type { Impostazioni } from "./tipi";
+import { frazioneDaPercentuale } from "./aritmetica";
+import type { Impostazioni, ScaglioneIrpef } from "./tipi";
 
 /** I campi che l'utente può dichiarare. La chiave è il campo di `Impostazioni`. */
 export type CampoUtente =
@@ -41,6 +42,16 @@ export type DefinizioneCampo = {
   aCosaServe: string;
   /** Dove sta scritto il valore vero. Mai «chiedi al commercialista» e basta. */
   doveTrovarlo: string;
+  /**
+   * Il collegamento, solo dove regge nel tempo.
+   *
+   * Un link rotto dentro un prodotto venduto è peggio di nessun link, e i siti
+   * delle singole regioni cambiano indirizzo ogni riorganizzazione. Qui vanno
+   * solo i domini istituzionali che non si spostano; la pagina esatta la dice
+   * `doveTrovarlo`. Dove non c'è un indirizzo stabile, non c'è link — e nemmeno
+   * l'icona che ne promette uno.
+   */
+  fonte?: { etichetta: string; href: string };
   formato: Formato;
   /**
    * Entra nel calcolo dell'IRPEF. Se non è dichiarato, il prospetto non si
@@ -68,9 +79,9 @@ export const CAMPI_UTENTE: DefinizioneCampo[] = [
     etichetta: "Addizionale regionale IRPEF",
     nelTesto: "l'addizionale regionale",
     aCosaServe:
-      "Si applica al tuo imponibile insieme all'IRPEF. Cambia da regione a regione e in alcune anche per scaglione: va dall'1,23 % a oltre il 3 %.",
+      "Si applica al tuo imponibile insieme all'IRPEF. Cambia da regione a regione: alcune hanno un'aliquota sola, molte — Piemonte, Lombardia, Lazio e altre — la applicano a scaglioni come l'IRPEF, e diverse esentano i redditi sotto una soglia.",
     doveTrovarlo:
-      "Sul sito della tua regione, alla voce «addizionale regionale IRPEF», oppure nell'ultima dichiarazione dei redditi (quadro RV).",
+      "Nel quadro RV dell'ultima dichiarazione dei redditi trovi quella che ti è stata applicata. Per l'anno in corso, la delibera è pubblicata sul sito della tua regione alla voce «addizionale regionale IRPEF».",
     incideSu: "imposte",
     formato: "percentuale",
     nellIrpef: true,
@@ -83,10 +94,11 @@ export const CAMPI_UTENTE: DefinizioneCampo[] = [
     etichetta: "Addizionale comunale IRPEF",
     nelTesto: "l'addizionale comunale",
     aCosaServe:
-      "Come quella regionale, ma decisa dal tuo comune: c'è chi non la applica e chi arriva allo 0,9 %.",
+      "Come quella regionale, ma decisa dal tuo comune: c'è chi non la applica e chi arriva allo 0,9 %. Quasi tutti i comuni che la applicano esentano i redditi sotto una soglia, e qualcuno usa gli scaglioni.",
     doveTrovarlo:
-      "Sul sito del tuo comune o nel portale del Ministero dell'Economia «Addizionale comunale IRPEF», cercando il comune di residenza. Sta anche nel quadro RV della dichiarazione.",
+      "Nel portale del MEF, sezione «Addizionale comunale all'IRPEF», cercando il comune di residenza: c'è aliquota, soglia di esenzione e delibera. Sta anche nel quadro RV della dichiarazione.",
     incideSu: "imposte",
+    fonte: { etichetta: "Portale del MEF", href: "https://www.finanze.gov.it" },
     formato: "percentuale",
     nellIrpef: true,
     pertinente: ordinario,
@@ -100,8 +112,9 @@ export const CAMPI_UTENTE: DefinizioneCampo[] = [
     aCosaServe:
       "La quota dovuta comunque, anche a reddito zero, divisa in quattro rate. Sopra il minimale si aggiunge la percentuale sull'eccedenza.",
     doveTrovarlo:
-      "Nel Cassetto previdenziale INPS, alla voce «contributi dovuti», o nella circolare INPS di inizio anno per artigiani e commercianti.",
+      "Nel Cassetto previdenziale del sito INPS, alla voce «contributi dovuti», o nella circolare INPS di inizio anno per artigiani e commercianti.",
     incideSu: "imposte",
+    fonte: { etichetta: "inps.it", href: "https://www.inps.it" },
     formato: "euro",
     nellIrpef: false,
     pertinente: (imp) => imp.gestione === "artigiani",
@@ -166,7 +179,7 @@ export const CAMPI_UTENTE: DefinizioneCampo[] = [
 export function leggiValore(testo: string, d: DefinizioneCampo): number | null {
   const n = analizzaNumero(testo);
   if (n === null) return null;
-  return d.formato === "percentuale" ? n / 100 : n;
+  return d.formato === "percentuale" ? frazioneDaPercentuale(n) : n;
 }
 
 /** Il valore sta nell'intervallo in cui quel parametro può stare? */
@@ -274,6 +287,60 @@ export function conValoreDichiarato(
   };
 }
 
+/** Le due addizionali, le sole che possono avere scaglioni e soglia propri. */
+export type CampoAddizionale = "addizionaleRegionale" | "addizionaleComunale";
+
+export function eAddizionale(campo: CampoUtente): campo is CampoAddizionale {
+  return campo === "addizionaleRegionale" || campo === "addizionaleComunale";
+}
+
+/**
+ * Scrive gli scaglioni di un'addizionale. `null` torna all'aliquota unica.
+ *
+ * `conferma` distingue due gesti che sembrano uno. Scegliere «a scaglioni» dice
+ * solo in che forma si risponderà, e le righe partono dall'aliquota media
+ * dell'app: contarlo come una dichiarazione sbloccherebbe il PDF su numeri che
+ * nessuno ha ancora scritto. Modificare una riga invece è la risposta, e
+ * conferma il parametro come farebbe scrivere un'aliquota unica.
+ */
+export function conScaglioni(
+  imp: Impostazioni,
+  campo: CampoAddizionale,
+  scaglioni: ScaglioneIrpef[] | null,
+  conferma = true,
+): Impostazioni {
+  const chiave =
+    campo === "addizionaleRegionale"
+      ? "scaglioniAddizionaleRegionale"
+      : "scaglioniAddizionaleComunale";
+  const gia = imp.dichiarati ?? [];
+  return {
+    ...imp,
+    [chiave]: scaglioni,
+    dichiarati:
+      scaglioni === null || !conferma || gia.includes(campo) ? gia : [...gia, campo],
+  };
+}
+
+/**
+ * Scrive la soglia di esenzione.
+ *
+ * Da sola non conferma il parametro: sotto la soglia non si paga, ma sopra si
+ * paga con un'aliquota che resta quella media finché non la si dichiara. Dire
+ * «confermato» qui sbloccherebbe il PDF su un numero ancora inventato.
+ */
+export function conEsenzione(
+  imp: Impostazioni,
+  campo: CampoAddizionale,
+  valore: number,
+): Impostazioni {
+  const chiave =
+    campo === "addizionaleRegionale"
+      ? "esenzioneAddizionaleRegionale"
+      : "esenzioneAddizionaleComunale";
+  return { ...imp, [chiave]: Math.max(0, valore) };
+}
+
 /**
  * Rimette un campo al valore predefinito.
  * Serve a poter tornare indietro: chi ha sbagliato a copiare l'aliquota deve
@@ -284,9 +351,13 @@ export function senzaDichiarazione(
   campo: CampoUtente,
   predefinito: number,
 ): Impostazioni {
-  return {
+  const pulito: Impostazioni = {
     ...imp,
     [campo]: predefinito,
     dichiarati: (imp.dichiarati ?? []).filter((c) => c !== campo),
   };
+  // Tornare a «non lo so» toglie anche scaglioni e soglia: lasciarli sarebbe
+  // tenere metà di una risposta ritirata, e il calcolo continuerebbe a usarli.
+  if (!eAddizionale(campo)) return pulito;
+  return conEsenzione(conScaglioni(pulito, campo, null), campo, 0);
 }

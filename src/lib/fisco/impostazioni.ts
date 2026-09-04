@@ -31,7 +31,11 @@ export function impostazioniPredefinite(par: ParametriAnno): Impostazioni {
 
     scaglioniIrpef: par.scaglioniIrpef.map((s) => ({ ...s })),
     addizionaleRegionale: 0.0173,
+    scaglioniAddizionaleRegionale: null,
+    esenzioneAddizionaleRegionale: 0,
     addizionaleComunale: 0.008,
+    scaglioniAddizionaleComunale: null,
+    esenzioneAddizionaleComunale: 0,
     detrazioniPersonali: 0,
     fondoPensione: 0,
 
