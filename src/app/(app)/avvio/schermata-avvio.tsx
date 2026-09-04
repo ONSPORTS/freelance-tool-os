@@ -26,6 +26,7 @@ import {
   durataStimata,
   CONTESTI,
   DESCRIZIONE_CONTESTO,
+  PASSI,
   META_CONTESTO,
   NOME_CONTESTO,
   type ContestoCalcolo,
@@ -62,6 +63,26 @@ export function SchermataAvvio() {
 
   const percorso = usePercorso(contesto, anno);
   const [apertoManualmente, setApertoManualmente] = React.useState<string | null>(null);
+
+  /*
+    Chi arriva da «?passo=regime» ha toccato il regime in testata: la domanda
+    che cercava dev'essere già aperta, non da trovare in mezzo alle altre. La
+    query si legge a mano invece che con `useSearchParams`: è un riempimento
+    iniziale, non una navigazione, e così la pagina resta generabile
+    staticamente senza confini di Suspense.
+  */
+  React.useEffect(() => {
+    const richiesto = new URLSearchParams(window.location.search).get("passo");
+    if (!richiesto || !PASSI.some((p) => p.id === richiesto)) return;
+    setApertoManualmente(richiesto);
+    // Il passo può stare sotto il bordo dello schermo, specie sul telefono.
+    const t = window.setTimeout(() => {
+      document
+        .getElementById(`passo-${richiesto}`)
+        ?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, 120);
+    return () => window.clearTimeout(t);
+  }, []);
 
   if (!calcolo || !situazione || percorso === undefined) {
     return (
@@ -289,7 +310,7 @@ function SchedaPasso({
   const effetto = passo.effetto?.(calcolo) ?? null;
 
   return (
-    <Card>
+    <Card id={`passo-${passo.id}`}>
       <button
         type="button"
         onClick={onApri}

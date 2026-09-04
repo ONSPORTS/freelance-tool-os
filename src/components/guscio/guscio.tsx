@@ -7,16 +7,15 @@ import { ChevronDown, Menu, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Segmenti } from "@/components/ui/segmenti";
 import { useCalcoloAnno } from "@/lib/dati/hooks";
-import { cambiaRegime } from "@/lib/dati/azioni";
 import { usePreferenze } from "@/lib/stato/preferenze";
 import { useComandi } from "@/lib/stato/comandi";
-import { useAvvioLicenza, useSolaLettura } from "@/lib/stato/licenza";
+import { useAvvioLicenza } from "@/lib/stato/licenza";
 import { ErroreSolaLettura } from "@/lib/dati/sola-lettura";
 import { toast } from "@/components/ui/toast";
 import { BarraLicenza } from "./barra-licenza";
 import { SegnoFlowlance } from "./marchio";
+import { RegimeAttuale } from "./regime-attuale";
 import { Paletta, Tasto } from "@/components/comandi/paletta";
 import { ScorciatoieGlobali } from "@/components/comandi/tasti";
 import { GRUPPI, type Voce } from "./navigazione";
@@ -57,7 +56,6 @@ export function Guscio({
 
   // Verifica la chiave salvata e accende la guardia dell'archivio.
   useAvvioLicenza(oggi);
-  const solaLettura = useSolaLettura();
   useAvvisoSolaLettura();
 
   // I parametri provvisori vincono sullo stato di chiusura: sono la cosa che
@@ -109,7 +107,6 @@ export function Guscio({
                 onChange={impostaPeriodo}
                 statoAnno={statoAnno}
                 regime={regime}
-                solaLettura={solaLettura}
                 className="ml-auto shrink-0 sm:hidden"
               />
             </div>
@@ -119,16 +116,7 @@ export function Guscio({
                 onChange={impostaPeriodo}
                 statoAnno={statoAnno}
               />
-              <Segmenti
-                etichettaGruppo="Regime fiscale"
-                valore={regime}
-                disabilitato={solaLettura}
-                onChange={(r) => void cambiaRegime(periodo.anno, r)}
-                opzioni={[
-                  { valore: "forfettario", etichetta: "Forfettario" },
-                  { valore: "ordinario", etichetta: "Ordinario" },
-                ]}
-              />
+              <RegimeAttuale regime={regime} />
             </div>
             {/*
               Le azioni prendono tutta la riga sul telefono e si dividono lo
@@ -338,14 +326,12 @@ function RiepilogoPeriodo({
   onChange,
   statoAnno,
   regime,
-  solaLettura,
   className,
 }: {
   periodo: Periodo;
   onChange: (p: Periodo) => void;
   statoAnno?: StatoDellAnno;
   regime: Regime;
-  solaLettura: boolean;
   className?: string;
 }) {
   const [aperto, setAperto] = React.useState(false);
@@ -377,18 +363,18 @@ function RiepilogoPeriodo({
       >
         <div className="space-y-4">
           <SelettorePeriodo periodo={periodo} onChange={onChange} statoAnno={statoAnno} />
+          {/*
+            Anno e stato qui dentro si cambiano; il regime no. Messo accanto a
+            loro come una tendina qualsiasi prometterebbe la stessa cosa: resta
+            un rimando, con la freccia e la frase che dicono dove porta.
+          */}
           <div>
             <p className="mb-1.5 text-etichetta text-inchiostro-tenue">Regime fiscale</p>
-            <Segmenti
-              etichettaGruppo="Regime fiscale"
-              valore={regime}
-              disabilitato={solaLettura}
-              onChange={(r) => void cambiaRegime(periodo.anno, r)}
-              opzioni={[
-                { valore: "forfettario", etichetta: "Forfettario" },
-                { valore: "ordinario", etichetta: "Ordinario" },
-              ]}
-            />
+            <RegimeAttuale regime={regime} onNaviga={() => setAperto(false)} />
+            <p className="mt-1.5 text-etichetta text-inchiostro-tenue">
+              Si cambia dalla configurazione, che spiega prima cosa comporta: IVA in
+              fattura, deducibilità dei costi, imposta.
+            </p>
           </div>
           <p className="text-etichetta text-inchiostro-tenue">
             Le aliquote che dipendono da te — addizionali, contributi — si dichiarano nei{" "}

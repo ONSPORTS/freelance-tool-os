@@ -274,17 +274,13 @@ export async function segnaPagato(costo: Costo, dataPagamento?: string) {
 // Impostazioni
 // ————————————————————————————————————————————————————————————
 
-export async function cambiaRegime(anno: number, regime: "forfettario" | "ordinario") {
-  const attuali = await archivio().impostazioni.leggi(anno);
-  if (!attuali) return;
-  await archivio().impostazioni.salva({ ...attuali, regime });
-  toast.conferma(
-    `Regime ${regime === "forfettario" ? "forfettario" : "ordinario"}: ricalcolato tutto`,
-    async () => {
-      await archivio().impostazioni.salva(attuali);
-    },
-  );
-}
+/*
+  `cambiaRegime` stava qui e non c'è più. Scriveva il regime solo se l'anno
+  aveva già una riga di impostazioni in archivio, e altrimenti usciva in
+  silenzio: su un telefono aperto per la prima volta il toggle in testata non
+  faceva niente, senza dire niente. Il regime ora si cambia da un posto solo,
+  la configurazione, che passa da `impostazioniDellAnno` e la riga la crea.
+*/
 
 // ————————————————————————————————————————————————————————————
 // Clienti
