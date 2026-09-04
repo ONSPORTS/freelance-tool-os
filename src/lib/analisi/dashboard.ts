@@ -54,10 +54,15 @@ export function andamentoMensile(
   const righe: MeseAndamento[] = [];
   let cumulato = 0;
   for (let m = 1; m <= 12; m++) {
+    // `ricavoRilevante` da tutt'e due le parti — imponibile più rivalsa — e non
+    // l'imponibile di qua e il ricavo di là: le due colonne stanno sullo stesso
+    // asse e si confrontano a vista, e con la rivalsa attiva la stessa fattura
+    // ne disegnava due di altezza diversa. Quella differenza si legge come un
+    // incasso mancante, che è il modo peggiore di sbagliare un grafico.
     const emesso = somma(
       ...fatture
         .filter((f) => annoDi(f.dataEmissione) === anno && meseDi(f.dataEmissione) === m)
-        .map((f) => f.imponibile),
+        .map((f) => f.ricavoRilevante),
     );
     const incassato = somma(
       ...fatture

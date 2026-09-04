@@ -3,6 +3,7 @@ import { calcolaProspetto } from "@/lib/fisco/motore";
 import { PARAMETRI_2026 } from "@/lib/fisco/parametri/2026";
 import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { datiDemo, ANNO_DEMO } from "@/lib/dati/demo";
+import type { Fattura } from "@/lib/fisco/tipi";
 import { coloreDaNome } from "@/lib/format";
 import {
   andamentoMensile,
@@ -41,6 +42,73 @@ describe("andamento mensile", () => {
   it("l'incassato somma ai ricavi rilevanti del prospetto", () => {
     const totale = Math.round(mesi.reduce((a, m) => a + m.incassato, 0) * 100) / 100;
     expect(totale).toBe(prospetto.ricaviRilevanti);
+  });
+
+  it("una fattura emessa e non incassata non entra fra gli incassi", () => {
+    /*
+      Il caso segnalato: a settembre le due colonne erano identiche mentre una
+      fattura di settembre era ancora da incassare, e sembrava contata due
+      volte. Qui c'è la stessa forma di dati — due fatture emesse il 1°
+      settembre, una sola incassata, più una di giugno incassata a settembre —
+      e le due colonne coincidono per coincidenza, non perché l'incasso
+      mancante sia stato contato.
+    */
+    const imp = impostazioniPredefinite(PARAMETRI_2026);
+    const fatture: Fattura[] = [
+      {
+        id: "18", numero: "18", dataEmissione: "2026-09-01", dataIncasso: null,
+        clienteId: "c1", descrizione: "Gestione clienti AGOSTO", tipoRicavo: "ricorrente",
+        imponibile: 1_200,
+      },
+      {
+        id: "19", numero: "19", dataEmissione: "2026-09-01", dataIncasso: "2026-09-04",
+        clienteId: "c2", descrizione: "Ricorrente", tipoRicavo: "ricorrente",
+        imponibile: 992.5,
+      },
+      {
+        id: "12", numero: "12", dataEmissione: "2026-06-15", dataIncasso: "2026-09-20",
+        clienteId: "c1", descrizione: "Gestione clienti MAGGIO", tipoRicavo: "ricorrente",
+        imponibile: 1_200,
+      },
+    ];
+    const p = calcolaProspetto({
+      impostazioni: imp, parametri: PARAMETRI_2026, fatture, costi: [], oggi: "2026-09-04",
+    });
+    const set = andamentoMensile(p.fattureCalcolate, p.costiCalcolati, 2026)[8];
+    expect(set.emesso).toBe(2_192.5);
+    expect(set.incassato).toBe(2_192.5);
+
+    // La prova che non è contata: togliendo la fattura di giugno, l'incassato
+    // di settembre resta quello della sola fattura davvero incassata.
+    const senzaGiugno = calcolaProspetto({
+      impostazioni: imp, parametri: PARAMETRI_2026, fatture: fatture.slice(0, 2), costi: [],
+      oggi: "2026-09-04",
+    });
+    const soloSettembre = andamentoMensile(
+      senzaGiugno.fattureCalcolate, senzaGiugno.costiCalcolati, 2026,
+    )[8];
+    expect(soloSettembre.emesso).toBe(2_192.5);
+    expect(soloSettembre.incassato).toBe(992.5);
+  });
+
+  it("emesso e incassato misurano la stessa cosa in due momenti", () => {
+    /*
+      Le due serie stanno sullo stesso asse e si confrontano a vista: se una
+      contasse la rivalsa e l'altra no, la stessa fattura darebbe due colonne
+      diverse — e la differenza sembrerebbe un incasso mancante.
+    */
+    const conRivalsa = { ...impostazioniPredefinite(PARAMETRI_2026), rivalsaAttiva: true };
+    const fattura: Fattura = {
+      id: "r1", numero: "1", dataEmissione: "2026-04-10", dataIncasso: "2026-04-20",
+      clienteId: "c1", descrizione: "Con rivalsa", tipoRicavo: "progetto", imponibile: 1_000,
+    };
+    const p = calcolaProspetto({
+      impostazioni: conRivalsa, parametri: PARAMETRI_2026, fatture: [fattura], costi: [],
+      oggi: "2026-04-20",
+    });
+    const aprile = andamentoMensile(p.fattureCalcolate, p.costiCalcolati, 2026)[3];
+    expect(aprile.emesso).toBe(aprile.incassato);
+    expect(aprile.emesso).toBeGreaterThan(1_000);
   });
 
   it("il cumulato è monotono quando i costi non superano gli incassi", () => {
