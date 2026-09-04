@@ -76,6 +76,15 @@ function numero(v: unknown, predefinito = 0): number {
   return typeof v === "number" && Number.isFinite(v) ? v : predefinito;
 }
 
+/**
+ * I campi che possono legittimamente non essere stati dichiarati.
+ * Uno zero al loro posto non sarebbe «non lo so», sarebbe «zero»: un backup
+ * vecchio riaperto direbbe che i costi fissi sono zero euro.
+ */
+function numeroOpzionale(v: unknown): number | null {
+  return typeof v === "number" && Number.isFinite(v) ? v : null;
+}
+
 function booleano(v: unknown, predefinito = false): boolean {
   return typeof v === "boolean" ? v : predefinito;
 }
@@ -426,11 +435,11 @@ const convalidaImpostazioni: Convalida<Dati["impostazioni"][number]> = (riga, i,
     terminiPagamento: numero(riga.terminiPagamento, 30),
     giorniLavorativi: numero(riga.giorniLavorativi, 220),
     oreFatturabiliGiorno: numero(riga.oreFatturabiliGiorno, 5),
-    tariffaOraria: numero(riga.tariffaOraria),
-    nettoDesiderato: numero(riga.nettoDesiderato),
+    tariffaOraria: numeroOpzionale(riga.tariffaOraria),
+    nettoDesiderato: numeroOpzionale(riga.nettoDesiderato),
     percentualeAccantonamento: fraZeroEUno(riga.percentualeAccantonamento, 0.3),
     mesiFondoEmergenza: numero(riga.mesiFondoEmergenza, 6),
-    costiFissiAnnui: numero(riga.costiFissiAnnui),
+    costiFissiAnnui: numeroOpzionale(riga.costiFissiAnnui),
   };
 };
 

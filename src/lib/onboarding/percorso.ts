@@ -17,7 +17,7 @@
  * la loro applicabilità, il default dichiarato di ciascuno e la frase che
  * spiega cosa cambia nei calcoli. I controlli stanno nella schermata.
  */
-import { euro, interoIt, percentuale } from "@/lib/format";
+import { aliquota, euro, interoIt, percentuale } from "@/lib/format";
 import type { Prospetto } from "@/lib/fisco/motore";
 import type { Impostazioni, ParametriAnno } from "@/lib/fisco/tipi";
 
@@ -33,12 +33,40 @@ export const NOME_CONTESTO: Record<ContestoPercorso, string> = {
 
 export const DESCRIZIONE_CONTESTO: Record<ContestoPercorso, string> = {
   primoAvvio:
-    "L'app non sa ancora niente di te. Otto domande per far tornare i numeri, e puoi saltarne quante vuoi.",
+    "L'app non sa ancora niente di te. Poche domande per far tornare i numeri, e puoi saltarne quante vuoi.",
   aperturaAnno:
     "L'anno precedente è chiuso. Prima si confermano i riporti che arrivano da lì, poi si rivede la configurazione: le regole cambiano ogni gennaio.",
   cambioRegime:
     "Cambia il regime, e cambiano la fattura e il calcolo. Prima il confronto sui tuoi numeri, poi le impostazioni che ne conseguono.",
 };
+
+/**
+ * Dove porta il percorso, in una frase.
+ *
+ * Sta prima delle domande perché è la cosa che manca a chi comincia: otto
+ * caselle da riempire senza sapere a cosa servono si compilano a caso, e la
+ * prima impressione dell'app è di un modulo da ufficio.
+ */
+export const META_CONTESTO: Record<ContestoPercorso, string> = {
+  primoAvvio:
+    "Alla fine l'app saprà calcolare le tue imposte e i tuoi contributi, dirti quanto accantonare su ogni incasso e quali fatture sono in ritardo. Sono le risposte che non può indovinare da sola.",
+  aperturaAnno:
+    "Alla fine il nuovo anno sarà aperto con i numeri veri di quello chiuso — cassa, accantonato, credito IVA — e con le regole aggiornate al gennaio in corso.",
+  cambioRegime:
+    "Alla fine saprai cosa cambia nelle tue fatture e nei tuoi conti, e l'app sarà configurata per il regime nuovo dal primo documento che emetti.",
+};
+
+/**
+ * Quanto ci vuole, detto per difetto di poco.
+ *
+ * Una domanda si legge e si risponde in poco meno di un minuto; quelle di sola
+ * lettura si guardano e basta. Serve a far decidere se cominciare adesso o
+ * dopo: senza, si comincia e si abbandona a metà.
+ */
+export function durataStimata(passi: readonly Passo[]): string {
+  const minuti = Math.max(2, Math.round(passi.length * 0.75));
+  return `circa ${minuti} minuti`;
+}
 
 /** Il contesto di calcolo che i passi usano per dire cosa cambia davvero. */
 export type ContestoCalcolo = {
@@ -62,6 +90,14 @@ export type Passo = {
   seSalti: (c: ContestoCalcolo) => string;
   /** L'effetto sui numeri reali di chi sta rispondendo, quando è calcolabile. */
   effetto?: (c: ContestoCalcolo) => string | null;
+  /**
+   * Cosa sa fare l'app dopo questa risposta.
+   *
+   * Otto domande di fila senza sapere dove si va a parare si rispondono a
+   * vuoto: si compila e basta. Questa frase compare a risposta data, e resta
+   * lì: scorrendo il percorso si vede cosa si è già sbloccato.
+   */
+  sblocca: string;
   contesti: ContestoPercorso[];
   ordine: number;
   /** Il passo ha senso solo in certe configurazioni. */
@@ -92,6 +128,8 @@ export const PASSI: Passo[] = [
       "Il 31 dicembre non azzera niente: saldo di cassa, tasse già accantonate, credito IVA e crediti d'imposta attraversano il confine. Confermarli uno per uno serve a dire «li ho guardati», perché se uno di questi è sbagliato l'anno nuovo parte sbagliato senza segnalare nulla.",
     seSalti: () =>
       "I riporti restano quelli calcolati dalla chiusura: saltare non li cambia, toglie solo la conferma.",
+    sblocca:
+      "Ora il nuovo anno apre con i numeri veri dell'anno chiuso, non da zero.",
     contesti: ["aperturaAnno"],
     ordine: 0,
     soloLettura: true,
@@ -103,6 +141,8 @@ export const PASSI: Passo[] = [
     perche:
       "Il cambio di regime non è una casella: cambia l'IVA in fattura, la deducibilità dei costi, l'imposta che paghi e la ritenuta che subisci. Il confronto è calcolato sui ricavi e sui costi che hai davvero registrato, non su un esempio.",
     seSalti: () => "Il confronto è solo da leggere: saltarlo non cambia nessuna impostazione.",
+    sblocca:
+      "Ora sai cosa cambia in fattura e quanto ti costa il passaggio.",
     contesti: ["cambioRegime"],
     ordine: 0,
     soloLettura: true,
@@ -118,6 +158,8 @@ export const PASSI: Passo[] = [
       c.prospetto.ricaviRilevanti > 0
         ? `Sui tuoi ${euro(c.prospetto.ricaviRilevanti)} di ricavi incassati il carico attuale è ${euro(c.prospetto.caricoTotale)}, cioè il ${percentuale(c.prospetto.pressione)} di ogni euro.`
         : null,
+    sblocca:
+      "Ora l'app sa quale imposta calcolarti e se i tuoi costi si deducono.",
     contesti: CONTESTI,
     ordine: 10,
   },
@@ -128,13 +170,15 @@ export const PASSI: Passo[] = [
     perche:
       "Nel forfettario non si tiene la contabilità dei costi: lo Stato presume quanto costi svolgere la tua attività, e tassa solo la parte restante. Quella parte è il coefficiente di redditività, e dipende dal codice ATECO. Un consulente ha il 78 %, un commerciante al dettaglio il 40 %: significa che a parità di incassi il commerciante paga su molto meno.",
     seSalti: (c) =>
-      `Resta il ${percentuale(c.impostazioni.coefficienteRedditivita)}, il coefficiente delle attività professionali.`,
+      `Resta il ${aliquota(c.impostazioni.coefficienteRedditivita)}, il coefficiente delle attività professionali.`,
     effetto: (c) => {
       const ricavi = c.prospetto.ricaviRilevanti;
       if (ricavi <= 0) return null;
       const attuale = ricavi * c.impostazioni.coefficienteRedditivita;
-      return `Con ${euro(ricavi)} di ricavi, il ${percentuale(c.impostazioni.coefficienteRedditivita)} fa ${euro(attuale)} di reddito lordo. Con il ${percentuale(0.4)} ne farebbe ${euro(ricavi * 0.4)}.`;
+      return `Con ${euro(ricavi)} di ricavi, il ${aliquota(c.impostazioni.coefficienteRedditivita)} fa ${euro(attuale)} di reddito lordo. Con il ${aliquota(0.4)} ne farebbe ${euro(ricavi * 0.4)}.`;
     },
+    sblocca:
+      "Ora sa quanta parte dei tuoi incassi è reddito tassabile.",
     contesti: CONTESTI,
     ordine: 20,
     visibile: forfettario,
@@ -146,12 +190,14 @@ export const PASSI: Passo[] = [
     perche:
       "Nel forfettario si paga un'imposta unica al posto di IRPEF e addizionali. L'aliquota ordinaria è il 15 %, ma per i primi cinque anni di una attività davvero nuova scende al 5 %. «Nuova» ha un significato preciso: non basta aver aperto da poco, non devi aver svolto la stessa attività nei tre anni precedenti né proseguire quella di qualcun altro.",
     seSalti: (c) =>
-      `Resta l'aliquota ${percentuale(c.impostazioni.aliquotaSostitutiva)}, quella ordinaria del regime.`,
+      `Resta l'aliquota ${aliquota(c.impostazioni.aliquotaSostitutiva)}, quella ordinaria del regime.`,
     effetto: (c) => {
       const imponibile = c.prospetto.imponibile;
       if (imponibile <= 0) return null;
       return `Sul tuo imponibile di ${euro(imponibile)}: ${euro(imponibile * c.parametri.aliquotaSostitutiva)} al 15 %, ${euro(imponibile * c.parametri.aliquotaSostitutivaNuovaAttivita)} al 5 %.`;
     },
+    sblocca:
+      "Ora sa con quale aliquota calcolare l'imposta che pagherai.",
     contesti: CONTESTI,
     ordine: 30,
     visibile: forfettario,
@@ -167,6 +213,8 @@ export const PASSI: Passo[] = [
       c.prospetto.redditoLordo > 0
         ? `Sul tuo reddito lordo di ${euro(c.prospetto.redditoLordo)} i contributi sono ${euro(c.prospetto.totaleContributi)}.`
         : null,
+    sblocca:
+      "Ora sa calcolare i tuoi contributi e metterli nello scadenzario.",
     contesti: CONTESTI,
     ordine: 40,
   },
@@ -178,6 +226,8 @@ export const PASSI: Passo[] = [
       "Cambia quando l'IVA esce dal conto, non quanta ne paghi. Con la liquidazione trimestrale si versa quattro volte l'anno invece di dodici, ma sui primi tre trimestri si aggiunge l'1 % di maggiorazione. Il quarto trimestre confluisce nella dichiarazione annuale e la maggiorazione non si applica.",
     seSalti: (c) =>
       `Resta la liquidazione ${c.impostazioni.periodicitaIva}, con ${c.impostazioni.periodicitaIva === "trimestrale" ? "quattro scadenze" : "dodici scadenze"} l'anno.`,
+    sblocca:
+      "Ora sa quando scade la tua IVA e quanto versare a ogni liquidazione.",
     contesti: CONTESTI,
     ordine: 50,
     visibile: ordinario,
@@ -194,6 +244,8 @@ export const PASSI: Passo[] = [
       c.prospetto.ritenuteSubite > 0
         ? `Quest'anno hai subito ${euro(c.prospetto.ritenuteSubite)} di ritenute: si scomputano dalle imposte dovute.`
         : null,
+    sblocca:
+      "Ora sa quanto ti arriva davvero in banca su ogni fattura.",
     contesti: CONTESTI,
     ordine: 60,
   },
@@ -209,6 +261,8 @@ export const PASSI: Passo[] = [
       if (scadute.length === 0) return null;
       return `Con i termini attuali risultano ${interoIt.format(scadute.length)} fatture scadute.`;
     },
+    sblocca:
+      "Ora sa dirti quali fatture sono in ritardo e di quanti giorni.",
     contesti: CONTESTI,
     ordine: 70,
   },
@@ -219,11 +273,13 @@ export const PASSI: Passo[] = [
     perche:
       "La percentuale di accantonamento è la differenza fra sentirsi ricchi a maggio e non riuscire a versare a giugno: è la quota di ogni incasso che l'app considera già impegnata e sottrae dalla liquidità disponibile. Il netto desiderato serve alla pianificazione, che lo trasforma in fatturato da produrre e clienti da trovare.",
     seSalti: (c) =>
-      `Resta il ${percentuale(c.impostazioni.percentualeAccantonamento)} di accantonamento su ogni incasso.`,
+      `Resta il ${aliquota(c.impostazioni.percentualeAccantonamento)} di accantonamento su ogni incasso.`,
     effetto: (c) =>
       c.prospetto.ricaviRilevanti > 0
         ? `La tua pressione effettiva è ${percentuale(c.prospetto.pressione)}: accantonare meno di così significa arrivare corti a giugno.`
         : null,
+    sblocca:
+      "Ora sa quanto accantonare su ogni incasso perché a giugno i soldi ci siano.",
     contesti: CONTESTI,
     ordine: 80,
   },
@@ -238,6 +294,8 @@ export const PASSI: Passo[] = [
       "Un'app di contabilità vuota non si capisce: tutte le schermate mostrano zeri e non si vede a cosa servano. Ma chi arriva a metà anno lo storico ce l'ha già, e non ha bisogno di un esempio: ha bisogno di vedere i propri numeri. Sono due strade diverse e nessuna delle due è quella giusta per tutti.",
     seSalti: () =>
       "L'archivio resta vuoto e si parte dalla prima fattura vera. Sia il dataset dimostrativo sia l'import CSV restano disponibili dopo, da Dati e backup e da Importa.",
+    sblocca:
+      "Ora l'app è configurata: da qui in poi lavora sui numeri, non sulle ipotesi.",
     contesti: ["primoAvvio"],
     ordine: 90,
   },

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowRight, Check, Sparkles, Upload } from "lucide-react";
+import { ArrowRight, Calculator, Check, Search, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardInterna } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
@@ -19,11 +19,13 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { confrontaRegimi, ingressoDaProspetto } from "@/lib/fisco/confronto";
+import { costiRegistrati } from "@/lib/analisi/pianificazione";
+import { cercaGruppi } from "@/lib/fisco/ateco";
 import { cambiamentiDiRegime } from "@/lib/fisco/regime";
 import type { Riporto } from "@/lib/fisco/chiusura";
-import type { Impostazioni, ParametriAnno, Regime } from "@/lib/fisco/tipi";
+import type { GruppoAteco, Impostazioni, ParametriAnno, Regime } from "@/lib/fisco/tipi";
 import type { ContestoCalcolo } from "@/lib/onboarding/percorso";
-import { euro, interoIt, percentuale } from "@/lib/format";
+import { aliquota, euro, interoIt, percentuale } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export type Modifica = (modifiche: Partial<Impostazioni>) => void;
@@ -79,33 +81,14 @@ function ControlloDelPasso({
 
     case "ateco":
       return (
-        <div className="space-y-2">
-          <Select
-            value={imp.gruppoAteco}
-            onValueChange={(codice) => {
-              const gruppo = par.gruppiAteco.find((g) => g.codice === codice);
-              onModifica({
-                gruppoAteco: codice,
-                coefficienteRedditivita: gruppo?.coefficiente ?? imp.coefficienteRedditivita,
-              });
-            }}
-          >
-            <SelectTrigger className="w-full" aria-label="Gruppo di attività">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {par.gruppiAteco.map((g) => (
-                <SelectItem key={g.codice} value={g.codice}>
-                  {percentuale(g.coefficiente)} — {g.descrizione}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-etichetta text-inchiostro-tenue">
-            Coefficiente applicato: {percentuale(imp.coefficienteRedditivita)}. Il resto è
-            considerato costo forfettario e non si tassa.
-          </p>
-        </div>
+        <SceltaAteco
+          gruppi={par.gruppiAteco}
+          scelto={imp.gruppoAteco}
+          coefficiente={imp.coefficienteRedditivita}
+          onScegli={(gruppo) =>
+            onModifica({ gruppoAteco: gruppo.codice, coefficienteRedditivita: gruppo.coefficiente })
+          }
+        />
       );
 
     case "sostitutiva":
@@ -124,8 +107,8 @@ function ControlloDelPasso({
             }
           />
           <p className="text-etichetta text-inchiostro-tenue">
-            Aliquota applicata: {percentuale(imp.aliquotaSostitutiva)}. Nel dubbio lascia il{" "}
-            {percentuale(par.aliquotaSostitutiva)}: pagare di meno e scoprire dopo di non
+            Aliquota applicata: {aliquota(imp.aliquotaSostitutiva)}. Nel dubbio lascia il{" "}
+            {aliquota(par.aliquotaSostitutiva)}: pagare di meno e scoprire dopo di non
             averne diritto è il modo peggiore di sbagliare.
           </p>
         </div>
@@ -171,12 +154,12 @@ function ControlloDelPasso({
       return (
         <div className="space-y-3">
           <Interruttore
-            etichetta={`Addebito la rivalsa previdenziale del ${percentuale(imp.aliquotaRivalsa)}`}
+            etichetta={`Addebito la rivalsa previdenziale del ${aliquota(imp.aliquotaRivalsa)}`}
             attivo={imp.rivalsaAttiva}
             onCambia={(rivalsaAttiva) => onModifica({ rivalsaAttiva })}
           />
           <Interruttore
-            etichetta={`Subisco la ritenuta d'acconto del ${percentuale(imp.aliquotaRitenuta)}`}
+            etichetta={`Subisco la ritenuta d'acconto del ${aliquota(imp.aliquotaRitenuta)}`}
             attivo={imp.ritenutaAttiva}
             onCambia={(ritenutaAttiva) => onModifica({ ritenutaAttiva })}
             disabilitato={imp.regime === "forfettario"}
@@ -206,34 +189,257 @@ function ControlloDelPasso({
       );
 
     case "obiettivi":
-      return (
-        <div className="grid gap-3 sm:grid-cols-3">
-          <CampoNumerico
-            etichetta="Netto desiderato all'anno"
-            valore={imp.nettoDesiderato}
-            onCambia={(nettoDesiderato) => onModifica({ nettoDesiderato })}
-            suffisso="€"
-          />
-          <CampoNumerico
-            etichetta="Costi fissi annui"
-            valore={imp.costiFissiAnnui}
-            onCambia={(costiFissiAnnui) => onModifica({ costiFissiAnnui })}
-            suffisso="€"
-          />
-          <CampoNumerico
-            etichetta="Accantonamento"
-            valore={Math.round(imp.percentualeAccantonamento * 100)}
-            onCambia={(v) =>
-              onModifica({ percentualeAccantonamento: Math.min(90, Math.max(0, v)) / 100 })
-            }
-            suffisso="%"
-          />
-        </div>
-      );
+      return <Obiettivi calcolo={calcolo} onModifica={onModifica} />;
 
     default:
       return null;
   }
+}
+
+/**
+ * Netto voluto, costi fissi, accantonamento.
+ *
+ * I primi due partono vuoti. Un «12.000 €» precompilato in un campo che
+ * l'utente non sa stimare viene lasciato lì, e da quel momento il punto di
+ * pareggio è costruito su un numero che non ha scelto nessuno: un valore
+ * inventato è peggio di un campo vuoto, perché il campo vuoto si vede.
+ * L'accantonamento invece un valore predefinito ce l'ha davvero — il 30 % è la
+ * regola prudenziale che l'app dichiara — e resta compilato.
+ */
+function Obiettivi({
+  calcolo,
+  onModifica,
+}: {
+  calcolo: ContestoCalcolo;
+  onModifica: Modifica;
+}) {
+  const imp = calcolo.impostazioni;
+  const registrati = costiRegistrati(
+    calcolo.prospetto.costiCalcolati,
+    calcolo.prospetto.anno,
+    "fisso",
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-3">
+        <CampoNumericoOpzionale
+          etichetta="Netto desiderato all'anno"
+          valore={imp.nettoDesiderato}
+          onCambia={(nettoDesiderato) => onModifica({ nettoDesiderato })}
+          suffisso="€"
+        />
+        <CampoNumericoOpzionale
+          etichetta="Costi fissi annui"
+          valore={imp.costiFissiAnnui}
+          onCambia={(costiFissiAnnui) => onModifica({ costiFissiAnnui })}
+          suffisso="€"
+        />
+        <CampoNumerico
+          etichetta="Accantonamento"
+          valore={Math.round(imp.percentualeAccantonamento * 100)}
+          onCambia={(v) =>
+            onModifica({ percentualeAccantonamento: Math.min(90, Math.max(0, v)) / 100 })
+          }
+          suffisso="%"
+        />
+      </div>
+
+      {registrati.quanti > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            scrive
+            variante="contorno"
+            taglia="sm"
+            onClick={() => onModifica({ costiFissiAnnui: registrati.totale })}
+          >
+            <Calculator className="size-3.5" aria-hidden />
+            Usa {euro(registrati.totale)}
+          </Button>
+          <p className="text-etichetta text-inchiostro-tenue">
+            è la somma dei {interoIt.format(registrati.quanti)} costi che hai marcato «fisso»
+            nel {calcolo.prospetto.anno}. Se ne paghi altri che non hai ancora registrato,
+            aggiungili a mano.
+          </p>
+        </div>
+      ) : (
+        <p className="text-etichetta text-inchiostro-tenue">
+          Nei costi fissi va quello che paghi comunque, anche in un mese senza incassi:
+          canoni e abbonamenti, commercialista, assicurazione, affitto, telefono. Puoi
+          lasciarlo vuoto adesso — le schermate che lo usano diranno che manca, invece di
+          fingere un numero — e compilarlo dopo da qui, o dalla pianificazione. Quando
+          avrai qualche costo marcato «fisso» in archivio, l&apos;app te lo propone da sé.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Un campo numerico che può essere vuoto, e resta vuoto.
+ *
+ * `null` non è zero: «non l'ho ancora deciso» e «è zero» sono due risposte
+ * diverse, e confonderle è il modo in cui un costo fisso non dichiarato
+ * diventa un pareggio a zero euro.
+ */
+function CampoNumericoOpzionale({
+  etichetta,
+  valore,
+  onCambia,
+  suffisso,
+}: {
+  etichetta: string;
+  valore: number | null;
+  onCambia: (v: number | null) => void;
+  suffisso: string;
+}) {
+  return (
+    <div>
+      <Etichetta>{etichetta}</Etichetta>
+      <div className="mt-1.5 flex items-center gap-2">
+        <Input
+          type="number"
+          inputMode="numeric"
+          className="cifre w-full"
+          placeholder="non dichiarato"
+          value={valore === null ? "" : String(valore)}
+          onChange={(e) => onCambia(e.target.value === "" ? null : Number(e.target.value) || 0)}
+        />
+        <span className="shrink-0 text-etichetta text-inchiostro-tenue">{suffisso}</span>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * La scelta del gruppo ATECO, cercabile per mestiere.
+ *
+ * La tendina di prima elencava le nove voci come le chiama la legge, e un
+ * consulente marketing non ha modo di sapere di stare nelle «attività
+ * professionali, scientifiche, tecniche». Qui si scrive quello che si fa e la
+ * voce viene a galla; l'elenco intero resta sotto, perché la ricerca è una
+ * scorciatoia, non un filtro obbligatorio.
+ */
+function SceltaAteco({
+  gruppi,
+  scelto,
+  coefficiente,
+  onScegli,
+}: {
+  gruppi: GruppoAteco[];
+  scelto: string;
+  coefficiente: number;
+  onScegli: (gruppo: GruppoAteco) => void;
+}) {
+  const [ricerca, setRicerca] = React.useState("");
+  const esiti = React.useMemo(() => cercaGruppi(ricerca, gruppi), [ricerca, gruppi]);
+  const id = React.useId();
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label htmlFor={id} className="block text-etichetta text-inchiostro-tenue">
+          Cerca il tuo mestiere
+        </label>
+        <div className="relative mt-1.5">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-inchiostro-tenue"
+            aria-hidden
+          />
+          <Input
+            id={id}
+            type="search"
+            value={ricerca}
+            onChange={(e) => setRicerca(e.target.value)}
+            placeholder="consulente, grafico, idraulico, e-commerce…"
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      {esiti.length === 0 ? (
+        // Il vicolo cieco è il momento in cui serve dire dove guardare: senza
+        // questa frase resta solo un elenco vuoto e nessuna via d'uscita.
+        <CardInterna className="p-4">
+          <p className="text-etichetta">
+            Nessun mestiere corrisponde a «{ricerca}».
+          </p>
+          <p className="mt-1 text-etichetta text-inchiostro-tenue">
+            Il gruppo dipende dal tuo codice ATECO, che trovi nella visura camerale o nella
+            comunicazione di inizio attività che hai ricevuto aprendo la partita IVA — è il
+            numero tipo 70.22.09. Cerca le prime due cifre nell&apos;elenco qui sotto, oppure
+            svuota la ricerca per vederlo tutto.
+          </p>
+          <button
+            type="button"
+            onClick={() => setRicerca("")}
+            className="mt-2 text-etichetta font-medium text-accento underline underline-offset-2"
+          >
+            Mostra tutti i gruppi
+          </button>
+        </CardInterna>
+      ) : (
+        <div role="radiogroup" aria-label="Gruppo di attività" className="space-y-1.5">
+          {esiti.map(({ gruppo, perche }) => {
+            const attivo = gruppo.codice === scelto;
+            return (
+              <button
+                key={gruppo.codice}
+                type="button"
+                role="radio"
+                aria-checked={attivo}
+                onClick={() => onScegli(gruppo)}
+                className={cn(
+                  "flex w-full items-start gap-3 rounded-interna border px-3 py-2.5 text-left transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accento focus-visible:ring-offset-2",
+                  attivo
+                    ? "border-accento bg-accento-tenue"
+                    : "border-bordo hover:bg-superficie-alt",
+                )}
+              >
+                <span
+                  className={cn(
+                    "cifre mt-0.5 w-14 shrink-0 text-right text-corpo font-semibold tabular-nums",
+                    attivo ? "text-accento" : "text-inchiostro",
+                  )}
+                >
+                  {aliquota(gruppo.coefficiente)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-etichetta">{gruppo.descrizione}</span>
+                  {perche && (
+                    <span className="mt-0.5 block text-micro text-inchiostro-tenue">
+                      trovato cercando «{perche}»
+                    </span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/*
+        La ricerca nasconde le voci che non c'entrano, ed è il suo mestiere. Ma
+        chi non si riconosce in quello che ha trovato deve poter tornare
+        all'elenco intero senza dover indovinare che basta svuotare il campo.
+      */}
+      {ricerca.trim() !== "" && esiti.length > 0 && esiti.length < gruppi.length && (
+        <button
+          type="button"
+          onClick={() => setRicerca("")}
+          className="text-etichetta font-medium text-accento underline underline-offset-2"
+        >
+          Non è nessuno di questi: mostrami tutti i {gruppi.length} gruppi
+        </button>
+      )}
+
+      <p className="text-etichetta text-inchiostro-tenue">
+        Coefficiente applicato: {aliquota(coefficiente)}. Il resto è considerato costo
+        forfettario e non si tassa: è la percentuale dei tuoi incassi su cui pagherai.
+      </p>
+    </div>
+  );
 }
 
 function Interruttore({
@@ -695,7 +901,7 @@ export function ConfrontoDeiRegimi({
 export function riepilogoImpostazioni(
   imp: Impostazioni,
   par: ParametriAnno,
-): { passo: string; voce: string; valore: string }[] {
+): { passo: string; voce: string; valore: string; nonDichiarato?: boolean }[] {
   return [
     { passo: "regime", voce: "Regime", valore: imp.regime === "forfettario" ? "Forfettario" : "Ordinario" },
     {
@@ -737,6 +943,20 @@ export function riepilogoImpostazioni(
       passo: "obiettivi",
       voce: "Accantonamento",
       valore: `${percentuale(imp.percentualeAccantonamento)} su ogni incasso`,
+    },
+    // Netto e costi fissi possono legittimamente non esserci. Scriverlo è il
+    // punto: un campo vuoto dichiarato si nota, un 12.000 € inventato no.
+    {
+      passo: "obiettivi",
+      voce: "Netto desiderato",
+      valore: imp.nettoDesiderato === null ? "—" : euro(imp.nettoDesiderato),
+      nonDichiarato: imp.nettoDesiderato === null,
+    },
+    {
+      passo: "obiettivi",
+      voce: "Costi fissi annui",
+      valore: imp.costiFissiAnnui === null ? "—" : euro(imp.costiFissiAnnui),
+      nonDichiarato: imp.costiFissiAnnui === null,
     },
   ];
 }

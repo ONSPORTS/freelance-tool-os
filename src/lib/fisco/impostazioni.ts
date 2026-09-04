@@ -53,12 +53,15 @@ export function impostazioniPredefinite(par: ParametriAnno): Impostazioni {
 
     giorniLavorativi: 220,
     oreFatturabiliGiorno: 5,
-    tariffaOraria: 80,
+    // Non inventati: si dichiarano nella configurazione, e finché non lo sono
+    // le schermate che ne dipendono dicono che manca un dato invece di
+    // mostrare un numero costruito su niente.
+    tariffaOraria: null,
 
-    nettoDesiderato: 40_000,
+    nettoDesiderato: null,
     percentualeAccantonamento: 0.3,
     mesiFondoEmergenza: 6,
-    costiFissiAnnui: 12_000,
+    costiFissiAnnui: null,
   };
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  aliquota,
   analizzaNumero,
   analizzaPercentuale,
   data,
@@ -79,5 +80,16 @@ describe("lettura dei numeri digitati", () => {
   it("prepara il valore per il campo in modifica", () => {
     expect(perCampo(1234.56)).toBe("1.234,56");
     expect(perCampo(3000)).toBe("3.000");
+  });
+});
+
+describe("aliquota", () => {
+  it("toglie i decimali solo quando non ci sono", () => {
+    expect(aliquota(0.78)).toBe("78 %");
+    expect(aliquota(0.22)).toBe("22 %");
+    // Il 26,07 % della Gestione Separata non diventa 26 %: sarebbe un numero
+    // sbagliato detto bene.
+    expect(aliquota(0.2607)).toBe("26,07 %");
+    expect(aliquota(null)).toBe("—");
   });
 });

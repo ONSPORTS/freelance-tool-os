@@ -124,12 +124,22 @@ export type Impostazioni = {
 
   giorniLavorativi: number;
   oreFatturabiliGiorno: number;
-  tariffaOraria: number;
+  /**
+   * `null` finché non la si dichiara.
+   *
+   * Questi tre campi non hanno un valore ragionevole da indovinare: la tariffa
+   * di un idraulico e quella di un avvocato non si somigliano, il netto voluto
+   * è un desiderio e i costi fissi li conosce solo chi li paga. Un numero
+   * plausibile scritto qui dall'app verrebbe lasciato lì, e da quel momento il
+   * punto di pareggio e il fatturato necessario sarebbero costruiti su
+   * un'invenzione senza che nessuno se ne accorga.
+   */
+  tariffaOraria: number | null;
 
-  nettoDesiderato: number;
+  nettoDesiderato: number | null;
   percentualeAccantonamento: number;
   mesiFondoEmergenza: number;
-  costiFissiAnnui: number;
+  costiFissiAnnui: number | null;
 };
 
 /** Fattura come sta nel database: solo campi inseriti, mai derivati. */

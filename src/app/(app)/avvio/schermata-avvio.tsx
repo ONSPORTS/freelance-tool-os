@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Info, RotateCcw, SkipForward } from "lucide-react";
+import { Check, ChevronDown, Flag, Info, RotateCcw, SkipForward, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardCorpo, CardInterna, CardSottotitolo, CardTitolo } from "@/components/ui/card";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
@@ -23,8 +23,10 @@ import {
   contestoSuggerito,
   passiDi,
   statoDelPasso,
+  durataStimata,
   CONTESTI,
   DESCRIZIONE_CONTESTO,
+  META_CONTESTO,
   NOME_CONTESTO,
   type ContestoCalcolo,
   type ContestoPercorso,
@@ -123,6 +125,22 @@ export function SchermataAvvio() {
           <CardCorpo>
             <CardTitolo>{NOME_CONTESTO[contesto]}</CardTitolo>
             <CardSottotitolo>{DESCRIZIONE_CONTESTO[contesto]}</CardSottotitolo>
+
+            {/*
+              Dove si va a parare, prima delle domande. Senza questa frase le
+              otto caselle arrivano tutte insieme e si compilano a vuoto: è la
+              differenza fra un percorso e un modulo da ufficio.
+            */}
+            <CardInterna className="mt-3 flex items-start gap-3 p-3">
+              <Flag className="mt-0.5 size-4 shrink-0 text-accento" aria-hidden />
+              <p className="min-w-0 text-etichetta">
+                {META_CONTESTO[contesto]}{" "}
+                <span className="text-inchiostro-tenue">
+                  {stato.totale} passi, {durataStimata(passi)}. Si può saltare tutto e tornarci
+                  dopo.
+                </span>
+              </p>
+            </CardInterna>
 
             {/*
               Il motivo spiega perché l'app propone questo percorso: mostrarlo
@@ -298,6 +316,16 @@ function SchedaPasso({
           <span className="mt-0.5 block text-etichetta text-inchiostro-tenue">
             {passo.domanda}
           </span>
+          {/*
+            Quello che si è appena sbloccato, e resta lì: scorrendo il percorso
+            si vede cosa l'app ha imparato, invece di una fila di spunte.
+          */}
+          {stato === "confermato" && (
+            <span className="mt-1 flex items-start gap-1.5 text-etichetta text-[#0B8A63]">
+              <Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              {passo.sblocca}
+            </span>
+          )}
         </span>
         <ChevronDown
           className={cn(
@@ -433,10 +461,16 @@ function Riepilogo({
             // sarebbe una bugia: la liquidazione IVA non ha un default in
             // forfettario, semplicemente non si applica.
             const pertinente = applicabili.includes(r.passo);
-            const stato = pertinente ? statoDelPasso(percorso, r.passo) : "nonApplicabile";
+            // Un campo lasciato vuoto non è «scelto da te» nemmeno se il passo
+            // è stato confermato: è rimasto vuoto, e va detto così.
+            const stato = r.nonDichiarato
+              ? "nonDichiarato"
+              : pertinente
+                ? statoDelPasso(percorso, r.passo)
+                : "nonApplicabile";
             return (
               <div
-                key={r.passo}
+                key={r.voce}
                 className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-bordo py-2.5 last:border-0"
               >
                 <span className="min-w-0 flex-1 text-corpo">{r.voce}</span>
@@ -444,14 +478,20 @@ function Riepilogo({
                 <span
                   className={cn(
                     "w-32 shrink-0 text-right text-micro",
-                    stato === "confermato" ? "text-[#0B8A63]" : "text-inchiostro-tenue",
+                    stato === "confermato"
+                      ? "text-[#0B8A63]"
+                      : stato === "nonDichiarato"
+                        ? "text-[#B8791A]"
+                        : "text-inchiostro-tenue",
                   )}
                 >
                   {stato === "confermato"
                     ? "scelto da te"
                     : stato === "nonApplicabile"
                       ? "non si applica"
-                      : "predefinito"}
+                      : stato === "nonDichiarato"
+                        ? "da compilare"
+                        : "predefinito"}
                 </span>
               </div>
             );

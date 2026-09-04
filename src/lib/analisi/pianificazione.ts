@@ -5,7 +5,29 @@
  * È la parte del prodotto che guarda avanti invece che indietro, e l'unico
  * numero che conta davvero è l'ultimo: quanti contatti al mese.
  */
-import { nonNegativo, rapporto, round2 } from "@/lib/fisco/aritmetica";
+import { nonNegativo, rapporto, round2, somma } from "@/lib/fisco/aritmetica";
+import { annoDi } from "@/lib/fisco/documenti";
+import type { CostoCalcolato, NaturaCosto } from "@/lib/fisco/tipi";
+
+/**
+ * I costi già registrati in un anno, tutti o della sola natura richiesta.
+ *
+ * Serve a proporre un numero invece di chiederlo al buio: chi ha già inserito
+ * canoni, abbonamenti e commercialista ha la risposta in archivio, e ricopiarla
+ * a mano è un modo di sbagliarla. Conta il costo netto — il totale meno l'IVA
+ * detraibile — perché è quello che esce davvero dal conto: in forfettario, dove
+ * l'IVA non si detrae, coincide col totale.
+ */
+export function costiRegistrati(
+  costi: readonly CostoCalcolato[],
+  anno: number,
+  natura?: NaturaCosto,
+): { totale: number; quanti: number } {
+  const scelti = costi.filter(
+    (c) => annoDi(c.dataDocumento) === anno && (natura === undefined || c.natura === natura),
+  );
+  return { totale: round2(somma(...scelti.map((c) => c.costoNetto))), quanti: scelti.length };
+}
 
 export type IngressoPianificazione = {
   nettoDesiderato: number;
@@ -62,8 +84,12 @@ export function calcolaPianificazione(ing: IngressoPianificazione): Pianificazio
   const fatturatoPotenziale = round2(ing.tariffaOraria * ing.oreFatturabiliAnno);
   const saturazione = rapporto(fatturatoNecessario, fatturatoPotenziale);
 
-  const pareggioFatturato = round2(ing.costiFissiAnnui / quotaNetta);
-  const pareggioOre = round2(rapporto(pareggioFatturato, ing.tariffaOraria));
+  const pareggio = calcolaPareggio({
+    costiFissiAnnui: ing.costiFissiAnnui,
+    pressione: ing.pressione,
+    tariffaOraria: ing.tariffaOraria,
+    oreFatturabiliGiorno: ing.oreFatturabiliGiorno,
+  });
 
   return {
     fatturatoNecessario,
@@ -79,10 +105,45 @@ export function calcolaPianificazione(ing: IngressoPianificazione): Pianificazio
     saturazioneNecessaria: saturazione,
     tariffaSufficiente: saturazione > 0 && saturazione <= 1,
 
-    pareggioFatturato,
-    pareggioMensile: round2(pareggioFatturato / 12),
-    pareggioOre,
-    pareggioGiorni: round2(rapporto(pareggioOre, ing.oreFatturabiliGiorno)),
+    pareggioFatturato: pareggio.fatturato,
+    pareggioMensile: pareggio.mensile,
+    pareggioOre: pareggio.ore ?? 0,
+    pareggioGiorni: pareggio.giorni ?? 0,
+  };
+}
+
+export type Pareggio = {
+  fatturato: number;
+  mensile: number;
+  /** `null` senza una tariffa dichiarata: le ore non si ricavano da niente. */
+  ore: number | null;
+  giorni: number | null;
+};
+
+/**
+ * Il fatturato sotto il quale si lavora in perdita.
+ *
+ * Vive fuori dalla pianificazione perché non ha bisogno di un obiettivo: i
+ * costi fissi e la pressione bastano. Chi non ha ancora deciso quanto vuole
+ * guadagnare può comunque sapere da dove comincia a guadagnare.
+ */
+export function calcolaPareggio(ing: {
+  costiFissiAnnui: number;
+  pressione: number;
+  tariffaOraria: number | null;
+  oreFatturabiliGiorno: number;
+}): Pareggio {
+  const quotaNetta = Math.max(0.01, 1 - Math.min(ing.pressione, 0.99));
+  const fatturato = round2(ing.costiFissiAnnui / quotaNetta);
+  const ore =
+    ing.tariffaOraria && ing.tariffaOraria > 0
+      ? round2(rapporto(fatturato, ing.tariffaOraria))
+      : null;
+  return {
+    fatturato,
+    mensile: round2(fatturato / 12),
+    ore,
+    giorni: ore === null ? null : round2(rapporto(ore, ing.oreFatturabiliGiorno)),
   };
 }
 

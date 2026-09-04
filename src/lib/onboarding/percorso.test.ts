@@ -11,8 +11,10 @@ import {
   passiDi,
   percorsoVuoto,
   statoDelPasso,
+  durataStimata,
   CONTESTI,
   DESCRIZIONE_CONTESTO,
+  META_CONTESTO,
   NOME_CONTESTO,
   PASSI,
   type ContestoCalcolo,
@@ -71,6 +73,28 @@ describe("un percorso, tre contesti", () => {
     // Ed è l'ultimo: prima si configura, poi si sceglie da dove partire.
     const passi = passiDi("primoAvvio", forfettario);
     expect(passi[passi.length - 1].id).toBe("partenza");
+  });
+
+  it("ogni passo dice cosa si è sbloccato rispondendo", () => {
+    // Il segnale è quello che trasforma otto caselle in un percorso: se un
+    // passo nuovo arrivasse senza, tornerebbe a essere un modulo da ufficio.
+    for (const passo of PASSI) {
+      expect(passo.sblocca.length).toBeGreaterThan(20);
+      // Parla di cosa sa fare l'app adesso, non di cosa hai compilato.
+      expect(passo.sblocca).toMatch(/^Ora /);
+    }
+  });
+
+  it("ogni contesto dice dove porta, e quanto dura", () => {
+    for (const contesto of CONTESTI) {
+      expect(META_CONTESTO[contesto]).toMatch(/Alla fine/);
+      const passi = passiDi(contesto, forfettario);
+      expect(durataStimata(passi)).toMatch(/^circa \d+ minuti$/);
+    }
+    // Più domande, più tempo: una stima che non si muove non è una stima.
+    const corto = durataStimata(PASSI.slice(0, 2));
+    const lungo = durataStimata(PASSI);
+    expect(Number(lungo.match(/\d+/)![0])).toBeGreaterThan(Number(corto.match(/\d+/)![0]));
   });
 
   it("il passo finale nomina tutt'e due le strade, non solo la demo", () => {

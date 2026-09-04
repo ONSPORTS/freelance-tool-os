@@ -11,17 +11,8 @@
  * nell'ordine in cui pesano su chi le subisce: prima la fattura che si emette
  * domani, poi l'imposta, poi gli obblighi.
  */
-import { euro, percentuale } from "@/lib/format";
+import { aliquota, euro } from "@/lib/format";
 import type { Impostazioni, ParametriAnno, Regime } from "./tipi";
-
-/**
- * L'aliquota come si dice parlando: «22 %», non «22,00 %». I decimali restano
- * quando ci sono davvero — un 26,23 % arrotondato a 26 % sarebbe un numero
- * sbagliato detto bene.
- */
-function aliquota(frazione: number): string {
-  return percentuale(frazione, Number.isInteger(frazione * 100) ? 0 : 2);
-}
 
 export type Cambiamento = {
   id: string;

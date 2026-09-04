@@ -64,6 +64,19 @@ export function percentuale(frazione: number | null | undefined, decimali = 2): 
   }).format(frazione * 100)} %`;
 }
 
+/**
+ * L'aliquota come si dice parlando: «22 %», non «22,00 %».
+ *
+ * I decimali restano quando ci sono davvero — il 26,23 % della Gestione
+ * Separata arrotondato a 26 % sarebbe un numero sbagliato detto bene. Serve
+ * dentro le frasi, dove «78,00 %» si legge come un modulo; nelle tabelle di
+ * numeri incolonnati resta `percentuale`, che allinea i decimali.
+ */
+export function aliquota(frazione: number | null | undefined): string {
+  if (frazione == null || !Number.isFinite(frazione)) return "—";
+  return percentuale(frazione, Number.isInteger(frazione * 100) ? 0 : 2);
+}
+
 /** +12,4 % oppure −3,1 %, con il segno esplicito per i chip di variazione. */
 export function variazione(frazione: number | null | undefined, decimali = 1): string {
   if (frazione == null || !Number.isFinite(frazione)) return "—";
