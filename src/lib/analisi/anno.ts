@@ -83,6 +83,13 @@ export function anniDaCalcolare(archivio: ArchivioPerAnni, annoRichiesto: number
     anni.add(annoDi(f.dataEmissione));
     if (f.dataIncasso) anni.add(annoDi(f.dataIncasso));
   }
+  // Le note hanno le stesse due date delle fatture e vanno contate come loro:
+  // un anno in cui esiste solo una nota di credito è un anno con dei numeri
+  // dentro, e saltarlo significa perderne il riporto.
+  for (const n of archivio.note) {
+    anni.add(annoDi(n.dataDocumento));
+    if (n.dataRimborso) anni.add(annoDi(n.dataRimborso));
+  }
   for (const c of archivio.costi) {
     anni.add(annoDi(c.dataDocumento));
     if (c.dataPagamento) anni.add(annoDi(c.dataPagamento));
@@ -91,8 +98,15 @@ export function anniDaCalcolare(archivio: ArchivioPerAnni, annoRichiesto: number
   for (const m of archivio.movimentiAttivita) anni.add(m.anno);
   for (const m of archivio.movimentiPersonali) anni.add(m.anno);
 
-  const primo = Math.min(...anni);
-  const ultimo = Math.min(Math.max(...anni), primo + MASSIMO_ANNI_IN_CATENA);
+  // Il tetto serve contro le date sbagliate: un costo datato 1970 per un refuso
+  // non deve far calcolare mezzo secolo. Ma va applicato tagliando la coda
+  // vecchia, non quella nuova: troncando in avanti l'anno richiesto poteva
+  // restare fuori dalla catena, e la sua schermata non si apriva più — uno
+  // scheletro di caricamento per sempre, senza un errore da nessuna parte.
+  const minimo = Math.min(...anni);
+  const massimo = Math.max(...anni);
+  const ultimo = Math.max(annoRichiesto, Math.min(massimo, minimo + MASSIMO_ANNI_IN_CATENA));
+  const primo = Math.max(minimo, ultimo - MASSIMO_ANNI_IN_CATENA);
   // La catena dev'essere continua: un anno saltato è un riporto perso.
   const continua: number[] = [];
   for (let a = primo; a <= ultimo; a++) continua.push(a);

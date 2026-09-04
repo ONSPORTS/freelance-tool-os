@@ -596,6 +596,49 @@ describe("casi limite dei riporti", () => {
     expect(anni.get(2030)?.cashflow.saldoIniziale).toBe(anni.get(2027)?.cashflow.saldoFinale);
   });
 
+  it("l'anno richiesto sta sempre nella catena, anche con una data assurda", () => {
+    // Un costo datato 1970 per un refuso nell'import: il tetto sugli anni da
+    // calcolare tagliava la coda, e il 2026 restava fuori dalla catena. La
+    // schermata non mostrava un errore, mostrava lo scheletro di caricamento
+    // per sempre — che è il modo peggiore di sbagliare.
+    const refuso: Costo = {
+      id: "refuso",
+      dataDocumento: "1970-03-01",
+      dataPagamento: "1970-03-01",
+      fornitore: "Refuso",
+      descrizione: "data sbagliata",
+      categoria: "altro",
+      natura: "variabile",
+      imponibile: 100,
+      aliquotaIva: 0.22,
+      percentualeDeducibilita: 1,
+    };
+    const archivio = { ...archivioChiusura(), costi: [...COSTI_CHIUSURA, refuso] };
+    const anni = catenaAnni(archivio, 2026, OGGI_CHIUSURA);
+    expect(anni.has(2026)).toBe(true);
+    const chiavi = [...anni.keys()];
+    // La catena resta continua e limitata: non calcola mezzo secolo.
+    expect(chiavi[chiavi.length - 1]).toBe(2026);
+    expect(chiavi.length).toBeLessThanOrEqual(51);
+    for (let i = 1; i < chiavi.length; i++) expect(chiavi[i]).toBe(chiavi[i - 1] + 1);
+  });
+
+  it("un anno che contiene solo una nota di credito entra nella catena", () => {
+    const nota: NotaCredito = {
+      id: "n-2024",
+      dataDocumento: "2024-11-10",
+      numero: "2024/NC1",
+      clienteId: "c1",
+      descrizione: "storno",
+      imponibile: 500,
+      dataRimborso: "2024-12-01",
+    };
+    // Il 2027 c'è per via delle impostazioni del fixture: quello che conta è
+    // che la catena parta dal 2024, l'anno che solo la nota porta con sé.
+    const anni = catenaAnni({ ...archivioChiusura(), note: [nota] }, 2026, OGGI_CHIUSURA);
+    expect([...anni.keys()]).toEqual([2024, 2025, 2026, 2027]);
+  });
+
   it("un anno senza impostazioni proprie resta l'anno che è", () => {
     // Per il 2028 non ci sono né impostazioni né parametri dedicati: senza
     // forzare l'anno, il prospetto sarebbe quello del 2027 sotto altro nome.

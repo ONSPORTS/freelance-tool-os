@@ -393,8 +393,17 @@ export function controlliChiusura(ing: {
       id: "anno-in-corso",
       gravita: "attenzione",
       titolo: `Il ${p.anno} non è ancora finito`,
+      // «I riporti si muoveranno ancora» diceva il vero e si capiva male:
+      // sembrava che un anno chiuso continuasse a cambiare da sé, e che
+      // «chiuso» non volesse dire niente. Qui si dice cosa succede davvero a
+      // chi chiude oggi e registra una fattura di ottobre domani.
       dettaglio:
-        "Puoi chiudere lo stesso — la chiusura è reversibile — ma i riporti si muoveranno ancora a ogni documento registrato.",
+        `Puoi chiudere lo stesso. Chiudere registra le tue decisioni sul ${p.anno} — ` +
+        "destinazione del credito IVA, regime dell'anno dopo — e ne fotografa i numeri; " +
+        `non congela niente e non impedisce di registrare altri documenti nel ${p.anno}. ` +
+        "Se dopo la chiusura aggiungi una fattura di ottobre, i riporti la incorporano da soli " +
+        `e il ${p.anno + 1} si aggiorna: l'anno non si riapre, e non devi riaprirlo tu. ` +
+        "Se qualcosa si muove, in testa alla schermata compare l'elenco di cosa è cambiato rispetto alla fotografia.",
     });
   }
 
