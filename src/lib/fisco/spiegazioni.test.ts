@@ -10,6 +10,7 @@ import { calcolaProspetto } from "./motore";
 import { PARAMETRI_2026 } from "./parametri/2026";
 import { euro, percentuale } from "@/lib/format";
 import { descriviScaglioni, dettaglioSoglia, prospettoDettagliato } from "./spiegazioni";
+import { conValoreDichiarato } from "./parametri-utente";
 import type { Impostazioni } from "./tipi";
 
 const par = PARAMETRI_2026;
@@ -152,5 +153,20 @@ describe("prospetto dettagliato", () => {
   it("in regime ordinario la soglia non si applica", () => {
     const { prospetto } = sezioniDi(impostazioniOrdinario());
     expect(dettaglioSoglia(prospetto, impostazioniOrdinario())).toBeNull();
+  });
+
+  it("chiama «tua» un'aliquota solo se l'hai dichiarata", () => {
+    // È il difetto da cui nasce la schermata Parametri: la formula diceva
+    // «l'aliquota della tua regione» sopra una media dell'app, e nessuno
+    // sarebbe mai tornato a controllarla.
+    const media = sezioniDi(impostazioniOrdinario());
+    expect(riga(media.sezioni, "add-regionale")?.formula).toMatch(/predefinit/);
+    expect(riga(media.sezioni, "add-comunale")?.formula).toMatch(/predefinit/);
+
+    const dichiarata = conValoreDichiarato(impostazioniOrdinario(), "addizionaleRegionale", 0.0203);
+    const dopo = sezioniDi(dichiarata);
+    expect(riga(dopo.sezioni, "add-regionale")?.formula).toContain("della tua regione");
+    // Quella comunale resta com'era: si dichiarano una per una.
+    expect(riga(dopo.sezioni, "add-comunale")?.formula).toMatch(/predefinit/);
   });
 });

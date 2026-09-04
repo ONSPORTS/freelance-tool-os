@@ -9,6 +9,9 @@ export function impostazioniPredefinite(par: ParametriAnno): Impostazioni {
   const gruppo = par.gruppiAteco[0];
   return {
     anno: par.anno,
+    // Nessun parametro confermato: i valori che seguono sono medie dell'app
+    // finché qualcuno non li dichiara dalla schermata Parametri.
+    dichiarati: [],
     nome: "",
     dataAperturaPiva: null,
     saldoInizialeAttivita: 0,

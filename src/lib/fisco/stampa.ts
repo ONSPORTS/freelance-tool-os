@@ -165,11 +165,12 @@ export function documentoProspetto(
 /**
  * Il prospetto si può stampare?
  *
- * Stessa guardia dell'export: con parametri provvisori il documento avrebbe
- * l'aria di essere definitivo e poggerebbe su aliquote dell'anno prima.
+ * Stessa guardia dell'export: con parametri provvisori — o con addizionali che
+ * l'utente non ha mai confermato — il documento avrebbe l'aria di essere
+ * definitivo e poggerebbe su aliquote che non sono le sue.
  */
-export function stampaConsentita(par: ParametriAnno): EsitoEsportazione {
-  return esportazioneProspettoConsentita(par);
+export function stampaConsentita(par: ParametriAnno, imp?: Impostazioni): EsitoEsportazione {
+  return esportazioneProspettoConsentita(par, imp);
 }
 
 /** `prospetto-2026-studio-di-consulenza.pdf`, per chi lo salva e lo allega. */

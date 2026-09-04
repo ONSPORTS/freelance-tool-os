@@ -19,6 +19,14 @@ export type Sinonimo = {
   gruppo: string;
   /** Come la gente chiama il mestiere. */
   parole: string[];
+  /**
+   * Sei o sette mestieri da mostrare sotto la voce, in linguaggio comune.
+   *
+   * La ricerca aiuta chi sa cosa cercare. Questi aiutano chi scorre l'elenco e
+   * non è sicuro di rientrarci: la descrizione di legge non nomina nessun
+   * mestiere, e la domanda «ci sono dentro anch'io?» resta senza risposta.
+   */
+  esempi: string;
 };
 
 /**
@@ -30,6 +38,7 @@ export type Sinonimo = {
 export const SINONIMI: Sinonimo[] = [
   {
     gruppo: "professionali",
+    esempi: "consulenti, avvocati, commercialisti, formatori, sviluppatori, architetti, medici",
     parole: [
       "consulente", "consulenza", "marketing", "comunicazione", "social media manager",
       "copywriter", "content", "seo", "strategist", "grafico", "graphic designer",
@@ -46,6 +55,7 @@ export const SINONIMI: Sinonimo[] = [
   },
   {
     gruppo: "altre",
+    esempi: "servizi non professionali: agenzie, service, manutenzioni, personal trainer, estetisti, trasporti",
     parole: [
       "personal trainer", "istruttore", "estetista", "parrucchiere", "barbiere",
       "massaggiatore", "tatuatore", "wedding planner", "organizzatore eventi",
@@ -57,6 +67,7 @@ export const SINONIMI: Sinonimo[] = [
   },
   {
     gruppo: "costruzioni",
+    esempi: "imprese edili, idraulici, elettricisti, imbianchini, falegnami, agenti immobiliari",
     parole: [
       "edile", "muratore", "imbianchino", "idraulico", "elettricista",
       "impiantista", "termoidraulico", "cartongessista", "piastrellista",
@@ -66,6 +77,7 @@ export const SINONIMI: Sinonimo[] = [
   },
   {
     gruppo: "intermediari",
+    esempi: "agenti di commercio, rappresentanti, procacciatori, mediatori, broker",
     parole: [
       "agente di commercio", "rappresentante", "procacciatore", "mediatore",
       "intermediario", "broker", "segnalatore", "affiliate", "dropshipping senza magazzino",
@@ -73,6 +85,7 @@ export const SINONIMI: Sinonimo[] = [
   },
   {
     gruppo: "commercio",
+    esempi: "negozi, e-commerce con magazzino, grossisti, rivenditori",
     parole: [
       "negozio", "e-commerce", "ecommerce", "shop online", "vendita online",
       "commerciante", "rivenditore", "grossista", "ingrosso", "dettaglio",
@@ -81,14 +94,17 @@ export const SINONIMI: Sinonimo[] = [
   },
   {
     gruppo: "ambulanteAlimentari",
+    esempi: "banchi di alimentari al mercato, food truck",
     parole: ["ambulante alimentari", "mercato alimentare", "food truck", "banco alimentari"],
   },
   {
     gruppo: "ambulanteAltri",
+    esempi: "banchi non alimentari al mercato, mercatini, fiere",
     parole: ["ambulante", "mercatino", "banco al mercato", "fiere", "venditore ambulante"],
   },
   {
     gruppo: "alimentari",
+    esempi: "panifici, pasticcerie, gelaterie, birrifici, laboratori di produzione",
     parole: [
       "panificio", "panettiere", "pasticceria", "pasticcere", "gelateria",
       "birrificio", "conserve", "produzione alimentare", "laboratorio alimentare",
@@ -96,6 +112,7 @@ export const SINONIMI: Sinonimo[] = [
   },
   {
     gruppo: "ristorazione",
+    esempi: "ristoranti, pizzerie, bar, catering, B&B, affittacamere",
     parole: [
       "ristorante", "ristoratore", "pizzeria", "pizzaiolo", "bar", "barista",
       "catering", "chef", "cuoco", "b&b", "affittacamere", "agriturismo",
@@ -103,6 +120,11 @@ export const SINONIMI: Sinonimo[] = [
     ],
   },
 ];
+
+/** I mestieri d'esempio di un gruppo, vuoto se il gruppo non è nel dizionario. */
+export function esempiDi(codice: string): string {
+  return SINONIMI.find((s) => s.gruppo === codice)?.esempi ?? "";
+}
 
 /** Minuscolo, senza accenti, senza punteggiatura: «E-commerce» e «ecommerce» sono la stessa parola. */
 export function normalizza(testo: string): string {
@@ -117,6 +139,8 @@ export function normalizza(testo: string): string {
 
 export type EsitoAteco = {
   gruppo: GruppoAteco;
+  /** I mestieri di esempio del gruppo, per chi legge l'elenco senza cercare. */
+  esempi: string;
   /**
    * Perché è uscito: il mestiere che ha fatto centro, da mostrare accanto alla
    * voce. Senza questo la ricerca sembra magia e non si capisce se ha capito.
@@ -133,7 +157,7 @@ export type EsitoAteco = {
  */
 export function cercaGruppi(query: string, gruppi: readonly GruppoAteco[]): EsitoAteco[] {
   const q = normalizza(query);
-  if (!q) return gruppi.map((gruppo) => ({ gruppo, perche: null, punteggio: 0 }));
+  if (!q) return gruppi.map((gruppo) => ({ gruppo, esempi: esempiDi(gruppo.codice), perche: null, punteggio: 0 }));
 
   const esiti: EsitoAteco[] = [];
   for (const gruppo of gruppi) {
@@ -173,9 +197,9 @@ export function cercaGruppi(query: string, gruppi: readonly GruppoAteco[]): Esit
     // contengono la parola «attività».
     const daDescrizione = punteggioParola(q, normalizza(gruppo.descrizione)) / 2;
     if (completa && totale > 0) {
-      esiti.push({ gruppo, perche, punteggio: totale });
+      esiti.push({ gruppo, esempi: esempiDi(gruppo.codice), perche, punteggio: totale });
     } else if (daDescrizione > 0) {
-      esiti.push({ gruppo, perche: null, punteggio: daDescrizione });
+      esiti.push({ gruppo, esempi: esempiDi(gruppo.codice), perche: null, punteggio: daDescrizione });
     }
   }
 

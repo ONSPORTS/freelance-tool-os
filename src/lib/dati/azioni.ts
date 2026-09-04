@@ -6,6 +6,11 @@ import { toast, type Raggruppamento } from "@/lib/stato/toast";
 import { dimenticaImport } from "./importazioni";
 import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { parametriDi } from "@/lib/fisco/parametri";
+import {
+  conValoreDichiarato,
+  senzaDichiarazione,
+  type CampoUtente,
+} from "@/lib/fisco/parametri-utente";
 import type { ChiusuraAnno, DestinazioneCreditoIva } from "@/lib/fisco/chiusura";
 import type { Impostazioni, Regime } from "@/lib/fisco/tipi";
 import {
@@ -438,8 +443,6 @@ export async function impostazioniDellAnno(anno: number): Promise<Impostazioni> 
     ritenutaAttiva: precedente.ritenutaAttiva,
     bolloAddebitato: precedente.bolloAddebitato,
     terminiPagamento: precedente.terminiPagamento,
-    addizionaleRegionale: precedente.addizionaleRegionale,
-    addizionaleComunale: precedente.addizionaleComunale,
     percentualeAccantonamento: precedente.percentualeAccantonamento,
     mesiFondoEmergenza: precedente.mesiFondoEmergenza,
     giorniLavorativi: precedente.giorniLavorativi,
@@ -447,6 +450,14 @@ export async function impostazioniDellAnno(anno: number): Promise<Impostazioni> 
     tariffaOraria: precedente.tariffaOraria,
     nettoDesiderato: precedente.nettoDesiderato,
     costiFissiAnnui: precedente.costiFissiAnnui,
+    // I parametri dichiarati passano all'anno nuovo col loro valore: l'utente
+    // li ha confermati e l'app non ha modo di sapere che il comune li ha
+    // ritoccati. La schermata Parametri lo ricorda anno per anno.
+    addizionaleRegionale: precedente.addizionaleRegionale,
+    addizionaleComunale: precedente.addizionaleComunale,
+    contributiFissi: precedente.contributiFissi,
+    aliquotaSoggettivaCassa: precedente.aliquotaSoggettivaCassa,
+    dichiarati: [...(precedente.dichiarati ?? [])],
     // Il saldo iniziale non si eredita: arriva dal riporto della chiusura.
     saldoInizialeAttivita: 0,
     saldoInizialePersonale: 0,
@@ -598,6 +609,37 @@ export async function aggiornaImpostazioni(
 ): Promise<void> {
   const attuali = await impostazioniDellAnno(anno);
   await archivio().impostazioni.salva({ ...attuali, ...modifiche, anno });
+}
+
+/**
+ * Dichiara un parametro che solo l'utente conosce.
+ *
+ * Scrive il valore e lo marca come confermato: da quel momento l'app smette di
+ * chiamarlo predefinito, e il prospetto torna esportabile se era quello a
+ * bloccarlo.
+ */
+export async function dichiaraParametro(
+  anno: number,
+  campo: CampoUtente,
+  valore: number,
+): Promise<void> {
+  const attuali = await impostazioniDellAnno(anno);
+  await archivio().impostazioni.salva(conValoreDichiarato(attuali, campo, valore));
+}
+
+/**
+ * Rimette un parametro al predefinito dell'app.
+ *
+ * Serve a poter dire «non lo so» dopo aver detto un numero sbagliato: senza
+ * questa strada, chi sbaglia a copiare l'aliquota resta con un valore suo e
+ * falso, marcato come confermato.
+ */
+export async function ripristinaParametro(anno: number, campo: CampoUtente): Promise<void> {
+  const attuali = await impostazioniDellAnno(anno);
+  const predefinite = impostazioniPredefinite(parametriDi(anno));
+  await archivio().impostazioni.salva(
+    senzaDichiarazione(attuali, campo, predefinite[campo]),
+  );
 }
 
 /**

@@ -11,6 +11,7 @@
  * mandare al commercialista.
  */
 import { euro, interoIt, percentuale } from "@/lib/format";
+import { noteDelValore } from "./parametri-utente";
 import type { Prospetto } from "./motore";
 import type { Impostazioni, ParametriAnno } from "./tipi";
 
@@ -303,17 +304,17 @@ export function prospettoDettagliato(
       etichetta: "Addizionale regionale",
       valore: p.addizionaleRegionale,
       formato: "euro",
-      // «L'aliquota della tua regione» raccontava una scelta che nessuno ha
-      // fatto: è il valore predefinito dell'app, e le aliquote vere vanno da
-      // 1,23 % a oltre il 3 %. Dirlo è l'unico modo di far correggere il dato.
-      formula: `${euro(p.imponibile)} × ${percentuale(imp.addizionaleRegionale, 2)}, aliquota predefinita: quella vera dipende dalla tua regione.`,
+      // «L'aliquota della tua regione» si può dire solo a chi l'ha dichiarata.
+      // Finché è la media dell'app va scritto, altrimenti nessuno riaprirebbe
+      // la domanda: le aliquote vere vanno dall'1,23 % a oltre il 3 %.
+      formula: `${euro(p.imponibile)} × ${percentuale(imp.addizionaleRegionale, 2)}, ${noteDelValore(imp, "addizionaleRegionale")}.`,
     });
     imposte.push({
       id: "add-comunale",
       etichetta: "Addizionale comunale",
       valore: p.addizionaleComunale,
       formato: "euro",
-      formula: `${euro(p.imponibile)} × ${percentuale(imp.addizionaleComunale, 2)}, aliquota predefinita: quella vera dipende dal tuo comune.`,
+      formula: `${euro(p.imponibile)} × ${percentuale(imp.addizionaleComunale, 2)}, ${noteDelValore(imp, "addizionaleComunale")}.`,
     });
   }
   imposte.push({
@@ -395,9 +396,9 @@ export function prospettoDettagliato(
       etichetta: "Artigiani e commercianti",
       valore: p.contributiArtigiani,
       formato: "euro",
-      // I contributi fissi cambiano ogni anno e per gestione: quello scritto
-      // qui è il valore predefinito dell'app, non una circolare INPS.
-      formula: `${euro(imp.contributiFissi)} di contributi fissi (valore predefinito, controlla la tua tabella INPS) più ${percentuale(imp.aliquotaEccedenza, 2)} sulla parte di reddito oltre il minimale di ${euro(imp.minimaleArtigiani)}.`,
+      // I contributi fissi cambiano ogni anno e per gestione: finché non sono
+      // stati confermati, quello scritto qui è la media dell'app.
+      formula: `${euro(imp.contributiFissi)} di contributi fissi (${noteDelValore(imp, "contributiFissi")}) più ${percentuale(imp.aliquotaEccedenza, 2)} sulla parte di reddito oltre il minimale di ${euro(imp.minimaleArtigiani)}.`,
       nota: "I contributi fissi si versano in quattro rate, a febbraio, maggio, agosto e novembre.",
     });
   } else {
@@ -408,7 +409,7 @@ export function prospettoDettagliato(
       formato: "euro",
       // Ogni cassa professionale ha le sue aliquote: Forense, Inarcassa e le
       // altre non si somigliano. Il 15 % è un punto di partenza, non la tua.
-      formula: `${euro(p.baseContributiva)} × ${percentuale(imp.aliquotaSoggettivaCassa, 0)}, aliquota predefinita: quella vera dipende dalla tua cassa.`,
+      formula: `${euro(p.baseContributiva)} × ${percentuale(imp.aliquotaSoggettivaCassa, 0)}, ${noteDelValore(imp, "aliquotaSoggettivaCassa")}.`,
       nota: `Il contributo integrativo del ${percentuale(imp.aliquotaIntegrativaCassa, 0)} si addebita in fattura al cliente e non concorre al tuo reddito.`,
     });
   }

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Info } from "lucide-react";
+import { Info, TriangleAlert } from "lucide-react";
 import { Card, CardCorpo } from "@/components/ui/card";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
 import { Chip } from "@/components/ui/chip";
@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { DocumentoProspettoStampa } from "@/components/fisco/documento-prospetto";
 import { documentoProspetto, stampaConsentita } from "@/lib/fisco/stampa";
+import { campiDaDichiarare, elencoInTesto } from "@/lib/fisco/parametri-utente";
+import type { Impostazioni } from "@/lib/fisco/tipi";
 import { useCalcoloAnno } from "@/lib/dati/hooks";
 import { parametriDi } from "@/lib/fisco/parametri";
 import { dettaglioSoglia, prospettoDettagliato } from "@/lib/fisco/spiegazioni";
@@ -44,7 +46,7 @@ export function SchermataFisco() {
   const { prospetto: p, impostazioni: imp } = calcolo;
   const soglia = dettaglioSoglia(p, imp);
   const parametri = parametriDi(anno);
-  const stampa = stampaConsentita(parametri);
+  const stampa = stampaConsentita(parametri, imp);
   const documento = documentoProspetto(p, imp, parametri, oggi);
 
   return (
@@ -93,6 +95,7 @@ export function SchermataFisco() {
         )}
 
         <AvvisoParametri anno={anno} />
+        <AvvisoParametriUtente impostazioni={imp} />
 
         {p.ricaviRilevanti === 0 ? (
           <Card>
@@ -165,5 +168,47 @@ export function SchermataFisco() {
       */}
       <DocumentoProspettoStampa doc={documento} />
     </Guscio>
+  );
+}
+
+/**
+ * Le aliquote che nessuno ha confermato, dette dove si guardano le imposte.
+ *
+ * Non è un avviso di errore: il calcolo è quello che è, e senza una media non
+ * ci sarebbe nessun numero. È l'avviso che il numero non è ancora tuo — e che
+ * per questo il prospetto non esce.
+ */
+function AvvisoParametriUtente({ impostazioni }: { impostazioni: Impostazioni }) {
+  // Solo quelli che toccano imposte e contributi: le ore fatturabili non
+  // c'entrano niente con questa schermata, e un avviso che le nomina qui
+  // insegna a saltare gli avvisi.
+  const mancanti = campiDaDichiarare(impostazioni).filter((c) => c.incideSu === "imposte");
+  if (mancanti.length === 0) return null;
+  const bloccanti = mancanti.filter((c) => c.nellIrpef);
+
+  return (
+    <Card className="border border-attenzione/25 bg-attenzione-tenue">
+      <CardCorpo className="flex items-start gap-3 py-4">
+        <TriangleAlert className="mt-0.5 size-4 shrink-0 text-[#B8791A]" aria-hidden />
+        <div className="min-w-0 space-y-1">
+          <p className="text-etichetta font-semibold text-[#B8791A]">
+            {mancanti.length === 1
+              ? "Un parametro non è ancora tuo"
+              : `${mancanti.length} parametri non sono ancora tuoi`}
+          </p>
+          <p className="text-etichetta text-[#B8791A]">
+            {elencoInTesto(mancanti)}:{" "}
+            {mancanti.length === 1 ? "è un valore medio" : "sono valori medi"} che l&apos;app
+            usa per poter calcolare qualcosa.
+            {bloccanti.length > 0 &&
+              " Finché restano così il prospetto non si esporta: è il documento che va dal commercialista."}{" "}
+            <Link href="/parametri" className="font-medium underline underline-offset-2">
+              Dichiarali nei Parametri
+            </Link>
+            .
+          </p>
+        </div>
+      </CardCorpo>
+    </Card>
   );
 }

@@ -18,6 +18,7 @@ import { nonNegativo, round2, somma } from "./aritmetica";
 import { annoDi } from "./documenti";
 import { dateCosto, dateFattura, ripartisci } from "./competenza";
 import { dateNota } from "./note";
+import { aliquoteIrpefNonDichiarate, elencoInTesto } from "./parametri-utente";
 import { cambiamentiDiRegime } from "./regime";
 import { euro } from "../format";
 import type { LiquidazioneIva } from "./iva";
@@ -511,11 +512,26 @@ export type EsitoEsportazione =
  * documento definitivo: se poggia su aliquote dell'anno prima e finisce dal
  * commercialista, l'errore non si vede più.
  */
-export function esportazioneProspettoConsentita(par: ParametriAnno): EsitoEsportazione {
+export function esportazioneProspettoConsentita(
+  par: ParametriAnno,
+  imp?: Impostazioni,
+): EsitoEsportazione {
   if (par.provvisorio) {
     return {
       consentita: false,
       motivo: `I parametri del ${par.anno} sono provvisori: aliquote e soglie sono ancora quelle dell'anno precedente. L'export resta bloccato finché non escono i valori definitivi.`,
+    };
+  }
+  // Stessa ragione, altra origine: qui le aliquote non mancano all'Italia,
+  // mancano all'utente. Un prospetto che finisce dal commercialista non deve
+  // contenere un'addizionale che nessuno ha mai confermato — sembrerebbe un
+  // dato dichiarato, e nessuno riaprirebbe la domanda.
+  const mancanti = imp ? aliquoteIrpefNonDichiarate(imp) : [];
+  if (mancanti.length > 0) {
+    const elenco = elencoInTesto(mancanti);
+    return {
+      consentita: false,
+      motivo: `Non hai ancora confermato ${elenco}: il calcolo usa una media, e un documento da consegnare non deve contenere aliquote che non hai dichiarato. Si sblocca dai Parametri.`,
     };
   }
   return { consentita: true };

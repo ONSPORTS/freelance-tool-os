@@ -80,6 +80,16 @@ export type ParametriAnno = {
 /** Le impostazioni dell'utente per un anno. Una per anno: i parametri cambiano. */
 export type Impostazioni = {
   anno: number;
+  /**
+   * I parametri che l'utente ha confermato per quest'anno.
+   *
+   * Alcuni valori l'app non può conoscerli — l'addizionale del tuo comune, i
+   * contributi della tua gestione — ma deve averne uno per calcolare: tiene una
+   * media. Questo elenco distingue il numero confermato da quello ereditato, e
+   * senza la distinzione l'unico modo di dirlo sarebbe non dirlo. Chiave dei
+   * campi in `CampoUtente`; assente sui dati vecchi, che vale «nessuno».
+   */
+  dichiarati?: string[];
   nome: string;
   dataAperturaPiva: string | null;
   saldoInizialeAttivita: number;

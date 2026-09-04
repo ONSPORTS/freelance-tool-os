@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { ArrowDown, Target } from "lucide-react";
 import { Card, CardCorpo, CardSottotitolo, CardTitolo } from "@/components/ui/card";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
@@ -9,6 +10,7 @@ import { Kpi } from "@/components/ui/kpi";
 import { Guscio } from "@/components/guscio/guscio";
 import { calcolaPareggio, calcolaPianificazione, costiRegistrati } from "@/lib/analisi/pianificazione";
 import { round2 } from "@/lib/fisco/aritmetica";
+import { campiDaDichiarare } from "@/lib/fisco/parametri-utente";
 import { useCalcoloAnno } from "@/lib/dati/hooks";
 import { oreFatturabiliAnno } from "@/lib/fisco/impostazioni";
 import { usePreferenze } from "@/lib/stato/preferenze";
@@ -93,6 +95,7 @@ export function SchermataPianificazione() {
           oreFatturabiliGiorno: imp.oreFatturabiliGiorno,
         })
       : null;
+  const capacitaDaDichiarare = campiDaDichiarare(imp).some((c) => c.incideSu === "capacita");
   const registratiTutti = costiRegistrati(calcolo.prospetto.costiCalcolati, anno);
   const registratiFissi = costiRegistrati(calcolo.prospetto.costiCalcolati, anno, "fisso");
 
@@ -241,9 +244,25 @@ export function SchermataPianificazione() {
           <Card>
             <CardCorpo>
               <CardTitolo>Tariffa e capacità</CardTitolo>
+              {/*
+                I due numeri da cui esce la capacità non stavano scritti da
+                nessuna parte come modificabili: 220 giorni per 5 ore erano una
+                convenzione dell'app che nessuno poteva smentire.
+              */}
               <CardSottotitolo>
                 {num(ore)} ore fatturabili all&apos;anno: {imp.giorniLavorativi} giorni per{" "}
-                {imp.oreFatturabiliGiorno} ore.
+                {imp.oreFatturabiliGiorno} ore
+                {capacitaDaDichiarare ? (
+                  <>
+                    , valori predefiniti.{" "}
+                    <Link href="/parametri" className="underline underline-offset-2">
+                      Dichiara i tuoi
+                    </Link>
+                    .
+                  </>
+                ) : (
+                  ", come li hai dichiarati."
+                )}
               </CardSottotitolo>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <CampoValore id="p-tariffa" etichetta="Tariffa oraria attuale" aiuto="quella che applichi oggi"

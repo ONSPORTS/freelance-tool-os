@@ -57,7 +57,7 @@ export const DESTINAZIONI: Destinazione[] = [
   { href: "/patrimonio", etichetta: "Patrimonio", gruppo: "Finanza", tasto: "p", sinonimi: ["attivi", "passivi", "netto"], pronta: true },
   { href: "/pianificazione", etichetta: "Pianificazione", gruppo: "Finanza", tasto: "n", sinonimi: ["obiettivi", "scenari"], pronta: true },
   { href: "/avvio", etichetta: "Configurazione", gruppo: "Impostazioni", sinonimi: ["onboarding", "percorso", "regime"], pronta: true },
-  { href: "/impostazioni", etichetta: "Parametri", gruppo: "Impostazioni", pronta: false },
+  { href: "/parametri", etichetta: "Parametri", gruppo: "Impostazioni", sinonimi: ["addizionale", "aliquote", "regione", "comune", "cassa", "contributi fissi", "ore fatturabili"], pronta: true },
   { href: "/dati", etichetta: "Dati e backup", gruppo: "Impostazioni", tasto: "d", sinonimi: ["esporta", "importa", "demo", "backup"], pronta: true },
   { href: "/importa", etichetta: "Importa da CSV", gruppo: "Impostazioni", tasto: "m", sinonimi: ["csv", "excel", "carica storico", "esporta csv", "tracciato"], pronta: true },
   { href: "/licenza", etichetta: "Licenza", gruppo: "Impostazioni", sinonimi: ["chiave", "scadenza", "abbonamento", "attiva"], pronta: true },

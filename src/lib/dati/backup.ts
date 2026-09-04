@@ -440,6 +440,11 @@ const convalidaImpostazioni: Convalida<Dati["impostazioni"][number]> = (riga, i,
     percentualeAccantonamento: fraZeroEUno(riga.percentualeAccantonamento, 0.3),
     mesiFondoEmergenza: numero(riga.mesiFondoEmergenza, 6),
     costiFissiAnnui: numeroOpzionale(riga.costiFissiAnnui),
+    // Un backup scritto prima della schermata Parametri non ha l'elenco: vale
+    // «niente confermato», che è la verità di quel backup.
+    dichiarati: Array.isArray(riga.dichiarati)
+      ? riga.dichiarati.filter((c): c is string => typeof c === "string")
+      : [],
   };
 };
 

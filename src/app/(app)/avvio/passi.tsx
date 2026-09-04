@@ -380,7 +380,7 @@ function SceltaAteco({
         </CardInterna>
       ) : (
         <div role="radiogroup" aria-label="Gruppo di attività" className="space-y-1.5">
-          {esiti.map(({ gruppo, perche }) => {
+          {esiti.map(({ gruppo, perche, esempi }) => {
             const attivo = gruppo.codice === scelto;
             return (
               <button
@@ -407,8 +407,18 @@ function SceltaAteco({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-etichetta">{gruppo.descrizione}</span>
-                  {perche && (
+                  {/*
+                    La descrizione di legge non nomina nessun mestiere, e chi
+                    scorre l'elenco resta con la domanda «ci sono dentro
+                    anch'io?». Gli esempi rispondono senza dover cercare.
+                  */}
+                  {esempi && (
                     <span className="mt-0.5 block text-micro text-inchiostro-tenue">
+                      {esempi}
+                    </span>
+                  )}
+                  {perche && (
+                    <span className="mt-0.5 block text-micro text-accento">
                       trovato cercando «{perche}»
                     </span>
                   )}

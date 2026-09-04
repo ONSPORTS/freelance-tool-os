@@ -44,7 +44,7 @@ const ICONE: Record<string, LucideIcon> = {
   "/patrimonio": PiggyBank,
   "/pianificazione": Target,
   "/avvio": Compass,
-  "/impostazioni": Settings,
+  "/parametri": Settings,
   "/dati": Database,
   "/importa": FileSpreadsheet,
   "/licenza": Key,

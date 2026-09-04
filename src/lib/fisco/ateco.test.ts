@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cercaGruppi, normalizza, SINONIMI } from "./ateco";
+import { cercaGruppi, esempiDi, normalizza, SINONIMI } from "./ateco";
 import { PARAMETRI_2026 } from "./parametri/2026";
 
 const gruppi = PARAMETRI_2026.gruppiAteco;
@@ -70,5 +70,23 @@ describe("trovare il gruppo ATECO partendo dal mestiere", () => {
         visti.set(chiave, s.gruppo);
       }
     }
+  });
+});
+
+describe("gli esempi sotto ogni gruppo", () => {
+  it("ogni gruppo ne ha, e nomina mestieri veri", () => {
+    // Servono a chi scorre l'elenco senza cercare: la descrizione di legge non
+    // nomina nessun mestiere, e la domanda «ci sono dentro anch'io?» resta lì.
+    for (const g of gruppi) {
+      const esempi = esempiDi(g.codice);
+      expect(esempi.length).toBeGreaterThan(15);
+      expect(esempi.split(",").length).toBeGreaterThanOrEqual(2);
+    }
+  });
+
+  it("gli esempi escono insieme al risultato della ricerca", () => {
+    const esito = cercaGruppi("commercialista", gruppi)[0];
+    expect(esito.gruppo.codice).toBe("professionali");
+    expect(esito.esempi).toContain("commercialisti");
   });
 });
