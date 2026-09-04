@@ -54,5 +54,10 @@
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.11"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gabrieleferretti32/flowlance.git"
+  },
+  "homepage": "https://github.com/gabrieleferretti32/flowlance"
 }

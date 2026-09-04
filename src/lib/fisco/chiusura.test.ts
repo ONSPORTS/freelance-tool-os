@@ -24,13 +24,16 @@ import { PARAMETRI_2026 } from "./parametri/2026";
 import { PARAMETRI_2027 } from "./parametri/2027";
 import { prospettoDettagliato } from "./spiegazioni";
 import { euro } from "@/lib/format";
-import type { Costo, Fattura, Impostazioni } from "./tipi";
+import type { Costo, Fattura, Impostazioni, NotaCredito } from "./tipi";
 
-function archivioChiusura(chiusure: ChiusuraAnno[] = []): ArchivioPerAnni {
+function archivioChiusura(
+  chiusure: ChiusuraAnno[] = [],
+  note: NotaCredito[] = [],
+): ArchivioPerAnni {
   return {
     impostazioni: [impostazioniChiusura2026(), impostazioniChiusura2027()],
     fatture: FATTURE_CHIUSURA,
-    note: [],
+    note,
     costi: COSTI_CHIUSURA,
     versamenti: [],
     movimentiAttivita: [],
@@ -39,8 +42,8 @@ function archivioChiusura(chiusure: ChiusuraAnno[] = []): ArchivioPerAnni {
   };
 }
 
-function catena(chiusure: ChiusuraAnno[] = []) {
-  const anni = catenaAnni(archivioChiusura(chiusure), 2027, OGGI_CHIUSURA);
+function catena(chiusure: ChiusuraAnno[] = [], note: NotaCredito[] = []) {
+  const anni = catenaAnni(archivioChiusura(chiusure, note), 2027, OGGI_CHIUSURA);
   const a2026 = anni.get(2026);
   const a2027 = anni.get(2027);
   if (!a2026 || !a2027) throw new Error("la catena deve contenere 2026 e 2027");
@@ -662,5 +665,99 @@ describe("casi limite dei riporti", () => {
     const s = scostamentiDaChiusura(alterata, a2026.riportoInUscita, a2026.prospetto);
     expect(s.map((x) => x.voce)).toEqual(["Credito IVA"]);
     expect(s[0].differenza).toBe(560);
+  });
+});
+
+
+// ————————————————————————————————————————————————————————————
+// Le note di credito attraversano il confine
+// ————————————————————————————————————————————————————————————
+
+describe("riporto delle note di credito", () => {
+  /** Emessa a dicembre 2026, rimborsata a gennaio 2027: il caso a cavallo. */
+  const aCavallo: NotaCredito = {
+    id: "nc-cavallo",
+    dataDocumento: "2026-12-18",
+    numero: "NC/2026/9",
+    clienteId: "cli-1",
+    descrizione: "Storno su fattura di novembre",
+    imponibile: 800,
+    aliquotaIva: 0.22,
+    dataRimborso: "2027-01-20",
+  };
+  /** Emessa a dicembre e mai rimborsata: sospesa, senza anno d'imposta. */
+  const sospesa: NotaCredito = { ...aCavallo, id: "nc-sospesa", numero: "NC/2026/10", dataRimborso: null };
+
+  it("**una nota emessa e non rimborsata entra nel riporto**", () => {
+    const { a2026 } = catena([], [sospesa]);
+    expect(a2026.riportoInUscita.noteDaRimborsare.numero).toBe(1);
+    expect(a2026.riportoInUscita.noteDaRimborsare.importo).toBe(976); // 800 + 22% di IVA
+    expect(a2026.riportoInUscita.noteDaRimborsare.numeroAncoraAperti).toBe(1);
+  });
+
+  it("una nota rimborsata l'anno dopo attraversa il confine come una fattura", () => {
+    const { a2026, a2027 } = catena([], [aCavallo]);
+    // Nel 2026 è emessa: ha già ridotto l'IVA, non ancora i ricavi.
+    expect(a2026.riportoInUscita.noteDaRimborsare.numero).toBe(1);
+    expect(a2026.prospetto.note.ivaStornata).toBe(176);
+    expect(a2026.prospetto.note.stornoIncassato).toBe(0);
+    // Nel 2027 il denaro torna: i ricavi calano lì.
+    expect(a2027.prospetto.note.stornoIncassato).toBe(800);
+    expect(a2027.prospetto.note.ivaStornata).toBe(0);
+  });
+
+  it("una nota rimborsata nello stesso anno non attraversa niente", () => {
+    const { a2026 } = catena([], [{ ...aCavallo, dataRimborso: "2026-12-28" }]);
+    expect(a2026.riportoInUscita.noteDaRimborsare.numero).toBe(0);
+    expect(a2026.prospetto.note.stornoIncassato).toBe(800);
+  });
+
+  it("senza note il riporto resta a zero, e nulla cambia", () => {
+    const { a2026 } = catena();
+    expect(a2026.riportoInUscita.noteDaRimborsare).toEqual({
+      numero: 0,
+      importo: 0,
+      numeroAncoraAperti: 0,
+    });
+    expect(a2026.riportoInUscita.noteNonRiconciliate).toBe(0);
+  });
+
+  it("quanto non è riconciliato si riporta, perché dopo non lo ricostruisce nessuno", () => {
+    const { a2026 } = catena([], [
+      { ...sospesa, riconciliazioni: [{ fatturaId: "non-esiste", imponibile: 300 }] },
+    ]);
+    expect(a2026.riportoInUscita.noteNonRiconciliate).toBe(500);
+  });
+
+  it("conta anche le note già rimborsate: il buco nella ricostruzione resta", () => {
+    const { a2026 } = catena([], [{ ...aCavallo, dataRimborso: "2026-12-28" }]);
+    expect(a2026.riportoInUscita.noteDaRimborsare.numero).toBe(0);
+    expect(a2026.riportoInUscita.noteNonRiconciliate).toBe(800);
+  });
+
+  it("una chiusura salvata prima delle note non produce scostamenti fantasma", () => {
+    // Le istantanee vecchie non hanno la voce: si legge come zero, che è quello
+    // che valeva allora. Senza questo, riaprire una chiusura del 2026 mostrerebbe
+    // uno scostamento inventato su una riga che allora non esisteva.
+    const { a2026 } = catena();
+    const vecchia: ChiusuraAnno = {
+      anno: 2026,
+      chiusaIl: "2027-01-15T10:00:00.000Z",
+      destinazioneCreditoIva: "compensazione",
+      regimeAnnoSuccessivo: "forfettario",
+      note: "",
+      istantanea: {
+        saldoCassa: a2026.riportoInUscita.saldoCassa,
+        accantonato: a2026.riportoInUscita.accantonato,
+        creditoIva: a2026.riportoInUscita.creditoIva,
+        creditoImposte: a2026.riportoInUscita.creditoImposte,
+        ricaviRilevanti: a2026.prospetto.ricaviRilevanti,
+        fattureDaIncassare: a2026.riportoInUscita.fattureDaIncassare.importo,
+        costiDaPagare: a2026.riportoInUscita.costiDaPagare.importo,
+        // `noteDaRimborsare` assente, come nelle chiusure salvate prima.
+      },
+    };
+    const scostamenti = scostamentiDaChiusura(vecchia, a2026.riportoInUscita, a2026.prospetto);
+    expect(scostamenti).toEqual([]);
   });
 });

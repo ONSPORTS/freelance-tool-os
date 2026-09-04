@@ -203,6 +203,22 @@ export function SchermataChiusura() {
                 valore={euro(r.costiDaPagare.importo)}
                 nota={`${r.costiDaPagare.numero} costi · IVA detraibile nel ${anno}, deduzione nell'anno del pagamento`}
               />
+              {/* Compare solo quando c'è: una riga a zero su ogni chiusura, per
+                  chi non emette note, sarebbe rumore. */}
+              {r.noteDaRimborsare.numero > 0 && (
+                <RigaRiporto
+                  voce="Note di credito emesse e non ancora rimborsate"
+                  valore={`− ${euro(r.noteDaRimborsare.importo)}`}
+                  nota={`${r.noteDaRimborsare.numero} note · IVA già stornata nel ${anno}, i ricavi caleranno nell'anno del rimborso`}
+                />
+              )}
+              {r.noteNonRiconciliate > 0 && (
+                <RigaRiporto
+                  voce="Storni non riconciliati a nessuna fattura"
+                  valore={euro(r.noteNonRiconciliate)}
+                  nota="I conti sono giusti lo stesso, ma a cosa si riferivano è meglio scriverlo prima di chiudere: dopo non lo ricostruisce più nessuno."
+                />
+              )}
             </div>
           </CardCorpo>
         </Card>

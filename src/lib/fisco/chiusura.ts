@@ -17,6 +17,7 @@
 import { nonNegativo, round2, somma } from "./aritmetica";
 import { annoDi } from "./documenti";
 import { dateCosto, dateFattura, ripartisci } from "./competenza";
+import { dateNota } from "./note";
 import { euro } from "../format";
 import type { LiquidazioneIva } from "./iva";
 import type { Prospetto } from "./motore";
@@ -43,6 +44,8 @@ export type IstantaneaChiusura = {
   ricaviRilevanti: number;
   fattureDaIncassare: number;
   costiDaPagare: number;
+  /** Facoltativo: le chiusure salvate prima delle note di credito non ce l'hanno. */
+  noteDaRimborsare?: number;
 };
 
 /** La chiusura come sta nel database: decisioni, non importi calcolati. */
@@ -90,6 +93,24 @@ export type Riporto = {
   fattureDaIncassare: Sospesi;
   /** Costi con documento nell'anno e non ancora pagati: si dedurranno quando li paghi. */
   costiDaPagare: Sospesi;
+  /**
+   * Note di credito emesse e non ancora rimborsate.
+   *
+   * Attraversano il confine come le fatture, con il segno opposto: hanno già
+   * ridotto l'IVA a debito di quest'anno — la data del documento è di
+   * quest'anno — ma i ricavi caleranno solo nell'anno in cui il denaro torna al
+   * cliente. Senza questa riga il riporto direbbe che l'anno nuovo comincia con
+   * più ricavi attesi di quanti ne avrà davvero.
+   */
+  noteDaRimborsare: Sospesi;
+  /**
+   * Quanto delle note emesse non è agganciato a nessuna fattura.
+   *
+   * Non cambia un solo numero — una nota emessa riduce ricavi e IVA comunque —
+   * ma è la cosa da sistemare prima di chiudere: dopo, ricostruire a cosa si
+   * riferiva uno storno di due anni fa non lo fa più nessuno.
+   */
+  noteNonRiconciliate: number;
 };
 
 export function riportoVuoto(daAnno: number): Riporto {
@@ -103,6 +124,8 @@ export function riportoVuoto(daAnno: number): Riporto {
     creditoIvaInLiquidazione: 0,
     creditoImposte: 0,
     fattureDaIncassare: { numero: 0, importo: 0, numeroAncoraAperti: 0 },
+    noteDaRimborsare: { numero: 0, importo: 0, numeroAncoraAperti: 0 },
+    noteNonRiconciliate: 0,
     costiDaPagare: { numero: 0, importo: 0, numeroAncoraAperti: 0 },
   };
 }
@@ -144,8 +167,11 @@ export function calcolaRiporto(ing: IngressoRiporto): Riporto {
   // che è esattamente il caso per cui il riporto esiste.
   const rf = ripartisci(p.fattureCalcolate, anno, dateFattura);
   const rc = ripartisci(p.costiCalcolati, anno, dateCosto);
+  // Le note dalla stessa funzione, con le loro due date: nessuna regola nuova.
+  const rn = ripartisci(p.noteCalcolate, anno, dateNota);
   const sospese = [...rf.versoAnniSuccessivi, ...rf.sospesi] as FatturaCalcolata[];
   const daPagare = [...rc.versoAnniSuccessivi, ...rc.sospesi] as CostoCalcolato[];
+  const daRimborsare = [...rn.versoAnniSuccessivi, ...rn.sospesi];
 
   return {
     daAnno: anno,
@@ -168,6 +194,14 @@ export function calcolaRiporto(ing: IngressoRiporto): Riporto {
       importo: somma(...daPagare.map((c) => c.totale)),
       numeroAncoraAperti: rc.sospesi.length,
     },
+    noteDaRimborsare: {
+      numero: daRimborsare.length,
+      importo: somma(...daRimborsare.map((n) => n.totale)),
+      numeroAncoraAperti: rn.sospesi.length,
+    },
+    // Tutte le note dell'anno, non solo quelle da rimborsare: una nota già
+    // rimborsata e mai agganciata resta un buco nella ricostruzione.
+    noteNonRiconciliate: somma(...rn.perCompetenza.map((n) => n.residuo)),
   };
 }
 
@@ -180,6 +214,7 @@ export function istantaneaDa(riporto: Riporto, p: Prospetto): IstantaneaChiusura
     ricaviRilevanti: p.ricaviRilevanti,
     fattureDaIncassare: riporto.fattureDaIncassare.importo,
     costiDaPagare: riporto.costiDaPagare.importo,
+    noteDaRimborsare: riporto.noteDaRimborsare.importo,
   };
 }
 
@@ -433,15 +468,17 @@ export function scostamentiDaChiusura(
     ["Crediti d'imposta", "creditoImposte"],
     ["Fatture da incassare", "fattureDaIncassare"],
     ["Costi da pagare", "costiDaPagare"],
+    ["Note da rimborsare", "noteDaRimborsare"],
   ];
 
   return voci
-    .map(([voce, campo]) => ({
-      voce,
-      allaChiusura: chiusura.istantanea[campo],
-      adesso: attuale[campo],
-      differenza: round2(attuale[campo] - chiusura.istantanea[campo]),
-    }))
+    .map(([voce, campo]) => {
+      // Le chiusure salvate prima delle note di credito non hanno quella voce
+      // nell'istantanea: si legge come zero, che è quello che valeva allora.
+      const allaChiusura = chiusura.istantanea[campo] ?? 0;
+      const adesso = attuale[campo] ?? 0;
+      return { voce, allaChiusura, adesso, differenza: round2(adesso - allaChiusura) };
+    })
     .filter((s) => s.differenza !== 0);
 }
 
