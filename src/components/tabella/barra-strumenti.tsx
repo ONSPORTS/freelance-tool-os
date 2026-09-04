@@ -47,7 +47,16 @@ export function BarraStrumenti({
           </button>
         )}
       </div>
-      {children}
+      {/*
+        Sul telefono i filtri stanno in griglia a due colonne: uno per riga,
+        largo poco più di metà schermo, sembrava un campo troncato — e le due
+        tendine insieme mangiavano due righe intere sopra i dati.
+      */}
+      {children && (
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center [&>*]:w-full sm:[&>*]:w-auto">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

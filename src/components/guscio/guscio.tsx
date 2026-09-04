@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, Search } from "lucide-react";
+import { ChevronDown, Menu, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -22,6 +22,8 @@ import { ScorciatoieGlobali } from "@/components/comandi/tasti";
 import { GRUPPI, type Voce } from "./navigazione";
 import { SelettorePeriodo } from "./selettore-periodo";
 import type { StatoDellAnno } from "./stato-anno";
+import type { Periodo } from "@/lib/periodo";
+import type { Regime } from "@/lib/fisco/tipi";
 
 /**
  * Il guscio dell'applicazione: navigazione a sinistra, selettore di periodo e
@@ -81,18 +83,37 @@ export function Guscio({
       <div className="flex min-w-0 flex-1 flex-col">
         <BarraLicenza />
         <header className="sticky top-0 z-30 border-b border-bordo bg-fondo/85 backdrop-blur-sm print:hidden">
-          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5 lg:px-8">
-            <div className="flex min-w-0 items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 sm:gap-3 sm:px-5 sm:py-3 lg:px-8">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
               <MenuMobile />
               <BottoneCerca />
               <div className="min-w-0">
-              <h1 className="truncate font-display text-kpi-sm font-semibold">{titolo}</h1>
-              {descrizione && (
-                <p className="truncate text-etichetta text-inchiostro-tenue">{descrizione}</p>
-              )}
+                <h1 className="truncate font-display text-kpi-sm font-semibold">{titolo}</h1>
+                {/* La descrizione sul telefono si riduceva a «Registro…», che non
+                    dice niente e ruba al titolo lo spazio per essere letto. */}
+                {descrizione && (
+                  <p className="hidden truncate text-etichetta text-inchiostro-tenue sm:block">
+                    {descrizione}
+                  </p>
+                )}
               </div>
+              {/*
+                Sul telefono i quattro controlli della testata — anno, stato,
+                regime, parametri — occupavano da soli centottantatré pixel su
+                cinquecentosessantotto: più di un terzo dello schermo, fermo lì
+                a ogni schermata. Qui diventano un riepilogo che li dice tutti e
+                quattro in una riga e si apre per cambiarli.
+              */}
+              <RiepilogoPeriodo
+                periodo={periodo}
+                onChange={impostaPeriodo}
+                statoAnno={statoAnno}
+                regime={regime}
+                solaLettura={solaLettura}
+                className="ml-auto shrink-0 sm:hidden"
+              />
             </div>
-            <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+            <div className="hidden w-full flex-wrap items-center gap-2 sm:flex lg:w-auto">
               <SelettorePeriodo
                 periodo={periodo}
                 onChange={impostaPeriodo}
@@ -108,10 +129,17 @@ export function Guscio({
                   { valore: "ordinario", etichetta: "Ordinario" },
                 ]}
               />
-              {/* Sul telefono l'azione principale va in fondo alla riga e prende
-                  la larghezza che resta: un pulsante mozzato non si preme. */}
-              {azioni && <span className="ml-auto shrink-0">{azioni}</span>}
             </div>
+            {/*
+              Le azioni prendono tutta la riga sul telefono e si dividono lo
+              spazio: due pulsanti mezzi tagliati non si premono, e uno stretto
+              accanto a uno largo sembra un errore di impaginazione.
+            */}
+            {azioni && (
+              <span className="flex w-full flex-wrap items-center gap-2 [&>*]:flex-1 [&>*]:basis-[calc(50%-0.25rem)] sm:ml-auto sm:w-auto sm:justify-end sm:[&>*]:flex-none sm:[&>*]:basis-auto">
+                {azioni}
+              </span>
+            )}
           </div>
         </header>
 
@@ -157,7 +185,9 @@ function BottoneCerca() {
       onClick={apri}
       aria-label="Apri i comandi"
       className={cn(
-        "flex shrink-0 items-center gap-2 rounded-campo border border-bordo bg-superficie px-2 py-1.5 text-inchiostro-tenue transition-colors",
+        // Sul telefono è un quadrato da premere, non un'etichetta: sotto i
+        // quarantaquattro pixel il pollice manca il bersaglio.
+        "flex size-11 shrink-0 items-center justify-center gap-2 rounded-campo border border-bordo bg-superficie text-inchiostro-tenue transition-colors sm:size-auto sm:px-2 sm:py-1.5",
         "hover:border-inchiostro-tenue/40 hover:text-inchiostro",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accento focus-visible:ring-offset-2 focus-visible:ring-offset-fondo",
       )}
@@ -292,5 +322,105 @@ function VoceNav({
     >
       {contenuto}
     </Link>
+  );
+}
+
+/**
+ * Il riepilogo del periodo, per il telefono.
+ *
+ * Dice le stesse quattro cose della testata larga — che anno stai guardando,
+ * se è chiuso, in che regime, se i parametri sono provvisori — in una riga
+ * sola, e si apre per cambiarle. Non è una scorciatoia nascosta: è la testata,
+ * ripiegata. Su schermo largo non esiste.
+ */
+function RiepilogoPeriodo({
+  periodo,
+  onChange,
+  statoAnno,
+  regime,
+  solaLettura,
+  className,
+}: {
+  periodo: Periodo;
+  onChange: (p: Periodo) => void;
+  statoAnno?: StatoDellAnno;
+  regime: Regime;
+  solaLettura: boolean;
+  className?: string;
+}) {
+  const [aperto, setAperto] = React.useState(false);
+
+  return (
+    <Dialog open={aperto} onOpenChange={setAperto}>
+      <DialogTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "flex min-h-11 items-center gap-1.5 rounded-full border border-bordo bg-superficie px-3 text-etichetta font-medium",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accento focus-visible:ring-offset-2",
+            className,
+          )}
+        >
+          <span className="cifre">{periodo.anno}</span>
+          {statoAnno && <PalliniStato stato={statoAnno} />}
+          {/* Sotto i 360 px il regime esce dal riepilogo: il titolo della
+              schermata viene prima, e il regime resta dentro, a un tocco. */}
+          <span className="hidden text-inchiostro-tenue min-[360px]:inline">
+            {regime === "forfettario" ? "forf." : "ord."}
+          </span>
+          <ChevronDown className="size-3.5 text-inchiostro-tenue" aria-hidden />
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        titolo="Periodo e regime"
+        descrizione="Vale per tutte le schermate: quello che vedi è sempre di questo periodo."
+      >
+        <div className="space-y-4">
+          <SelettorePeriodo periodo={periodo} onChange={onChange} statoAnno={statoAnno} />
+          <div>
+            <p className="mb-1.5 text-etichetta text-inchiostro-tenue">Regime fiscale</p>
+            <Segmenti
+              etichettaGruppo="Regime fiscale"
+              valore={regime}
+              disabilitato={solaLettura}
+              onChange={(r) => void cambiaRegime(periodo.anno, r)}
+              opzioni={[
+                { valore: "forfettario", etichetta: "Forfettario" },
+                { valore: "ordinario", etichetta: "Ordinario" },
+              ]}
+            />
+          </div>
+          <p className="text-etichetta text-inchiostro-tenue">
+            Le aliquote che dipendono da te — addizionali, contributi — si dichiarano nei{" "}
+            <Link href="/parametri" className="underline underline-offset-2" onClick={() => setAperto(false)}>
+              Parametri
+            </Link>
+            .
+          </p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Il pallino di stato dell'anno: colore e basta, la parola sta nel dialogo. */
+function PalliniStato({ stato }: { stato: StatoDellAnno }) {
+  const colore =
+    stato === "provvisorio"
+      ? "bg-[#B8791A]"
+      : stato === "chiuso"
+        ? "bg-inchiostro-tenue"
+        : "bg-[#0B8A63]";
+  return (
+    <span
+      className={cn("size-1.5 rounded-full", colore)}
+      title={
+        stato === "provvisorio"
+          ? "Parametri provvisori"
+          : stato === "chiuso"
+            ? "Anno chiuso"
+            : "Anno aperto"
+      }
+    />
   );
 }

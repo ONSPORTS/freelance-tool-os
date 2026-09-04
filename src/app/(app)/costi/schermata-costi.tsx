@@ -289,7 +289,7 @@ export function SchermataCosti() {
                     <IntestazioneOrdinabile colonna="pagamento" ordinamento={ordinamento} onOrdina={ordina}>
                       Pagamento
                     </IntestazioneOrdinabile>
-                    <TabellaIntestazione><span className="sr-only">Azioni</span></TabellaIntestazione>
+                    <TabellaIntestazione ancorata><span className="sr-only">Azioni</span></TabellaIntestazione>
                   </tr>
                 </TabellaTesta>
 
@@ -345,7 +345,7 @@ export function SchermataCosti() {
                           valore={c.dataPagamento ?? null} className="whitespace-nowrap"
                           onSalva={(v) => aggiorna(c, { dataPagamento: v ? String(v) : null })} />
                       </TabellaCella>
-                      <TabellaCella className="w-24">
+                      <TabellaCella ancorata className="w-24">
                         <div className="flex items-center justify-end gap-1">
                           {c.stato === "pagato" ? (
                             <Button scrive variante="quieto" taglia="icona"
@@ -424,7 +424,7 @@ export function SchermataCosti() {
                       <Stato tono="attenzione">Da pagare</Stato>
                     )}
                   </div>
-                  {c.stato === "daPagare" && (
+                  {c.stato === "daPagare" ? (
                     <Button scrive
                       variante="contorno"
                       taglia="sm"
@@ -433,6 +433,16 @@ export function SchermataCosti() {
                     >
                       <CheckCheck className="size-4" aria-hidden />
                       Segna come pagato oggi
+                    </Button>
+                  ) : (
+                    <Button scrive
+                      variante="quieto"
+                      taglia="sm"
+                      className="mt-3 w-full"
+                      onClick={() => aggiorna(c, { dataPagamento: null })}
+                    >
+                      <Undo2 className="size-4" aria-hidden />
+                      Annulla il pagamento
                     </Button>
                   )}
                 </Scheda>

@@ -316,7 +316,7 @@ export function SchermataFatture() {
                     <IntestazioneOrdinabile colonna="stato" ordinamento={ordinamento} onOrdina={ordina}>
                       Stato
                     </IntestazioneOrdinabile>
-                    <TabellaIntestazione>
+                    <TabellaIntestazione ancorata>
                       <span className="sr-only">Azioni</span>
                     </TabellaIntestazione>
                   </tr>
@@ -401,7 +401,7 @@ export function SchermataFatture() {
                               : `scade il ${fmtData(f.scadenza)}`}
                         </span>
                       </TabellaCella>
-                      <TabellaCella className="w-24">
+                      <TabellaCella ancorata className="w-24">
                         <div className="flex items-center justify-end gap-1">
                           {f.stato === "incassato" ? (
                             <Button scrive
@@ -482,7 +482,10 @@ export function SchermataFatture() {
                           : `scade il ${fmtData(f.scadenza)}`}
                     </span>
                   </div>
-                  {f.stato !== "incassato" && (
+                  {/* L'azione inversa c'era sulla riga della tabella e non
+                      qui: sul telefono una fattura segnata per sbaglio non si
+                      poteva più rimettere a posto. */}
+                  {f.stato !== "incassato" ? (
                     <Button scrive
                       variante="contorno"
                       taglia="sm"
@@ -491,6 +494,16 @@ export function SchermataFatture() {
                     >
                       <CheckCheck className="size-4" aria-hidden />
                       Segna come incassata oggi
+                    </Button>
+                  ) : (
+                    <Button scrive
+                      variante="quieto"
+                      taglia="sm"
+                      className="mt-3 w-full"
+                      onClick={() => void annullaIncasso(f)}
+                    >
+                      <Undo2 className="size-4" aria-hidden />
+                      Annulla l&apos;incasso
                     </Button>
                   )}
                 </Scheda>

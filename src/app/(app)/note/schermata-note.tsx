@@ -150,7 +150,9 @@ export function SchermataNote() {
                     <TabellaIntestazione numerica>IVA</TabellaIntestazione>
                     <TabellaIntestazione className="min-w-52">Riferita a</TabellaIntestazione>
                     <TabellaIntestazione>Rimborso</TabellaIntestazione>
-                    <TabellaIntestazione className="w-20" />
+                    <TabellaIntestazione ancorata className="w-20">
+                      <span className="sr-only">Azioni</span>
+                    </TabellaIntestazione>
                   </tr>
                 </TabellaTesta>
                 <TabellaCorpo>
@@ -212,7 +214,7 @@ export function SchermataNote() {
                             onSalva={(v) => aggiorna(n, { dataRimborso: v ? String(v) : null })}
                           />
                         </TabellaCella>
-                        <TabellaCella>
+                        <TabellaCella ancorata>
                           <div className="flex items-center justify-end gap-1">
                             {n.dataRimborso ? (
                               <Button
@@ -283,7 +285,7 @@ export function SchermataNote() {
                       },
                     ]}
                   />
-                  {!n.dataRimborso && (
+                  {!n.dataRimborso ? (
                     <Button
                       scrive
                       variante="contorno"
@@ -292,6 +294,17 @@ export function SchermataNote() {
                       onClick={() => void segnaRimborsata(notaGrezza(n))}
                     >
                       Segna come rimborsata oggi
+                    </Button>
+                  ) : (
+                    <Button
+                      scrive
+                      variante="quieto"
+                      taglia="sm"
+                      className="mt-3 w-full"
+                      onClick={() => void annullaRimborso(notaGrezza(n))}
+                    >
+                      <Undo2 className="size-4" aria-hidden />
+                      Annulla il rimborso
                     </Button>
                   )}
                 </Scheda>

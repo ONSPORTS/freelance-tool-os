@@ -35,8 +35,23 @@ export function TabellaTesta({ className, ...props }: React.HTMLAttributes<HTMLT
   );
 }
 
+/**
+ * Le righe hanno uno sfondo dichiarato, non trasparente.
+ *
+ * Serve alla colonna ancorata: una cella `sticky` senza sfondo lascia passare
+ * il contenuto che le scorre sotto. Con lo sfondo sulla riga, la cella lo
+ * eredita e resta leggibile su entrambe le righe della zebra.
+ */
 export function TabellaCorpo({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
-  return <tbody className={cn("[&_tr:nth-child(even)]:bg-superficie-alt/60", className)} {...props} />;
+  return (
+    <tbody
+      className={cn(
+        "[&_tr]:bg-superficie [&_tr:nth-child(even)]:bg-superficie-alt",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export function TabellaPiede({ className, ...props }: React.HTMLAttributes<HTMLTableSectionElement>) {
@@ -61,17 +76,35 @@ export function TabellaRiga({ className, ...props }: React.HTMLAttributes<HTMLTa
   );
 }
 
+/**
+ * La colonna che resta agganciata al bordo destro mentre la tabella scorre.
+ *
+ * In regime ordinario le colonne sono di più — IVA, deducibilità — e la tabella
+ * scorre di lato: le azioni di riga, che stanno in fondo, finivano fuori campo.
+ * Si vedevano solo scorrendo fino in fondo, e nel frattempo non si capiva
+ * nemmeno che ci fossero. Ancorate restano dove uno le cerca.
+ */
+const ANCORATA =
+  "sticky right-0 bg-inherit before:pointer-events-none before:absolute before:inset-y-0 before:-left-3 before:w-3 before:bg-gradient-to-l before:from-inchiostro/10 before:to-transparent";
+
 export function TabellaIntestazione({
   className,
   numerica = false,
+  ancorata = false,
   ...props
-}: React.ThHTMLAttributes<HTMLTableCellElement> & { numerica?: boolean }) {
+}: React.ThHTMLAttributes<HTMLTableCellElement> & {
+  numerica?: boolean;
+  ancorata?: boolean;
+}) {
   return (
     <th
       scope="col"
       className={cn(
         "border-b border-bordo px-2.5 py-2.5 text-etichetta font-medium text-inchiostro-tenue",
         numerica ? "text-right" : "text-left",
+        // Nell'angolo in alto a destra si incrociano due agganci: sopra tutto,
+        // altrimenti le celle del corpo le passano davanti scorrendo.
+        ancorata && `${ANCORATA} z-20`,
         className,
       )}
       {...props}
@@ -82,13 +115,18 @@ export function TabellaIntestazione({
 export function TabellaCella({
   className,
   numerica = false,
+  ancorata = false,
   ...props
-}: React.TdHTMLAttributes<HTMLTableCellElement> & { numerica?: boolean }) {
+}: React.TdHTMLAttributes<HTMLTableCellElement> & {
+  numerica?: boolean;
+  ancorata?: boolean;
+}) {
   return (
     <td
       className={cn(
         "px-2.5 py-2.5 align-middle",
         numerica && "cifre text-right",
+        ancorata && `${ANCORATA} z-10`,
         className,
       )}
       {...props}

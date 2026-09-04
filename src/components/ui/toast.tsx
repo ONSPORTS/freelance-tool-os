@@ -33,7 +33,10 @@ export function ContenitoreToast() {
     // Su schermo stretto resta in basso e prende la larghezza che c'è.
     <div
       aria-live="polite"
-      className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(24rem,calc(100vw-2rem))] flex-col print:hidden"
+      // Sul telefono la barra di sistema e l'indicatore home stanno in fondo:
+      // senza il margine di sicurezza il toast ci finisce sotto, e l'Annulla —
+      // che è il motivo per cui il toast esiste — diventa impossibile da premere.
+      className="pointer-events-none fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[60] flex w-[min(24rem,calc(100vw-2rem))] flex-col print:hidden"
     >
       {t && (
         <RigaToast

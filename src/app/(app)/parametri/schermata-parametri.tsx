@@ -334,7 +334,7 @@ function SchedaParametro({
               href={d.fonte.href}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-2 inline-flex items-center gap-1.5 text-etichetta font-medium text-accento underline underline-offset-2"
+              className="mt-1 inline-flex min-h-11 items-center gap-1.5 text-etichetta font-medium text-accento underline underline-offset-2 sm:mt-2 sm:min-h-0"
             >
               <ExternalLink className="size-3.5" aria-hidden />
               {d.fonte.etichetta}

@@ -29,10 +29,10 @@ export function BarraLicenza() {
     return (
       <div
         role="status"
-        className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-negativo/25 bg-negativo/10 px-4 py-2 sm:px-5 lg:px-8 print:hidden"
+        className="flex items-center gap-x-3 border-b border-negativo/25 bg-negativo/10 px-4 py-2 sm:flex-wrap sm:gap-y-1 sm:px-5 lg:px-8 print:hidden"
       >
         <CircleAlert className="size-4 shrink-0 text-negativo" aria-hidden />
-        <p className="min-w-0 text-etichetta">
+        <p className="min-w-0 truncate text-etichetta sm:whitespace-normal">
           <span className="font-medium">{descrizione(stato)}.</span>{" "}
           <span className="text-inchiostro-tenue">
             L&apos;app è in sola lettura: si consulta tutto, non si inserisce niente.
@@ -41,7 +41,7 @@ export function BarraLicenza() {
         </p>
         <Link
           href="/licenza"
-          className="ml-auto shrink-0 text-etichetta font-medium text-accento underline underline-offset-2"
+          className="-my-1 ml-auto flex min-h-11 shrink-0 items-center text-etichetta font-medium text-accento underline underline-offset-2 sm:min-h-0 sm:py-0"
         >
           Inserisci una chiave
         </Link>
@@ -50,14 +50,17 @@ export function BarraLicenza() {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-bordo bg-superficie-alt px-4 py-1.5 sm:px-5 lg:px-8 print:hidden">
+    <div className="flex items-center gap-x-3 border-b border-bordo bg-superficie-alt px-4 py-1.5 sm:flex-wrap sm:gap-y-1 sm:px-5 lg:px-8 print:hidden">
       <Clock className="size-3.5 shrink-0 text-inchiostro-tenue" aria-hidden />
-      <p className="min-w-0 text-micro text-inchiostro-tenue">
+      <p className="min-w-0 truncate text-micro text-inchiostro-tenue sm:whitespace-normal">
         {descrizione(stato)}: {giorniInParole(giorni as number)}.
       </p>
+      {/* Il testo resta minuscolo, l'area da premere no: un link alto quattordici
+          pixel su un telefono si manca, e chi lo manca colpisce quello che c'è
+          sotto. L'area cresce senza allargare la barra, con un margine negativo. */}
       <Link
         href="/licenza"
-        className="ml-auto shrink-0 text-micro text-inchiostro-tenue underline underline-offset-2 hover:text-inchiostro"
+        className="-my-1.5 ml-auto flex min-h-11 shrink-0 items-center px-1 text-micro text-inchiostro-tenue underline underline-offset-2 hover:text-inchiostro sm:min-h-0 sm:py-0"
       >
         Gestisci
       </Link>

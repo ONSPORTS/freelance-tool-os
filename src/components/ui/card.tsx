@@ -47,7 +47,13 @@ export function CardIntestazione({
   return (
     <div
       data-slot="card-intestazione"
-      className={cn("flex items-start justify-between gap-4 px-4 pt-5 sm:px-6 sm:pt-6", className)}
+      // Titolo e sottotitolo affiancati, su 320 px, danno una colonna da una
+      // parola per riga: «1 · Scegli / il file» impilato in verticale. Sul
+      // telefono si mettono uno sotto l'altro, che è come si leggono comunque.
+      className={cn(
+        "flex flex-col items-start gap-2 px-4 pt-5 sm:flex-row sm:justify-between sm:gap-4 sm:px-6 sm:pt-6",
+        className,
+      )}
       {...props}
     />
   );
