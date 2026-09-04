@@ -13,15 +13,24 @@
  */
 
 /**
- * Che cosa contiene il file.
+ * Che cosa contiene il file, quando il file non lo dice.
  *
- * Le spese personali non sono una terza destinazione: hanno la stessa forma di
+ * È un valore predefinito per riga, non un vincolo: la colonna «Tipo di
+ * documento», che Fatture in Cloud e altri gestionali esportano, decide riga
+ * per riga. Il caso vero non è un file di sole note di credito, è un file misto
+ * — fatture e note nella stessa esportazione — e ogni riga deve finire dove
+ * dice il file. La destinazione serve alle righe che non lo dicono: un
+ * gestionale che esporta solo le note in un file senza quella colonna esiste, e
+ * senza questa scelta le sue righe entrerebbero tutte come fatture, gonfiando
+ * il fatturato invece di ridurlo.
+ *
+ * Le spese personali invece non sono una destinazione: hanno la stessa forma di
  * un costo — data, importo, descrizione, categoria — e cambia solo dove
  * finiscono. Chi esporta il conto dalla banca ha le due nature mescolate nello
  * stesso file, e le separa indicando la colonna che le distingue: vedi
  * `valoriPersonali` in `Piano`.
  */
-export type Destinazione = "fattura" | "costo";
+export type Destinazione = "fattura" | "nota" | "costo";
 
 export type Campo = {
   chiave: string;
@@ -41,22 +50,22 @@ export const CAMPI: Campo[] = [
     etichetta: "Data del documento",
     obbligatorio: true,
     indizi: ["data", "data documento", "data fattura", "data emissione", "emissione", "data operazione", "data contabile", "data valuta"],
-    destinazioni: ["fattura", "costo"],
+    destinazioni: ["fattura", "nota", "costo"],
   },
   {
     chiave: "numero",
     etichetta: "Numero",
     obbligatorio: false,
     predefinito: "progressivo assegnato dall'app",
-    indizi: ["numero", "n.", "num", "nr", "numero fattura", "protocollo", "riferimento"],
-    destinazioni: ["fattura"],
+    indizi: ["numero", "n.", "num", "nr", "numero fattura", "numero nota", "protocollo", "riferimento"],
+    destinazioni: ["fattura", "nota"],
   },
   {
     chiave: "controparte",
     etichetta: "Cliente",
     obbligatorio: true,
     indizi: ["cliente", "ragione sociale", "denominazione", "intestatario", "committente", "nominativo"],
-    destinazioni: ["fattura"],
+    destinazioni: ["fattura", "nota"],
   },
   {
     chiave: "controparte",
@@ -71,14 +80,14 @@ export const CAMPI: Campo[] = [
     obbligatorio: false,
     predefinito: "vuota",
     indizi: ["descrizione", "causale", "oggetto", "note", "dettaglio"],
-    destinazioni: ["fattura", "costo"],
+    destinazioni: ["fattura", "nota", "costo"],
   },
   {
     chiave: "imponibile",
     etichetta: "Imponibile",
     obbligatorio: true,
     indizi: ["imponibile", "importo", "totale", "ammontare", "valore", "netto", "uscite", "entrate", "dare", "avere"],
-    destinazioni: ["fattura", "costo"],
+    destinazioni: ["fattura", "nota", "costo"],
   },
   {
     chiave: "aliquotaIva",
@@ -86,15 +95,28 @@ export const CAMPI: Campo[] = [
     obbligatorio: false,
     predefinito: "l'aliquota ordinaria dell'anno, o 0 in forfettario",
     indizi: ["iva", "aliquota", "aliquota iva", "% iva", "imposta"],
-    destinazioni: ["fattura", "costo"],
+    destinazioni: ["fattura", "nota", "costo"],
   },
   {
     chiave: "dataCassa",
     etichetta: "Data di incasso",
     obbligatorio: false,
     predefinito: "vuota: la fattura risulta da incassare",
-    indizi: ["incasso", "data incasso", "pagata il", "data pagamento", "saldo", "incassata"],
+    // «rimborso» sta qui perché in un'esportazione mista la colonna del denaro
+    // è una sola: sulla fattura è l'incasso, sulla nota il rimborso. Senza,
+    // riaprendo un file esportato da qui le date di rimborso si perdevano.
+    indizi: ["incasso", "data incasso", "pagata il", "data pagamento", "saldo", "incassata", "rimborso", "data rimborso"],
     destinazioni: ["fattura"],
+  },
+  {
+    chiave: "dataCassa",
+    etichetta: "Data del rimborso",
+    obbligatorio: false,
+    // Sulla nota la colonna dell'incasso è il rimborso: è quella che fa
+    // scendere i ricavi per cassa, come l'incasso li fa salire.
+    predefinito: "vuota: la nota risulta da rimborsare",
+    indizi: ["rimborso", "data rimborso", "incasso", "data incasso", "pagata il", "data pagamento", "saldo", "rimborsata"],
+    destinazioni: ["nota"],
   },
   {
     chiave: "dataCassa",
@@ -116,12 +138,12 @@ export const CAMPI: Campo[] = [
     chiave: "documento",
     etichetta: "Tipo di documento",
     obbligatorio: false,
-    predefinito: "tutte le righe sono fatture",
+    predefinito: "vale la scelta qui sopra per tutte le righe",
     // Fatture in Cloud e diversi gestionali esportano già questa colonna: senza
     // mapparla le note di credito entrerebbero come fatture, e il fatturato
     // salirebbe invece di scendere.
     indizi: ["documento", "tipo documento", "tipo", "tipologia documento"],
-    destinazioni: ["fattura"],
+    destinazioni: ["fattura", "nota"],
   },
   {
     chiave: "tipoRicavo",

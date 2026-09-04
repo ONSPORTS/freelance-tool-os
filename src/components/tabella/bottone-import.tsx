@@ -22,7 +22,7 @@ export function BottoneImport({
   taglia,
   etichetta = "Importa da CSV",
 }: {
-  destinazione: "fattura" | "costo";
+  destinazione: "fattura" | "nota" | "costo";
   variante?: ButtonProps["variante"];
   taglia?: ButtonProps["taglia"];
   etichetta?: string;

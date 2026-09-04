@@ -77,9 +77,40 @@ export type Lettura = {
  */
 const DICITURE_NOTA = ["notadicredito", "notacredito", "nc", "notedicredito", "creditnote", "reso"];
 
+/**
+ * E quelle con cui dicono che una riga è una fattura.
+ *
+ * Servono nel verso opposto: in un file misto aperto partendo dalle note, le
+ * righe che il gestionale marca come fatture devono restare fatture. Quello che
+ * il file dichiara vale più di quello che si è scelto in cima alla schermata.
+ */
+const DICITURE_FATTURA = ["fattura", "fatture", "fattura di vendita", "fatturavendita", "invoice", "parcella", "ricevuta"];
+
 export function eNotaDiCredito(valore: string): boolean {
   const v = chiaveNome(valore);
   return v !== "" && DICITURE_NOTA.includes(v);
+}
+
+export function eFattura(valore: string): boolean {
+  const v = chiaveNome(valore);
+  return v !== "" && DICITURE_FATTURA.map(chiaveNome).includes(v);
+}
+
+/**
+ * Che documento è questa riga.
+ *
+ * La colonna «Tipo di documento» decide quando c'è e si capisce; altrimenti
+ * vale la destinazione scelta. Una dicitura che non è né l'una né l'altra —
+ * «Autofattura», «Proforma» — non fa scartare la riga: cade sulla scelta fatta,
+ * e in anteprima si vede dov'è finita.
+ */
+export function tipoDellaRiga(
+  valoreDocumento: string,
+  predefinito: "fattura" | "nota",
+): "fattura" | "nota" {
+  if (eNotaDiCredito(valoreDocumento)) return "nota";
+  if (eFattura(valoreDocumento)) return "fattura";
+  return predefinito;
 }
 
 const TIPI_RICAVO: Record<string, Fattura["tipoRicavo"]> = {
@@ -116,7 +147,7 @@ function chiaveNome(nome: string): string {
 export function interpreta(
   righe: string[][],
   piano: Piano,
-  esistenti: { fatture: Fattura[]; costi: Costo[]; clienti: Cliente[] },
+  esistenti: { fatture: Fattura[]; note: NotaCredito[]; costi: Costo[]; clienti: Cliente[] },
   { inizioRighe = 2, id = generaId }: { inizioRighe?: number; id?: () => string } = {},
 ): Lettura {
   const m = piano.mappatura;
@@ -137,6 +168,13 @@ export function interpreta(
   // Indici del già presente, per il rilevamento dei duplicati.
   const fattureEsistenti = new Map(
     esistenti.fatture.map((f) => [`${chiaveNome(f.numero)}|${f.dataEmissione}`, f.id]),
+  );
+  // Le note si riconoscono come le fatture: stesso numero, stessa data. Senza
+  // questo indice, reimportare lo stesso file misto raddoppiava le note mentre
+  // le fatture venivano fermate — e uno storno contato due volte abbassa il
+  // fatturato del doppio, in silenzio.
+  const noteEsistenti = new Map(
+    esistenti.note.map((n) => [`${chiaveNome(n.numero)}|${n.dataDocumento}`, n.id]),
   );
   const costiEsistenti = new Map(
     esistenti.costi.map((c) => [
@@ -183,7 +221,7 @@ export function interpreta(
       return;
     }
 
-    if (piano.destinazione === "fattura") {
+    if (piano.destinazione === "fattura" || piano.destinazione === "nota") {
       const nome = campoDi(riga, m.controparte ?? null);
       if (nome === "") {
         scarta("manca il cliente");
@@ -201,13 +239,25 @@ export function interpreta(
       const dataIncasso = analizzaData(campoDi(riga, m.dataCassa ?? null));
 
       // Una nota di credito non è una fattura col meno: è un documento a sé, e
-      // la colonna «Documento» dei gestionali lo dice già.
-      if (eNotaDiCredito(campoDi(riga, m.documento ?? null))) {
+      // la colonna «Documento» dei gestionali lo dice già. Il file misto —
+      // fatture e note nella stessa esportazione — è il caso normale, non
+      // l'eccezione: ogni riga va dove dice la sua colonna, e la scelta in cima
+      // alla schermata vale solo per le righe che non lo dicono.
+      if (tipoDellaRiga(campoDi(riga, m.documento ?? null), piano.destinazione) === "nota") {
+        const giaNota = noteEsistenti.get(`${chiaveNome(numero)}|${data}`);
+        if (giaNota) {
+          out.duplicati.push({
+            riga: numeroRiga,
+            descrizione: `nota ${numero} del ${dataGrezza}`,
+            idEsistente: giaNota,
+          });
+          if (piano.suiDuplicati === "salta") return;
+        }
         out.note.push({
           riga: numeroRiga,
           nomeCliente: nome,
           nota: {
-            id: id(),
+            id: piano.suiDuplicati === "sostituisci" && giaNota ? giaNota : id(),
             dataDocumento: data,
             numero,
             clienteId,

@@ -86,7 +86,8 @@ export type Importazione = {
   id: string;
   eseguitaIl: string;
   nomeFile: string;
-  destinazione: "fattura" | "costo";
+  /** La destinazione scelta: è quella predefinita, non quella di ogni riga. */
+  destinazione: "fattura" | "nota" | "costo";
   conteggi: {
     fatture: number;
     note: number;

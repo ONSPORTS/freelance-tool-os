@@ -16,7 +16,7 @@ import {
   eseguiImport,
   importAnnullabile,
 } from "@/lib/dati/importazioni";
-import { costiCsv, fattureCsv, nomeFileCsv } from "@/lib/csv/esporta";
+import { costiCsv, fattureCsv, noteCsv, nomeFileCsv } from "@/lib/csv/esporta";
 import { leggiCsv, type Tabella } from "@/lib/csv/parser";
 import { mappaturaAutomatica, type Destinazione, type Mappatura } from "@/lib/csv/campi";
 import {
@@ -109,7 +109,7 @@ export function SchermataImporta() {
         aliquotaPredefinita,
         spesePersonaliFisse: fisse,
       },
-      { fatture: dati.fatture, costi: dati.costi, clienti: dati.clienti },
+      { fatture: dati.fatture, note: dati.note, costi: dati.costi, clienti: dati.clienti },
     );
   }, [tabella, dati, destinazione, mappatura, personali, suiDuplicati, aliquotaPredefinita, fisse]);
 
@@ -118,10 +118,10 @@ export function SchermataImporta() {
     [tabella, destinazione, mappatura],
   );
 
+  // Gli stessi tre in tutte e tre le destinazioni: senza data, importo e
+  // controparte una riga non si interpreta, qualunque cosa sia.
   const obbligatoriMancanti =
-    destinazione === "fattura"
-      ? mappatura.data === null || mappatura.imponibile === null || mappatura.controparte === null
-      : mappatura.data === null || mappatura.imponibile === null || mappatura.controparte === null;
+    mappatura.data === null || mappatura.imponibile === null || mappatura.controparte === null;
 
   const daImportare =
     (lettura?.fatture.length ?? 0) +
@@ -172,14 +172,17 @@ export function SchermataImporta() {
     setTabella(null);
   }
 
-  async function esporta(cosa: "fatture" | "costi") {
+  async function esporta(cosa: "fatture" | "note" | "costi") {
     const contenuto = await archivio().leggiTutto();
     const csv =
       cosa === "fatture"
         ? fattureCsv(contenuto.fatture, contenuto.clienti)
-        : costiCsv(contenuto.costi);
+        : cosa === "note"
+          ? noteCsv(contenuto.note, contenuto.clienti)
+          : costiCsv(contenuto.costi);
     scaricaTesto(nomeFileCsv(cosa, anno), csv, "text/csv");
-    toast.conferma(`${cosa === "fatture" ? "Fatture" : "Costi"} esportati in CSV`);
+    const nomi = { fatture: "Fatture", note: "Note di credito", costi: "Costi" };
+    toast.conferma(`${nomi[cosa]} esportate in CSV`);
   }
 
   return (
@@ -204,19 +207,11 @@ export function SchermataImporta() {
                 </CardSottotitolo>
               </CardIntestazione>
               <CardCorpo className="space-y-4 pt-0">
-                <div>
-                  <p className="mb-1.5 text-etichetta font-medium">Che cosa contiene</p>
-                  <Segmenti
-                    etichettaGruppo="Tipo di documenti nel file"
-                    valore={destinazione}
-                    onChange={cambiaDestinazione}
-                    disabilitato={bloccata}
-                    opzioni={[
-                      { valore: "fattura", etichetta: "Fatture emesse" },
-                      { valore: "costo", etichetta: "Costi e spese" },
-                    ]}
-                  />
-                </div>
+                <SceltaContenuto
+                  destinazione={destinazione}
+                  onCambia={cambiaDestinazione}
+                  bloccata={bloccata}
+                />
                 <Button scrive onClick={() => void scegliFile()}>
                   <Upload className="size-4" aria-hidden />
                   Scegli un file CSV
@@ -236,6 +231,10 @@ export function SchermataImporta() {
                 <Button variante="contorno" onClick={() => void esporta("fatture")}>
                   <Download className="size-4" aria-hidden />
                   Fatture in CSV
+                </Button>
+                <Button variante="contorno" onClick={() => void esporta("note")}>
+                  <Download className="size-4" aria-hidden />
+                  Note in CSV
                 </Button>
                 <Button variante="contorno" onClick={() => void esporta("costi")}>
                   <Download className="size-4" aria-hidden />
@@ -261,19 +260,11 @@ export function SchermataImporta() {
                 {/* Il tipo si può correggere anche qui: che un file sia di
                     costi e non di fatture si capisce guardando l'anteprima, e
                     obbligare a ricominciare dal file sarebbe una punizione. */}
-                <div>
-                  <p className="mb-1.5 text-etichetta font-medium">Che cosa contiene</p>
-                  <Segmenti
-                    etichettaGruppo="Tipo di documenti nel file"
-                    valore={destinazione}
-                    onChange={cambiaDestinazione}
-                    disabilitato={bloccata}
-                    opzioni={[
-                      { valore: "fattura", etichetta: "Fatture emesse" },
-                      { valore: "costo", etichetta: "Costi e spese" },
-                    ]}
-                  />
-                </div>
+                <SceltaContenuto
+                  destinazione={destinazione}
+                  onCambia={cambiaDestinazione}
+                  bloccata={bloccata}
+                />
                 <Mappa
                   destinazione={destinazione}
                   intestazioni={tabella.intestazioni}
@@ -432,5 +423,49 @@ function RiquadroAnnulla({
         </Button>
       </CardCorpo>
     </Card>
+  );
+}
+
+/**
+ * Che cosa contiene il file.
+ *
+ * Tre scelte e non due: le note di credito mancavano, e chi arrivava qui dal
+ * loro registro non aveva niente da scegliere. Ma la scelta è un valore
+ * predefinito per riga, non un vincolo — il caso vero è il file misto che
+ * Fatture in Cloud esporta, fatture e note insieme con la colonna «Documento»
+ * che dice quale è quale. La frase sotto dice quale delle due cose sta
+ * succedendo, perché la differenza cambia dove finiscono le righe.
+ */
+function SceltaContenuto({
+  destinazione,
+  onCambia,
+  bloccata,
+}: {
+  destinazione: Destinazione;
+  onCambia: (d: Destinazione) => void;
+  bloccata: boolean;
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-etichetta font-medium">Che cosa contiene</p>
+      <Segmenti
+        etichettaGruppo="Tipo di documenti nel file"
+        valore={destinazione}
+        onChange={onCambia}
+        disabilitato={bloccata}
+        opzioni={[
+          { valore: "fattura", etichetta: "Fatture" },
+          { valore: "nota", etichetta: "Note di credito" },
+          { valore: "costo", etichetta: "Costi e spese" },
+        ]}
+      />
+      <p className="mt-1.5 text-etichetta text-inchiostro-tenue">
+        {destinazione === "costo"
+          ? "Costi dell'attività e spese personali possono stare nello stesso file: si separano più sotto, indicando la colonna che li distingue."
+          : destinazione === "fattura"
+            ? "Un file misto va bene: se c'è una colonna «Tipo di documento», le righe marcate come nota di credito finiscono fra le note. Le altre diventano fatture."
+            : "Ogni riga diventa una nota di credito, anche senza colonna «Tipo di documento». Se la colonna c'è, le righe marcate come fattura restano fatture."}
+      </p>
+    </div>
   );
 }

@@ -82,7 +82,14 @@ export function Guscio({
         <BarraLicenza />
         <header className="sticky top-0 z-30 border-b border-bordo bg-fondo/85 backdrop-blur-sm print:hidden">
           <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 sm:gap-3 sm:px-5 sm:py-3 lg:px-8">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
+            {/*
+              Il titolo ha un minimo dichiarato: senza, i controlli si
+              stringevano fino a starci per un pelo e il pelo lo pagava lui —
+              «Imposte e contributi» diventava «Imp…» mentre accanto c'era
+              spazio vuoto. Sotto quel minimo i controlli vanno a capo, che è
+              quello che deve succedere.
+            */}
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:min-w-72">
               <MenuMobile />
               <BottoneCerca />
               <div className="min-w-0">

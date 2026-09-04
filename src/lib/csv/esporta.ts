@@ -13,7 +13,7 @@
  * numeri e non come testo.
  */
 import { data as fmtData } from "@/lib/format";
-import type { Cliente, Costo, Fattura } from "@/lib/dati/tipi";
+import type { Cliente, Costo, Fattura, NotaCredito } from "@/lib/dati/tipi";
 
 export const SEPARATORE = ";";
 const BOM = "﻿";
@@ -62,6 +62,41 @@ export function fattureCsv(fatture: Fattura[], clienti: Cliente[]): string {
   );
 }
 
+/**
+ * Le note di credito, con la colonna «Documento» in testa.
+ *
+ * Esce riimportabile dalla stessa app e leggibile dal commercialista: la
+ * colonna dice cos'è ogni riga, così il file torna dentro senza che nessuno
+ * debba ricordarsi di scegliere il tipo giusto. Il registro delle note aveva un
+ * pulsante per entrare e nessuno per uscire.
+ */
+export function noteCsv(note: NotaCredito[], clienti: Cliente[]): string {
+  const nome = (id: string) => clienti.find((c) => c.id === id)?.nome ?? "";
+  const ordinate = [...note].sort((a, b) => a.dataDocumento.localeCompare(b.dataDocumento));
+  return componiCsv(
+    [
+      "Data documento",
+      "Documento",
+      "Numero",
+      "Cliente",
+      "Descrizione",
+      "Imponibile",
+      "Aliquota IVA",
+      "Data rimborso",
+    ],
+    ordinate.map((n) => [
+      fmtData(n.dataDocumento),
+      "Nota di credito",
+      n.numero,
+      nome(n.clienteId),
+      n.descrizione,
+      numeroCsv(n.imponibile),
+      numeroCsv((n.aliquotaIva ?? 0) * 100),
+      n.dataRimborso ? fmtData(n.dataRimborso) : "",
+    ]),
+  );
+}
+
 export function costiCsv(costi: Costo[]): string {
   const ordinati = [...costi].sort((a, b) => a.dataDocumento.localeCompare(b.dataDocumento));
   return componiCsv(
@@ -90,6 +125,6 @@ export function costiCsv(costi: Costo[]): string {
   );
 }
 
-export function nomeFileCsv(cosa: "fatture" | "costi", anno: number): string {
+export function nomeFileCsv(cosa: "fatture" | "note" | "costi", anno: number): string {
   return `flowlance-${cosa}-${anno}.csv`;
 }

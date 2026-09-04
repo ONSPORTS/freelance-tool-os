@@ -22,7 +22,7 @@ import type { Costo, Fattura, NotaCredito } from "@/lib/fisco/tipi";
 
 export type DaScrivere = {
   nomeFile: string;
-  destinazione: "fattura" | "costo";
+  destinazione: "fattura" | "nota" | "costo";
   fatture: Fattura[];
   note: NotaCredito[];
   costi: Costo[];

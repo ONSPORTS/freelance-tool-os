@@ -16,6 +16,7 @@ import { riscontro, riscontroMigliore } from "./fuzzy";
 export type Azione =
   | { tipo: "vai"; href: string }
   | { tipo: "nuovaFattura" }
+  | { tipo: "nuovaNota" }
   | { tipo: "nuovoCosto" }
   | { tipo: "segnaIncassata"; fatturaId: string }
   | { tipo: "cambiaAnno"; anno: number }
@@ -115,6 +116,13 @@ export function comandi(ctx: ContestoComandi): Comando[] {
       azione: { tipo: "nuovaFattura" },
       sinonimi: ["emetti", "crea fattura", "aggiungi ricavo"],
       scorciatoia: "N",
+    },
+    {
+      id: "azione:nuova-nota",
+      etichetta: "Nuova nota di credito",
+      sezione: "Azioni",
+      azione: { tipo: "nuovaNota" },
+      sinonimi: ["storno", "nota credito", "reso", "rimborso", "accredito"],
     },
     {
       id: "azione:nuovo-costo",

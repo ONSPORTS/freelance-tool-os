@@ -8,9 +8,9 @@ import {
   valoriDistinti,
   type Piano,
 } from "./importa";
-import { cella, componiCsv, costiCsv, fattureCsv, numeroCsv } from "./esporta";
+import { cella, componiCsv, costiCsv, fattureCsv, noteCsv, numeroCsv } from "./esporta";
 import { analizzaData } from "@/lib/format";
-import type { Cliente, Costo, Fattura } from "@/lib/dati/tipi";
+import type { Cliente, Costo, Fattura, NotaCredito } from "@/lib/dati/tipi";
 
 // ————————————————————————————————————————————————————————————
 // Il parser
@@ -180,7 +180,12 @@ function pianoFatture(extra: Partial<Piano> = {}): Piano {
   };
 }
 
-const VUOTO = { fatture: [] as Fattura[], costi: [] as Costo[], clienti: [] as Cliente[] };
+const VUOTO = {
+  fatture: [] as Fattura[],
+  note: [] as NotaCredito[],
+  costi: [] as Costo[],
+  clienti: [] as Cliente[],
+};
 
 const RIGHE_FATTURE = [
   ["01/02/2026", "2026/001", "Alfa Srl", "Consulenza", "1.500,00", "22", "05/03/2026"],
@@ -556,6 +561,124 @@ describe("le note di credito arrivano riconosciute dal CSV", () => {
     expect(eNotaDiCredito("")).toBe(false);
     // «Notula» è un documento diverso: non deve cadere fra le note.
     expect(eNotaDiCredito("Notula")).toBe(false);
+  });
+
+  it("partendo dalle note, un file misto resta misto", () => {
+    /*
+      Chi arriva dal registro delle note trova «Note di credito» già scelto, ma
+      il file che ha in mano è l'esportazione mista del gestionale. Quello che
+      il file dichiara vale più della scelta fatta in cima alla schermata: la
+      riga marcata «Fattura» resta una fattura, e il fatturato non si sposta.
+    */
+    contatore = 0;
+    const l = interpreta(
+      righe,
+      { ...piano(), destinazione: "nota", mappatura: mappaturaAutomatica(intestazioni, "nota") },
+      VUOTO,
+      { id: idFinto },
+    );
+    expect(l.fatture).toHaveLength(1);
+    expect(l.fatture[0].fattura.numero).toBe("2026/001");
+    expect(l.note).toHaveLength(2);
+  });
+
+  it("partendo dalle note, un file senza la colonna diventa tutto note", () => {
+    /*
+      È il caso che la sola colonna «Documento» non copre: un gestionale che
+      esporta le note in un file loro, senza niente che dica cosa sono. Prima
+      entravano tutte come fatture, e il fatturato saliva invece di scendere.
+    */
+    contatore = 0;
+    const senzaColonna = ["Data", "Numero", "Cliente", "Imponibile", "IVA", "Rimborso"];
+    const l = interpreta(
+      [
+        ["10/03/2026", "NC/1", "Alfa Srl", "500,00", "22", "05/04/2026"],
+        ["12/03/2026", "NC/2", "Beta Spa", "300,00", "22", ""],
+      ],
+      {
+        ...piano(),
+        destinazione: "nota",
+        mappatura: mappaturaAutomatica(senzaColonna, "nota"),
+      },
+      VUOTO,
+      { id: idFinto },
+    );
+    expect(l.fatture).toHaveLength(0);
+    expect(l.note).toHaveLength(2);
+    // La colonna del rimborso è quella che fa scendere i ricavi per cassa.
+    expect(l.note[0].nota.dataRimborso).toBe("2026-04-05");
+    expect(l.note[1].nota.dataRimborso).toBeNull();
+  });
+
+  it("reimportare lo stesso file misto non raddoppia le note", () => {
+    /*
+      Le fatture erano già protette, le note no: uno storno contato due volte
+      abbassa il fatturato del doppio, e in silenzio.
+    */
+    contatore = 0;
+    const primo = interpreta(righe, piano(), VUOTO, { id: idFinto });
+    const inArchivio = {
+      ...VUOTO,
+      fatture: primo.fatture.map((f) => f.fattura),
+      note: primo.note.map((n) => n.nota),
+    };
+    const secondo = interpreta(righe, { ...piano(), suiDuplicati: "salta" }, inArchivio, {
+      id: idFinto,
+    });
+    expect(secondo.duplicati).toHaveLength(3);
+    expect(secondo.note).toHaveLength(0);
+    expect(secondo.fatture).toHaveLength(0);
+  });
+
+  it("i campi delle note sono quelli delle note", () => {
+    const chiavi = campiDi("nota").map((c) => c.chiave);
+    expect(chiavi).toContain("controparte");
+    expect(chiavi).toContain("documento");
+    // Il tipo di ricavo su una nota non vuol dire niente, la deducibilità nemmeno.
+    expect(chiavi).not.toContain("tipoRicavo");
+    expect(chiavi).not.toContain("deducibilita");
+    // E la colonna di cassa si chiama col nome giusto.
+    const cassa = campiDi("nota").find((c) => c.chiave === "dataCassa");
+    expect(cassa?.etichetta).toBe("Data del rimborso");
+  });
+
+  it("l'export delle note rientra da solo dove deve", () => {
+    /*
+      Il giro completo: si esporta, si riapre il file e le note tornano note.
+      Regge perché l'export scrive la colonna «Documento» — senza, rientrerebbero
+      come fatture e ogni giro d'andata e ritorno gonfierebbe il fatturato.
+    */
+    contatore = 0;
+    const clienti: Cliente[] = [
+      { id: "c1", nome: "Alfa Srl", canaleAcquisizione: "Passaparola", note: "" },
+    ];
+    const note: NotaCredito[] = [
+      {
+        id: "n1",
+        dataDocumento: "2026-03-10",
+        numero: "NC/1",
+        clienteId: "c1",
+        descrizione: "Storno di marzo",
+        imponibile: 500,
+        aliquotaIva: 0.22,
+        dataRimborso: "2026-04-05",
+      },
+    ];
+    const tabella = leggiCsv(noteCsv(note, clienti));
+    const l = interpreta(
+      tabella.righe,
+      {
+        ...piano(),
+        mappatura: mappaturaAutomatica(tabella.intestazioni, "fattura"),
+      },
+      VUOTO,
+      { id: idFinto },
+    );
+    expect(l.fatture).toHaveLength(0);
+    expect(l.note).toHaveLength(1);
+    expect(l.note[0].nota.numero).toBe("NC/1");
+    expect(l.note[0].nota.imponibile).toBe(500);
+    expect(l.note[0].nota.dataRimborso).toBe("2026-04-05");
   });
 
   it("senza la colonna tutte le righe restano fatture", () => {

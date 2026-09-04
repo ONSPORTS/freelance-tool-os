@@ -90,6 +90,10 @@ export function Paletta() {
         router.push("/fatture");
         chiedi({ tipo: "nuovaFattura" });
         return;
+      case "nuovaNota":
+        router.push("/note");
+        chiedi({ tipo: "nuovaNota" });
+        return;
       case "nuovoCosto":
         router.push("/costi");
         chiedi({ tipo: "nuovoCosto" });

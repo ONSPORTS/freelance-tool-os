@@ -33,6 +33,7 @@ import { useCalcoloAnno, useDati } from "@/lib/dati/hooks";
 import { controlliNote, notaGrezza } from "@/lib/fisco/note";
 import { dentroPeriodo, etichettaPeriodo } from "@/lib/periodo";
 import { usePreferenze } from "@/lib/stato/preferenze";
+import { useRichiesta } from "@/lib/stato/comandi";
 import { euro, data as fmtData } from "@/lib/format";
 import type { NotaCredito } from "@/lib/dati/tipi";
 import { ModuloNota } from "./modulo-nota";
@@ -53,6 +54,13 @@ export function SchermataNote() {
   const calcolo = useCalcoloAnno(periodo.anno, oggi);
   const [moduloAperto, setModuloAperto] = React.useState(false);
   const [inModifica, setInModifica] = React.useState<NotaCredito | null>(null);
+
+  // Quello che chiede la palette. La voce mancava: il vocabolario è stato
+  // scritto quando le note di credito non esistevano ancora.
+  useRichiesta("nuovaNota", () => {
+    setInModifica(null);
+    setModuloAperto(true);
+  });
   const [daRiconciliare, setDaRiconciliare] = React.useState<NotaCredito | null>(null);
 
   const clienti = React.useMemo(() => dati?.clienti ?? [], [dati]);
@@ -98,7 +106,7 @@ export function SchermataNote() {
       descrizione={`Storni sulle fatture emesse · ${etichettaPeriodo(periodo)}`}
       azioni={
         <span className="flex flex-wrap items-center gap-2">
-          <BottoneImport destinazione="fattura" etichetta="Da CSV" />
+          <BottoneImport destinazione="nota" etichetta="Da CSV" />
           <Button scrive onClick={() => { setInModifica(null); setModuloAperto(true); }}>
             <FileMinus2 className="size-4" aria-hidden />
             Nuova nota
@@ -132,7 +140,7 @@ export function SchermataNote() {
                 <Button scrive onClick={() => { setInModifica(null); setModuloAperto(true); }}>
                   Nuova nota
                 </Button>
-                <BottoneImport destinazione="fattura" />
+                <BottoneImport destinazione="nota" />
               </div>
             }
           />

@@ -88,6 +88,7 @@ describe("il vocabolario copre quello che si fa ogni giorno", () => {
     for (const atteso of [
       "vai",
       "nuovaFattura",
+      "nuovaNota",
       "nuovoCosto",
       "segnaIncassata",
       "cambiaAnno",
@@ -132,8 +133,9 @@ describe("in sola lettura restano solo i comandi che leggono", () => {
   const bloccati = comandi({ ...CTX, solaLettura: true });
   const tipi = bloccati.map((c) => c.azione.tipo);
 
-  it("niente «nuova fattura», «nuovo costo», «segna incassata»", () => {
+  it("niente «nuova fattura», «nuova nota», «nuovo costo», «segna incassata»", () => {
     expect(tipi).not.toContain("nuovaFattura");
+    expect(tipi).not.toContain("nuovaNota");
     expect(tipi).not.toContain("nuovoCosto");
     expect(tipi).not.toContain("segnaIncassata");
   });
@@ -209,7 +211,8 @@ describe("la ricerca porta in cima quello che si stava cercando", () => {
     const fatture = vuota.filter((e) => e.comando.sezione === "Fatture");
     expect(fatture.length).toBeLessThanOrEqual(6);
     // Ma le azioni e la navigazione ci sono tutte: è il menu principale.
-    expect(vuota.filter((e) => e.comando.sezione === "Azioni")).toHaveLength(3);
+    // Quattro: nuova fattura, nuova nota di credito, nuovo costo, esporta backup.
+    expect(vuota.filter((e) => e.comando.sezione === "Azioni")).toHaveLength(4);
     // Digitando, il troncamento sparisce.
     expect(cerca(comandi(molte), "2026/").length).toBeGreaterThan(6);
   });

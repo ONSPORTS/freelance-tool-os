@@ -126,6 +126,36 @@ export function ScelteNature({
   );
 }
 
+/**
+ * Fatture e note lette, mescolate nell'ordine in cui stanno nel file.
+ *
+ * L'anteprima di un'esportazione mista deve rispondere a «dove è finita questa
+ * riga», e per rispondere le due liste vanno rimesse nell'ordine in cui sono
+ * arrivate: separarle mostrerebbe due elenchi che non somigliano al file.
+ */
+function documentiLetti(lettura: Lettura) {
+  return [
+    ...lettura.fatture.map((f) => ({
+      tipo: "fattura" as const,
+      riga: f.riga,
+      data: f.fattura.dataEmissione,
+      numero: f.fattura.numero,
+      cliente: f.nomeCliente,
+      imponibile: f.fattura.imponibile,
+      aliquota: f.fattura.aliquotaIva ?? 0,
+    })),
+    ...lettura.note.map((n) => ({
+      tipo: "nota" as const,
+      riga: n.riga,
+      data: n.nota.dataDocumento,
+      numero: n.nota.numero,
+      cliente: n.nomeCliente,
+      imponibile: n.nota.imponibile,
+      aliquota: n.nota.aliquotaIva ?? 0,
+    })),
+  ].sort((a, b) => a.riga - b.riga);
+}
+
 /** Passo 3: le prime righe già interpretate, con importi e date formattati. */
 export function Anteprima({
   lettura,
@@ -143,13 +173,20 @@ export function Anteprima({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
-        <Chip tono="neutro">
-          {destinazione === "fattura"
-            ? `${lettura.fatture.length} fatture`
-            : `${lettura.costi.length} costi`}
-        </Chip>
-        {lettura.note.length > 0 && (
+        {/*
+          Il conteggio della destinazione scelta si vede sempre, anche a zero:
+          «0 fatture» dice che la mappatura è da correggere, e nasconderlo
+          lascerebbe credere che il file fosse vuoto. Gli altri compaiono quando
+          ci sono, perché in un file misto sono la notizia.
+        */}
+        {(destinazione !== "costo" || lettura.fatture.length > 0) && (
+          <Chip tono="neutro">{lettura.fatture.length} fatture</Chip>
+        )}
+        {(destinazione === "nota" || lettura.note.length > 0) && (
           <Chip tono="accento">{lettura.note.length} note di credito</Chip>
+        )}
+        {(destinazione === "costo" || lettura.costi.length > 0) && (
+          <Chip tono="neutro">{lettura.costi.length} costi</Chip>
         )}
         {lettura.personali.length > 0 && (
           <Chip tono="neutro">{lettura.personali.length} spese personali</Chip>
@@ -180,32 +217,21 @@ export function Anteprima({
                 <th className="py-1.5 pr-3 font-normal">Riga</th>
                 <th className="py-1.5 pr-3 font-normal">Data</th>
                 <th className="py-1.5 pr-3 font-normal">
-                  {destinazione === "fattura" ? "Numero" : "Fornitore"}
+                  {destinazione === "costo" ? "Fornitore" : "Numero"}
                 </th>
                 <th className="py-1.5 pr-3 font-normal">
-                  {destinazione === "fattura" ? "Cliente" : "Categoria"}
+                  {destinazione === "costo" ? "Categoria" : "Cliente"}
                 </th>
+                {destinazione !== "costo" && (
+                  <th className="py-1.5 pr-3 font-normal">Documento</th>
+                )}
                 <th className="py-1.5 pr-3 text-right font-normal">Imponibile</th>
                 <th className="py-1.5 text-right font-normal">IVA</th>
               </tr>
             </thead>
             <tbody>
-              {destinazione === "fattura"
-                ? lettura.fatture.slice(0, quante).map((f) => (
-                    <tr key={f.riga} className="border-b border-bordo/60">
-                      <td className="cifre py-1.5 pr-3 text-inchiostro-tenue">{f.riga}</td>
-                      <td className="cifre py-1.5 pr-3">{fmtData(f.fattura.dataEmissione)}</td>
-                      <td className="py-1.5 pr-3">{f.fattura.numero}</td>
-                      <td className="py-1.5 pr-3">{f.nomeCliente}</td>
-                      <td className="cifre py-1.5 pr-3 text-right tabular-nums">
-                        {euro(f.fattura.imponibile)}
-                      </td>
-                      <td className="cifre py-1.5 text-right tabular-nums">
-                        {percentuale(f.fattura.aliquotaIva ?? 0, 0)}
-                      </td>
-                    </tr>
-                  ))
-                : lettura.costi.slice(0, quante).map((c) => (
+              {destinazione === "costo"
+                ? lettura.costi.slice(0, quante).map((c) => (
                     <tr key={c.riga} className="border-b border-bordo/60">
                       <td className="cifre py-1.5 pr-3 text-inchiostro-tenue">{c.riga}</td>
                       <td className="cifre py-1.5 pr-3">{fmtData(c.costo.dataDocumento)}</td>
@@ -218,7 +244,36 @@ export function Anteprima({
                         {percentuale(c.costo.aliquotaIva, 0)}
                       </td>
                     </tr>
-                  ))}
+                  ))
+                : /*
+                    Fatture e note nella stessa anteprima, nell'ordine del file:
+                    su un'esportazione mista la domanda non è «come è stata
+                    letta questa riga» ma «dove è finita», e due tabelle
+                    separate la lascerebbero senza risposta.
+                  */
+                  documentiLetti(lettura)
+                    .slice(0, quante)
+                    .map((d) => (
+                      <tr key={`${d.tipo}-${d.riga}`} className="border-b border-bordo/60">
+                        <td className="cifre py-1.5 pr-3 text-inchiostro-tenue">{d.riga}</td>
+                        <td className="cifre py-1.5 pr-3">{fmtData(d.data)}</td>
+                        <td className="py-1.5 pr-3">{d.numero}</td>
+                        <td className="py-1.5 pr-3">{d.cliente}</td>
+                        <td className="py-1.5 pr-3">
+                          {d.tipo === "nota" ? (
+                            <Chip tono="accento">Nota di credito</Chip>
+                          ) : (
+                            <span className="text-inchiostro-tenue">Fattura</span>
+                          )}
+                        </td>
+                        <td className="cifre py-1.5 pr-3 text-right tabular-nums">
+                          {euro(d.imponibile)}
+                        </td>
+                        <td className="cifre py-1.5 text-right tabular-nums">
+                          {percentuale(d.aliquota, 0)}
+                        </td>
+                      </tr>
+                    ))}
             </tbody>
           </table>
         </CardCorpo>
