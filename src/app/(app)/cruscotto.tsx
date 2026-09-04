@@ -7,6 +7,7 @@ import { Card, CardCorpo, CardSottotitolo, CardTitolo } from "@/components/ui/ca
 import { CaricamentoTabella } from "@/components/ui/caricamento";
 import { Chip } from "@/components/ui/chip";
 import { Kpi } from "@/components/ui/kpi";
+import { quotaLimite } from "@/lib/fisco/spiegazioni";
 import { COLORI_SEMAFORO, SemaforoFiscale } from "@/components/fisco/semaforo-fiscale";
 import { GraficoAndamento } from "@/components/grafici/andamento";
 import { GraficoConcentrazione } from "@/components/grafici/concentrazione";
@@ -33,7 +34,12 @@ export function Cruscotto() {
     const { prospetto, impostazioni, iva } = calcolo;
     const scadenze = scadenzeAnno(impostazioni, parametriDi(anno), prospetto, iva);
     return {
-      mesi: andamentoMensile(prospetto.fattureCalcolate, prospetto.costiCalcolati, anno),
+      mesi: andamentoMensile(
+        prospetto.fattureCalcolate,
+        prospetto.costiCalcolati,
+        anno,
+        prospetto.noteCalcolate,
+      ),
       portafoglio: portafoglioClienti(prospetto.fattureCalcolate, dati.clienti, anno, coloreDaNome),
       giorniMedi: giorniMediIncasso(prospetto.fattureCalcolate),
       scadenze,
@@ -71,6 +77,9 @@ export function Cruscotto() {
     .reduce((a, f) => a + f.nettoIncasso, 0);
   const costiAnno = p.costiPagatiTotale;
   const margine = p.ricaviRilevanti - p.costiNettiACarico;
+  // La quota di limite forfettario, che finora stava solo nel prospetto: chi
+  // guarda il cruscotto e basta non sapeva quanto gli restava.
+  const quota = quotaLimite(p, calcolo.impostazioni);
 
   return (
     <Guscio titolo={titolo} descrizione={descrizione}>
@@ -114,8 +123,42 @@ export function Cruscotto() {
           ]}
         />
 
-        <section aria-label="Indicatori principali" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {/*
+          Sul telefono i quattro indicatori piccoli stanno a due a due: la loro
+          cifra ci sta, e quattro righe intere di card prima del resto sono
+          duecento pixel di scorrimento che non servono a nessuno. I cinque
+          grandi restano uno per riga — «45.650,00 €» a mezza larghezza non si
+          legge — e la coppia emesso/incassato si legge in verticale, nell'ordine
+          in cui succedono le cose.
+        */}
+        <section
+          aria-label="Indicatori principali"
+          className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        >
+          {/*
+            Il fatturato emesso prima dell'incassato: è il numero con cui si
+            descrive il proprio anno, e la coppia si legge nell'ordine in cui
+            succedono le cose — quanto ho fatturato, quanto è entrato.
+          */}
           <Kpi
+            className="col-span-2 sm:col-span-1"
+            etichetta="Fatturato emesso"
+            valore={euro(p.fatturatoEmesso)}
+            nota={
+              p.note.stornoEmesso > 0
+                ? `al netto di ${euro(p.note.stornoEmesso)} di storni · per data di fattura`
+                : `fatture emesse nel ${p.anno}, per data di fattura`
+            }
+            sotto={
+              quota && (
+                <p className={quota.oltreProiettando ? "text-[#B8791A]" : "text-inchiostro-tenue"}>
+                  {quota.testo}
+                </p>
+              )
+            }
+          />
+          <Kpi
+            className="col-span-2 sm:col-span-1"
             sfondo="indaco"
             etichetta="Incassato"
             valore={euro(p.ricaviRilevanti)}
@@ -129,17 +172,20 @@ export function Cruscotto() {
             }
           />
           <Kpi
+            className="col-span-2 sm:col-span-1"
             sfondo="ambra"
             etichetta="Da incassare"
             valore={euro(p.soglia.inSospeso)}
             nota={scaduto > 0 ? `di cui ${euro(scaduto)} già scaduti` : "tutto nei termini"}
           />
           <Kpi
+            className="col-span-2 sm:col-span-1"
             etichetta="Carico totale"
             valore={euro(p.caricoTotale)}
             nota={`imposte ${euro(p.totaleImposte)} · contributi ${euro(p.totaleContributi)}`}
           />
           <Kpi
+            className="col-span-2 sm:col-span-1"
             sfondo="scuro"
             etichetta="Pressione effettiva"
             valore={percentuale(p.pressione)}

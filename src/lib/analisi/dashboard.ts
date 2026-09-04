@@ -5,6 +5,7 @@
 import { rapporto, round2, somma } from "@/lib/fisco/aritmetica";
 import { annoDi, meseDi } from "@/lib/fisco/documenti";
 import type { CostoCalcolato, FatturaCalcolata } from "@/lib/fisco/tipi";
+import type { NotaCalcolata } from "@/lib/fisco/note";
 import type { Cliente } from "@/lib/dati/tipi";
 
 export type MeseAndamento = {
@@ -50,6 +51,7 @@ export function andamentoMensile(
   fatture: FatturaCalcolata[],
   costi: CostoCalcolato[],
   anno: number,
+  note: NotaCalcolata[] = [],
 ): MeseAndamento[] {
   const righe: MeseAndamento[] = [];
   let cumulato = 0;
@@ -69,17 +71,38 @@ export function andamentoMensile(
         .filter((f) => f.dataIncasso && annoDi(f.dataIncasso) === anno && meseDi(f.dataIncasso) === m)
         .map((f) => f.ricavoRilevante),
     );
+    // Le note di credito abbassano le due serie come abbassano il fatturato:
+    // lo storno emesso alla data del documento, quello rimborsato alla data in
+    // cui il denaro è tornato indietro. Senza, il grafico diceva un numero e la
+    // card sopra ne diceva un altro, sotto la stessa parola.
+    const stornoEmesso = somma(
+      ...note
+        .filter((n) => annoDi(n.dataDocumento) === anno && meseDi(n.dataDocumento) === m)
+        .map((n) => n.imponibile),
+    );
+    const stornoRimborsato = somma(
+      ...note
+        .filter(
+          (n) =>
+            n.dataRimborso &&
+            annoDi(n.dataRimborso) === anno &&
+            meseDi(n.dataRimborso) === m,
+        )
+        .map((n) => n.imponibile),
+    );
     const costiMese = somma(
       ...costi
         .filter((c) => c.dataPagamento && annoDi(c.dataPagamento) === anno && meseDi(c.dataPagamento) === m)
         .map((c) => c.costoNetto),
     );
-    cumulato = round2(cumulato + incassato - costiMese);
+    const emessoNetto = round2(emesso - stornoEmesso);
+    const incassatoNetto = round2(incassato - stornoRimborsato);
+    cumulato = round2(cumulato + incassatoNetto - costiMese);
     righe.push({
       mese: m,
       etichetta: MESI_BREVI[m - 1],
-      emesso,
-      incassato,
+      emesso: emessoNetto,
+      incassato: incassatoNetto,
       costi: costiMese,
       cumulatoIncassato: cumulato,
     });

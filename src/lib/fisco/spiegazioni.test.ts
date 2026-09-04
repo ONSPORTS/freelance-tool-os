@@ -9,9 +9,14 @@ import {
 import { calcolaProspetto } from "./motore";
 import { PARAMETRI_2026 } from "./parametri/2026";
 import { euro, percentuale } from "@/lib/format";
-import { descriviScaglioni, dettaglioSoglia, prospettoDettagliato } from "./spiegazioni";
+import {
+  descriviScaglioni,
+  dettaglioSoglia,
+  prospettoDettagliato,
+  quotaLimite,
+} from "./spiegazioni";
 import { conValoreDichiarato } from "./parametri-utente";
-import type { Impostazioni } from "./tipi";
+import type { Fattura, Impostazioni, NotaCredito } from "./tipi";
 
 const par = PARAMETRI_2026;
 
@@ -168,5 +173,76 @@ describe("prospetto dettagliato", () => {
     expect(riga(dopo.sezioni, "add-regionale")?.formula).toContain("della tua regione");
     // Quella comunale resta com'era: si dichiarano una per una.
     expect(riga(dopo.sezioni, "add-comunale")?.formula).toMatch(/predefinit/);
+  });
+
+  it("la quota di limite si misura sull'incassato, e dice dove si arriverebbe", () => {
+    /*
+      Il limite del forfettario è sui compensi percepiti, non sull'emesso: chi
+      credesse il contrario si spaventerebbe a vuoto a novembre, o starebbe
+      tranquillo mentre incassa oltre soglia. L'emesso serve però da preavviso,
+      ed è l'unico modo in cui entra in questa domanda.
+    */
+    const imp = impostazioniForfettario();
+    const fatture: Fattura[] = [
+      // 60.000 incassati, 40.000 emessi e ancora da incassare.
+      {
+        id: "a", numero: "1", dataEmissione: "2026-02-01", dataIncasso: "2026-03-01",
+        clienteId: "c1", descrizione: "", tipoRicavo: "progetto", imponibile: 60_000,
+      },
+      {
+        id: "b", numero: "2", dataEmissione: "2026-11-01", dataIncasso: null,
+        clienteId: "c1", descrizione: "", tipoRicavo: "progetto", imponibile: 40_000,
+      },
+    ];
+    const { prospetto } = sezioniDi(imp, fatture, []);
+    const q = quotaLimite(prospetto, imp)!;
+
+    expect(prospetto.soglia.baseCassa).toBe(60_000);
+    expect(prospetto.fatturatoEmesso).toBe(100_000);
+    // Sotto il limite per cassa, oltre proiettando: è il preavviso.
+    expect(q.usato).toBeCloseTo(60_000 / imp.limiteForfettario, 4);
+    expect(q.oltreProiettando).toBe(true);
+    expect(q.testo).toContain("sull'incassato");
+    expect(q.testo).toContain("oltre il limite");
+  });
+
+  it("senza emesso in sospeso la quota non promette niente", () => {
+    const imp = impostazioniForfettario();
+    const fatture: Fattura[] = [
+      {
+        id: "a", numero: "1", dataEmissione: "2026-02-01", dataIncasso: "2026-03-01",
+        clienteId: "c1", descrizione: "", tipoRicavo: "progetto", imponibile: 20_000,
+      },
+    ];
+    const q = quotaLimite(sezioniDi(imp, fatture, []).prospetto, imp)!;
+    expect(q.oltreProiettando).toBe(false);
+    expect(q.testo).not.toContain("arriveresti");
+  });
+
+  it("in ordinario un limite non c'è, e non si inventa", () => {
+    const { prospetto } = sezioniDi(impostazioniOrdinario());
+    expect(quotaLimite(prospetto, impostazioniOrdinario())).toBeNull();
+  });
+
+  it("il fatturato emesso è al netto delle note di credito", () => {
+    /*
+      È il numero con cui si descrive il proprio anno: se una nota di credito
+      non lo abbassasse, si racconterebbe un fatturato che non c'è stato.
+    */
+    const imp = impostazioniForfettario();
+    const fattura: Fattura = {
+      id: "a", numero: "1", dataEmissione: "2026-02-01", dataIncasso: null,
+      clienteId: "c1", descrizione: "", tipoRicavo: "progetto", imponibile: 10_000,
+    };
+    const nota: NotaCredito = {
+      id: "n", dataDocumento: "2026-03-01", numero: "NC/1", clienteId: "c1",
+      descrizione: "", imponibile: 2_000, dataRimborso: null,
+    };
+    const conNota = calcolaProspetto({
+      impostazioni: imp, parametri: par, fatture: [fattura], note: [nota], costi: [],
+      oggi: OGGI_FIXTURE,
+    });
+    expect(conNota.fatturatoEmesso).toBe(8_000);
+    expect(conNota.note.stornoEmesso).toBe(2_000);
   });
 });

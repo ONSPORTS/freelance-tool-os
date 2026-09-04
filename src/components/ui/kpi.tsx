@@ -12,6 +12,7 @@ export function Kpi({
   etichetta,
   valore,
   nota,
+  sotto,
   chip,
   sfondo = "chiaro",
   taglia = "kpi",
@@ -20,6 +21,14 @@ export function Kpi({
   etichetta: string;
   valore: React.ReactNode;
   nota?: string;
+  /**
+   * Una riga in più sotto la nota, con dentro quello che serve.
+   *
+   * `nota` resta una stringa apposta — è il posto della frase breve — e questo
+   * è il posto di una riga che ha un tono suo: la quota di limite forfettario
+   * che diventa un avviso quando si avvicina.
+   */
+  sotto?: React.ReactNode;
   chip?: React.ReactNode;
   sfondo?: "chiaro" | "scuro" | "indaco" | "ambra";
   taglia?: "kpi" | "kpiSm";
@@ -53,6 +62,7 @@ export function Kpi({
           {nota}
         </p>
       )}
+      {sotto && <div className="mt-2 text-micro">{sotto}</div>}
     </Card>
   );
 }

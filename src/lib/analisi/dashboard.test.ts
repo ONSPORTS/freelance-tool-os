@@ -3,7 +3,7 @@ import { calcolaProspetto } from "@/lib/fisco/motore";
 import { PARAMETRI_2026 } from "@/lib/fisco/parametri/2026";
 import { impostazioniPredefinite } from "@/lib/fisco/impostazioni";
 import { datiDemo, ANNO_DEMO } from "@/lib/dati/demo";
-import type { Fattura } from "@/lib/fisco/tipi";
+import type { Fattura, NotaCredito } from "@/lib/fisco/tipi";
 import { coloreDaNome } from "@/lib/format";
 import {
   andamentoMensile,
@@ -89,6 +89,41 @@ describe("andamento mensile", () => {
     )[8];
     expect(soloSettembre.emesso).toBe(2_192.5);
     expect(soloSettembre.incassato).toBe(992.5);
+  });
+
+  it("il grafico dice lo stesso numero della card: al netto degli storni", () => {
+    /*
+      Il cruscotto mostrava «Fatturato emesso 45.650 €» in una card e «Emesso
+      46.050 €» nel grafico sotto: la differenza erano le note di credito,
+      tolte da una parte e no dall'altra. Due numeri diversi sotto la stessa
+      parola, a due centimetri di distanza.
+    */
+    const imp = impostazioniPredefinite(PARAMETRI_2026);
+    const fattura: Fattura = {
+      id: "f", numero: "1", dataEmissione: "2026-05-10", dataIncasso: "2026-06-10",
+      clienteId: "c1", descrizione: "", tipoRicavo: "progetto", imponibile: 10_000,
+    };
+    const nota: NotaCredito = {
+      id: "n", dataDocumento: "2026-05-20", numero: "NC/1", clienteId: "c1",
+      descrizione: "", imponibile: 400, dataRimborso: "2026-07-01",
+    };
+    const p = calcolaProspetto({
+      impostazioni: imp, parametri: PARAMETRI_2026, fatture: [fattura], note: [nota],
+      costi: [], oggi: "2026-12-31",
+    });
+    const mesi = andamentoMensile(p.fattureCalcolate, p.costiCalcolati, 2026, p.noteCalcolate);
+
+    // Maggio: emesso 10.000 meno lo storno di 400, che è del documento di maggio.
+    expect(mesi[4].emesso).toBe(9_600);
+    // Il rimborso cade a luglio: è lì che scende l'incassato, non a giugno.
+    expect(mesi[5].incassato).toBe(10_000);
+    expect(mesi[6].incassato).toBe(-400);
+
+    // E i totali delle due serie coincidono con quelli del prospetto.
+    const emessoAnno = mesi.reduce((a, m) => a + m.emesso, 0);
+    const incassatoAnno = mesi.reduce((a, m) => a + m.incassato, 0);
+    expect(emessoAnno).toBeCloseTo(p.fatturatoEmesso, 2);
+    expect(incassatoAnno).toBeCloseTo(p.ricaviRilevanti, 2);
   });
 
   it("emesso e incassato misurano la stessa cosa in due momenti", () => {

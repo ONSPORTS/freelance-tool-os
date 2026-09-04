@@ -11,6 +11,7 @@
  * mandare al commercialista.
  */
 import { euro, interoIt, percentuale } from "@/lib/format";
+import { rapporto } from "./aritmetica";
 import {
   addizionaleComunaleDi,
   addizionaleRegionaleDi,
@@ -612,6 +613,40 @@ export function dettaglioSoglia(p: Prospetto, imp: Impostazioni): string | null 
   const residuo = imp.limiteForfettario - p.soglia.baseCassa;
   if (residuo <= 0) return p.soglia.messaggio;
   return `${p.soglia.messaggio} Hai usato ${percentuale(p.soglia.utilizzoLimite, 0)} del limite di ${interoIt.format(imp.limiteForfettario)} €: puoi ancora incassare ${euro(residuo)}.`;
+}
+
+/**
+ * La quota di limite forfettario usata, in forma breve, per il cruscotto.
+ *
+ * Il limite si misura sui compensi **percepiti**, non sull'emesso: è la legge
+ * che dice così, e l'app lo calcola così da sempre. Chi guarda solo l'emesso
+ * si spaventa a vuoto, e chi crede che il limite sia sull'emesso può stare
+ * tranquillo mentre incassa oltre soglia. Per questo la riga dice due cose:
+ * dove sei davvero, e dove arriveresti se l'emesso rientrasse tutto entro
+ * dicembre — che è il vero preavviso, e l'unico modo in cui l'emesso serve a
+ * questa domanda.
+ *
+ * `null` fuori dal forfettario: lì un limite non c'è.
+ */
+export function quotaLimite(
+  p: Prospetto,
+  imp: Impostazioni,
+): { usato: number; proiettato: number; oltreProiettando: boolean; testo: string } | null {
+  if (imp.regime !== "forfettario" || imp.limiteForfettario <= 0) return null;
+  const usato = p.soglia.utilizzoLimite;
+  const proiettato = rapporto(p.soglia.baseCassa + p.soglia.inSospeso, imp.limiteForfettario);
+  const oltreProiettando = proiettato > 1 && usato <= 1;
+
+  const base = `${percentuale(usato, 0)} del limite di ${interoIt.format(imp.limiteForfettario)} €, sull'incassato`;
+  if (p.soglia.inSospeso <= 0) return { usato, proiettato, oltreProiettando, testo: base };
+  return {
+    usato,
+    proiettato,
+    oltreProiettando,
+    testo: oltreProiettando
+      ? `${base}. Incassando tutto l'emesso arriveresti al ${percentuale(proiettato, 0)}: oltre il limite.`
+      : `${base}. Incassando tutto l'emesso arriveresti al ${percentuale(proiettato, 0)}.`,
+  };
 }
 
 function nomeGestione(gestione: Impostazioni["gestione"]): string {
