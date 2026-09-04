@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Check, ChevronDown, Info, RotateCcw, SkipForward, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Info, RotateCcw, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardCorpo, CardInterna, CardSottotitolo, CardTitolo } from "@/components/ui/card";
 import { CaricamentoTabella } from "@/components/ui/caricamento";
@@ -36,8 +36,10 @@ import { cn } from "@/lib/utils";
 import {
   ConfrontoDeiRegimi,
   ControlloPasso,
+  PartenzaConDati,
   RiportiDaConfermare,
   riepilogoImpostazioni,
+  vociRiporto,
 } from "./passi";
 
 /** Le conferme delle singole voci di riporto stanno nello stesso record del percorso. */
@@ -84,6 +86,24 @@ export function SchermataAvvio() {
   const passi = passiDi(contesto, contestoCalcolo);
   const stato = avanzamento(passi, percorso);
   const aperto = apertoManualmente ?? stato.prossimo?.id ?? null;
+
+  const vociDaConfermare = vociRiporto(calcolo.riportoInIngresso);
+  const riportiConfermati = (percorso?.confermati ?? []).filter((c) =>
+    c.startsWith(PREFISSO_RIPORTO),
+  ).length;
+
+  /**
+   * «Confermali uno per uno» significa che il pulsante non passa finché non
+   * sono passati tutti. Saltare resta possibile — è un percorso, non un modulo
+   * obbligatorio — ma dire «ho letto» dopo aver guardato due righe su sei non
+   * è quello che il passo chiede.
+   */
+  function attesaDelPasso(passo: Passo): string | null {
+    if (passo.id !== "riporti") return null;
+    const mancanti = vociDaConfermare.length - riportiConfermati;
+    if (mancanti <= 0) return null;
+    return `${riportiConfermati} di ${vociDaConfermare.length} voci confermate: guardale tutte, o salta il passo.`;
+  }
 
   async function rispondi(passo: string, esito: "confermato" | "saltato") {
     await segnaPasso(contesto, anno, passo, esito);
@@ -154,6 +174,7 @@ export function SchermataAvvio() {
             aperto={aperto === passo.id}
             onApri={() => setApertoManualmente(aperto === passo.id ? null : passo.id)}
             calcolo={contestoCalcolo}
+            attesa={attesaDelPasso(passo)}
             onRispondi={rispondi}
           >
             <CorpoPasso
@@ -161,6 +182,7 @@ export function SchermataAvvio() {
               calcolo={contestoCalcolo}
               precedente={contestoPrecedente}
               anno={anno}
+              archivioVuoto={situazione.archivioVuoto}
               confermeRiporti={(percorso?.confermati ?? [])
                 .filter((c) => c.startsWith(PREFISSO_RIPORTO))
                 .map((c) => c.slice(PREFISSO_RIPORTO.length))}
@@ -230,6 +252,7 @@ function SchedaPasso({
   aperto,
   onApri,
   calcolo,
+  attesa,
   onRispondi,
   children,
 }: {
@@ -240,6 +263,8 @@ function SchedaPasso({
   aperto: boolean;
   onApri: () => void;
   calcolo: ContestoCalcolo;
+  /** Perché non si può ancora confermare. `null` quando si può. */
+  attesa: string | null;
   onRispondi: (passo: string, esito: "confermato" | "saltato") => void;
   children: React.ReactNode;
 }) {
@@ -299,7 +324,11 @@ function SchedaPasso({
           <div className="mt-4">{children}</div>
 
           <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-bordo pt-4">
-            <Button scrive onClick={() => onRispondi(passo.id, "confermato")}>
+            <Button
+              scrive
+              disabled={attesa !== null}
+              onClick={() => onRispondi(passo.id, "confermato")}
+            >
               {passo.soloLettura ? "Ho letto, vai avanti" : "Conferma e continua"}
             </Button>
             <Button scrive variante="quieto" onClick={() => onRispondi(passo.id, "saltato")}>
@@ -307,7 +336,7 @@ function SchedaPasso({
               Salta
             </Button>
             <span className="text-etichetta text-inchiostro-tenue">
-              Se salti: {passo.seSalti(calcolo)}
+              {attesa ?? `Se salti: ${passo.seSalti(calcolo)}`}
             </span>
             <span className="ml-auto text-micro text-inchiostro-tenue">
               {indice} di {totale}
@@ -324,6 +353,7 @@ function CorpoPasso({
   calcolo,
   precedente,
   anno,
+  archivioVuoto,
   riporto,
   confermeRiporti,
   onConfermaRiporto,
@@ -332,6 +362,7 @@ function CorpoPasso({
   calcolo: ContestoCalcolo;
   precedente: ContestoCalcolo | null;
   anno: number;
+  archivioVuoto: boolean;
   riporto: React.ComponentProps<typeof RiportiDaConfermare>["riporto"];
   confermeRiporti: string[];
   onConfermaRiporto: (voce: string) => void;
@@ -348,7 +379,9 @@ function CorpoPasso({
   if (passo.id === "confronto") {
     return <ConfrontoDeiRegimi calcolo={calcolo} precedente={precedente} />;
   }
-  if (passo.id === "demo") return <OffertaDemo />;
+  if (passo.id === "partenza") {
+    return <PartenzaConDati archivioVuoto={archivioVuoto} onDemo={() => void caricaDatasetDimostrativo()} />;
+  }
 
   return (
     <ControlloPasso
@@ -356,24 +389,6 @@ function CorpoPasso({
       calcolo={calcolo}
       onModifica={(modifiche) => void aggiornaImpostazioni(anno, modifiche)}
     />
-  );
-}
-
-function OffertaDemo() {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <Button scrive variante="contorno" onClick={() => void caricaDatasetDimostrativo()}>
-        <Sparkles className="size-4" aria-hidden />
-        Carica i dati dimostrativi
-      </Button>
-      <p className="text-etichetta text-inchiostro-tenue">
-        Un anno intero di fatture, costi e movimenti inventati. Si svuota in un clic da{" "}
-        <Link href="/dati" className="underline underline-offset-2">
-          Dati e backup
-        </Link>
-        .
-      </p>
-    </div>
   );
 }
 

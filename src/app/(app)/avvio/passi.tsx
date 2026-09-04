@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, Check } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Check, Sparkles, Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardInterna } from "@/components/ui/card";
 import { Chip } from "@/components/ui/chip";
 import { Etichetta } from "@/components/ui/etichetta";
@@ -17,8 +19,9 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { confrontaRegimi, ingressoDaProspetto } from "@/lib/fisco/confronto";
+import { cambiamentiDiRegime } from "@/lib/fisco/regime";
 import type { Riporto } from "@/lib/fisco/chiusura";
-import type { Impostazioni, ParametriAnno } from "@/lib/fisco/tipi";
+import type { Impostazioni, ParametriAnno, Regime } from "@/lib/fisco/tipi";
 import type { ContestoCalcolo } from "@/lib/onboarding/percorso";
 import { euro, interoIt, percentuale } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -184,7 +187,7 @@ function ControlloDelPasso({
             }
           />
           <Interruttore
-            etichetta="Addebito il bollo da 2 € al cliente"
+            etichetta={`Addebito il bollo da ${euro(imp.importoBollo)} al cliente`}
             attivo={imp.bolloAddebitato}
             onCambia={(bolloAddebitato) => onModifica({ bolloAddebitato })}
             nota="Se non lo addebiti resta un tuo costo, e l'app lo conta come tale."
@@ -294,6 +297,71 @@ function CampoNumerico({
   );
 }
 
+/**
+ * Le due strade con cui si esce dalla configurazione.
+ *
+ * Non è una domanda di cortesia: chi apre l'app a gennaio non ha niente da
+ * importare e senza dati non capisce a cosa servano le schermate; chi la apre
+ * a settembre ha già nove mesi di fatture e un dataset finto gli sarebbe solo
+ * di intralcio. Mostrarle affiancate, con scritto per chi è ciascuna, evita di
+ * far indovinare.
+ */
+export function PartenzaConDati({
+  archivioVuoto,
+  onDemo,
+}: {
+  archivioVuoto: boolean;
+  onDemo: () => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <CardInterna className="flex flex-col gap-2 p-4">
+          <p className="text-corpo font-medium">Voglio vedere com&apos;è fatta</p>
+          <p className="flex-1 text-etichetta text-inchiostro-tenue">
+            Un anno intero di fatture, costi e movimenti inventati: le schermate si
+            riempiono e si capisce cosa aspettarsi da ognuna. Si svuota in un clic da{" "}
+            <Link href="/dati" className="underline underline-offset-2">
+              Dati e backup
+            </Link>
+            .
+          </p>
+          {!archivioVuoto && (
+            <p className="text-micro text-[#B8791A]">
+              Attenzione: l&apos;archivio non è vuoto. I dati dimostrativi prendono il posto
+              di quelli che ci sono adesso — si torna indietro con Annulla, subito dopo.
+            </p>
+          )}
+          <Button scrive variante="contorno" className="self-start" onClick={onDemo}>
+            <Sparkles className="size-4" aria-hidden />
+            Carica i dati dimostrativi
+          </Button>
+        </CardInterna>
+
+        <CardInterna className="flex flex-col gap-2 p-4">
+          <p className="text-corpo font-medium">Ho già il mio storico</p>
+          <p className="flex-1 text-etichetta text-inchiostro-tenue">
+            Se sei arrivato a metà anno hai già fatture e costi da qualche altra parte. Un
+            CSV basta: si sceglie quale colonna è quale, si vede l&apos;anteprima con gli
+            importi già formattati, e l&apos;import si annulla per intero se qualcosa non
+            torna.
+          </p>
+          <Button variante="contorno" className="self-start" asChild>
+            <Link href="/importa">
+              <Upload className="size-4" aria-hidden />
+              Importa da CSV
+            </Link>
+          </Button>
+        </CardInterna>
+      </div>
+      <p className="text-etichetta text-inchiostro-tenue">
+        Nessuna delle due va bene? Salta: l&apos;archivio resta vuoto e si parte dalla prima
+        fattura vera. Sono strade sempre aperte, non una scelta da fare adesso.
+      </p>
+    </div>
+  );
+}
+
 // ————————————————————————————————————————————————————————————
 // I due passi di sola lettura
 // ————————————————————————————————————————————————————————————
@@ -306,16 +374,15 @@ function CampoNumerico({
  * ogni riga: è l'unico momento dell'anno in cui qualcuno guarda davvero il
  * saldo di apertura, e un riporto sbagliato non produce nessun errore.
  */
-export function RiportiDaConfermare({
-  riporto,
-  confermati,
-  onConferma,
-}: {
-  riporto: Riporto;
-  confermati: string[];
-  onConferma: (voce: string) => void;
-}) {
-  const voci: { id: string; etichetta: string; valore: string; nota: string }[] = [
+/**
+ * Le voci di riporto, una per riga. Esportata perché la schermata deve sapere
+ * quante sono per dire «4 su 6»: contarle in due posti significherebbe che un
+ * giorno una riga nuova ne sposta solo uno.
+ */
+export function vociRiporto(
+  riporto: Riporto,
+): { id: string; etichetta: string; valore: string; nota: string }[] {
+  const voci = [
     {
       id: "saldoCassa",
       etichetta: "Saldo di cassa",
@@ -347,15 +414,41 @@ export function RiportiDaConfermare({
       id: "fattureDaIncassare",
       etichetta: "Fatture da incassare",
       valore: euro(riporto.fattureDaIncassare.importo),
-      nota: `${interoIt.format(riporto.fattureDaIncassare.numero)} fatture emesse nel ${riporto.daAnno}: diventano ricavo nell'anno in cui rientrano, l'IVA è già stata liquidata.`,
+      nota:
+        riporto.fattureDaIncassare.numero === 1
+          ? `1 fattura emessa nel ${riporto.daAnno}: diventa ricavo nell'anno in cui rientra, l'IVA è già stata liquidata.`
+          : `${interoIt.format(riporto.fattureDaIncassare.numero)} fatture emesse nel ${riporto.daAnno}: diventano ricavo nell'anno in cui rientrano, l'IVA è già stata liquidata.`,
     },
     {
       id: "costiDaPagare",
       etichetta: "Costi da pagare",
       valore: euro(riporto.costiDaPagare.importo),
-      nota: `${interoIt.format(riporto.costiDaPagare.numero)} documenti del ${riporto.daAnno}: si deducono nell'anno del pagamento, l'IVA era detraibile subito.`,
+      nota: `${interoIt.format(riporto.costiDaPagare.numero)} ${riporto.costiDaPagare.numero === 1 ? "documento" : "documenti"} del ${riporto.daAnno}: si ${riporto.costiDaPagare.numero === 1 ? "deduce" : "deducono"} nell'anno del pagamento, l'IVA era detraibile subito.`,
     },
   ];
+  // La nota di credito compare solo se ce n'è una: una riga a zero su ogni
+  // apertura d'anno, per chi non ne emette, è rumore che si impara a saltare.
+  if (riporto.noteDaRimborsare.numero > 0) {
+    voci.push({
+      id: "noteDaRimborsare",
+      etichetta: "Note di credito da rimborsare",
+      valore: `− ${euro(riporto.noteDaRimborsare.importo)}`,
+      nota: `${interoIt.format(riporto.noteDaRimborsare.numero)} ${riporto.noteDaRimborsare.numero === 1 ? "nota emessa" : "note emesse"} nel ${riporto.daAnno}: l'IVA è già stata stornata, i ricavi caleranno nell'anno del rimborso.`,
+    });
+  }
+  return voci;
+}
+
+export function RiportiDaConfermare({
+  riporto,
+  confermati,
+  onConferma,
+}: {
+  riporto: Riporto;
+  confermati: string[];
+  onConferma: (voce: string) => void;
+}) {
+  const voci = vociRiporto(riporto);
 
   return (
     <div className="space-y-2">
@@ -428,6 +521,16 @@ export function ConfrontoDeiRegimi({
   const ingresso = ingressoDaProspetto(conNumeri.prospetto);
   const confronto = confrontaRegimi(ingresso, conNumeri.impostazioni, conNumeri.parametri);
 
+  // La direzione è quella in cui si sta andando, non quella più comune: chi
+  // rientra nel forfettario leggerebbe altrimenti l'elenco di chi ne esce.
+  const verso: Regime = calcolo.impostazioni.regime === "forfettario" ? "ordinario" : "forfettario";
+  const cambiamenti = cambiamentiDiRegime(
+    calcolo.impostazioni.regime,
+    verso,
+    calcolo.impostazioni,
+    calcolo.parametri,
+  );
+
   if (ingresso.ricavi <= 0) {
     return (
       <Card className="border border-bordo">
@@ -486,7 +589,11 @@ export function ConfrontoDeiRegimi({
       <Card scura className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-etichetta text-white/60">Netto in tasca a confronto</p>
+            <p className="text-etichetta text-white/60">
+              {confronto.forfettarioApplicabile
+                ? "Netto in tasca a confronto"
+                : "Quanto costa l'uscita dal forfettario"}
+            </p>
             {/*
               Il segno non aggiunge niente a «a favore del»: dire due volte la
               stessa direzione, una col meno e una a parole, confonde. Resta
@@ -497,12 +604,21 @@ export function ConfrontoDeiRegimi({
                 Math.abs(confronto.ordinario.nettoInTasca - confronto.forfettario.nettoInTasca),
               )}
             </p>
+            {/*
+              «A favore del forfettario» sopra un regime che non è più
+              applicabile è il tipo di frase che fa prendere una decisione
+              sbagliata: sembra una scelta, ed è invece un obbligo di legge.
+              Quando il forfettario è fuori portata la stessa cifra si dice per
+              quello che è, il prezzo del passaggio.
+            */}
             <p className="mt-1 text-etichetta text-white/60">
-              differenza a favore{" "}
-              {confronto.ordinario.nettoInTasca >= confronto.forfettario.nettoInTasca
-                ? "dell'ordinario"
-                : "del forfettario"}
-              , sui tuoi {euro(confronto.ricavi)} di ricavi del {annoDelConfronto}
+              {confronto.forfettarioApplicabile
+                ? `differenza a favore ${
+                    confronto.ordinario.nettoInTasca >= confronto.forfettario.nettoInTasca
+                      ? "dell'ordinario"
+                      : "del forfettario"
+                  }, sui tuoi ${euro(confronto.ricavi)} di ricavi del ${annoDelConfronto}`
+                : `quello che ti resta in meno sui tuoi ${euro(confronto.ricavi)} di ricavi del ${annoDelConfronto}: non è una scelta, il forfettario a questi ricavi non è più accessibile`}
             </p>
           </div>
           <Chip tono="chiaro" className="shrink-0">
@@ -554,12 +670,20 @@ export function ConfrontoDeiRegimi({
       </div>
 
       <CardInterna className="p-4">
-        <p className="text-etichetta font-semibold">Cosa cambia in fattura, concretamente</p>
-        <ul className="mt-2 space-y-1.5">
-          {CAMBIAMENTI_IN_FATTURA.map((c) => (
-            <li key={c} className="flex items-start gap-2 text-etichetta text-inchiostro-tenue">
-              <ArrowRight className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              {c}
+        <p className="text-etichetta font-semibold">
+          Cosa cambia passando {verso === "ordinario" ? "all'ordinario" : "al forfettario"},
+          concretamente
+        </p>
+        <ul className="mt-2 space-y-2">
+          {cambiamenti.map((c) => (
+            <li key={c.id} className="flex items-start gap-2">
+              <ArrowRight className="mt-1 size-3.5 shrink-0 text-accento" aria-hidden />
+              <span className="min-w-0">
+                <span className="block text-etichetta">{c.titolo}</span>
+                {c.dettaglio && (
+                  <span className="block text-micro text-inchiostro-tenue">{c.dettaglio}</span>
+                )}
+              </span>
             </li>
           ))}
         </ul>
@@ -567,14 +691,6 @@ export function ConfrontoDeiRegimi({
     </div>
   );
 }
-
-const CAMBIAMENTI_IN_FATTURA = [
-  "Ogni fattura riporta l'IVA al 22 %: il cliente paga di più, ma quei soldi non sono tuoi e vanno versati alla scadenza della liquidazione.",
-  "Sparisce il bollo da 2 €, che si applica solo alle fatture senza IVA sopra 77,47 €.",
-  "Le fatture verso imprese e professionisti subiscono la ritenuta d'acconto del 20 %: incassi meno subito, ma è un anticipo che si scomputa a fine anno.",
-  "I costi tornano deducibili e l'IVA sugli acquisti torna detraibile: conservare le fatture passive smette di essere facoltativo.",
-  "Al posto dell'imposta sostitutiva si applicano IRPEF a scaglioni, addizionale regionale e comunale — e tornano utilizzabili detrazioni e fondo pensione.",
-];
 
 export function riepilogoImpostazioni(
   imp: Impostazioni,

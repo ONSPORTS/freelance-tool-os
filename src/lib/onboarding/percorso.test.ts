@@ -45,7 +45,7 @@ describe("un percorso, tre contesti", () => {
   it("le domande di configurazione sono le stesse in tutti e tre", () => {
     const domande = (c: ContestoPercorso) =>
       passiDi(c, forfettario)
-        .filter((p) => !p.soloLettura && p.id !== "demo")
+        .filter((p) => !p.soloLettura && p.id !== "partenza")
         .map((p) => p.id);
 
     expect(domande("primoAvvio")).toEqual(domande("aperturaAnno"));
@@ -64,13 +64,25 @@ describe("un percorso, tre contesti", () => {
     expect(passiDi("aperturaAnno", forfettario).map((p) => p.id)).not.toContain("confronto");
   });
 
-  it("il dataset dimostrativo si propone solo al primo avvio", () => {
-    expect(passiDi("primoAvvio", forfettario).map((p) => p.id)).toContain("demo");
-    expect(passiDi("aperturaAnno", forfettario).map((p) => p.id)).not.toContain("demo");
-    expect(passiDi("cambioRegime", forfettario).map((p) => p.id)).not.toContain("demo");
-    // Ed è l'ultimo: prima si configura, poi si guarda.
+  it("la scelta di come partire si propone solo al primo avvio", () => {
+    expect(passiDi("primoAvvio", forfettario).map((p) => p.id)).toContain("partenza");
+    expect(passiDi("aperturaAnno", forfettario).map((p) => p.id)).not.toContain("partenza");
+    expect(passiDi("cambioRegime", forfettario).map((p) => p.id)).not.toContain("partenza");
+    // Ed è l'ultimo: prima si configura, poi si sceglie da dove partire.
     const passi = passiDi("primoAvvio", forfettario);
-    expect(passi[passi.length - 1].id).toBe("demo");
+    expect(passi[passi.length - 1].id).toBe("partenza");
+  });
+
+  it("il passo finale nomina tutt'e due le strade, non solo la demo", () => {
+    const passo = PASSI.find((p) => p.id === "partenza");
+    if (!passo) throw new Error("il passo di partenza deve esistere");
+    const testo = `${passo.domanda} ${passo.perche} ${passo.seSalti(forfettario)}`;
+    // Chi arriva a metà anno ha già lo storico: se il passo parlasse solo del
+    // dataset dimostrativo lo lascerebbe davanti a schermate vuote.
+    expect(testo).toMatch(/storico/i);
+    expect(testo).toMatch(/dimostrativ/i);
+    // E il terzo esito — non fare nessuna delle due — resta dichiarato.
+    expect(passo.seSalti(forfettario)).toMatch(/vuoto/i);
   });
 
   it("mostra solo le domande che hanno senso nel regime attuale", () => {

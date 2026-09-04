@@ -18,6 +18,7 @@ import { nonNegativo, round2, somma } from "./aritmetica";
 import { annoDi } from "./documenti";
 import { dateCosto, dateFattura, ripartisci } from "./competenza";
 import { dateNota } from "./note";
+import { cambiamentiDiRegime } from "./regime";
 import { euro } from "../format";
 import type { LiquidazioneIva } from "./iva";
 import type { Prospetto } from "./motore";
@@ -243,13 +244,17 @@ export type PropostaRegime = {
   conseguenze: string[];
 };
 
-const CONSEGUENZE_ORDINARIO = [
-  "Le fatture riportano l'IVA e va versata alle scadenze della liquidazione.",
-  "I costi tornano deducibili e l'IVA sugli acquisti torna detraibile.",
-  "Niente imposta sostitutiva: si applicano IRPEF a scaglioni e addizionali.",
-  "Le fatture verso sostituti d'imposta subiscono la ritenuta d'acconto del 20%.",
-  "Serve la contabilità: registri IVA e dichiarazione ordinaria.",
-];
+
+/**
+ * Le conseguenze del passaggio all'ordinario, in forma breve.
+ *
+ * L'elenco è quello di `cambiamentiDiRegime`: la proposta di chiusura ne
+ * mostra i titoli, il percorso di configurazione anche i dettagli. Una fonte
+ * sola, così le aliquote citate sono sempre quelle dell'anno.
+ */
+function conseguenzeOrdinario(imp: Impostazioni, par: ParametriAnno): string[] {
+  return cambiamentiDiRegime("forfettario", "ordinario", imp, par).map((c) => c.titolo);
+}
 
 /**
  * Il regime dell'anno successivo, dedotto dai ricavi dell'anno che si chiude.
@@ -306,7 +311,7 @@ export function proponiRegime(
       } È il caso in cui conviene sentire il commercialista prima di emettere altro.`,
       conseguenze: [
         `L'IVA è dovuta sulle operazioni dal superamento in poi, anche se le fatture sono state emesse senza.`,
-        ...CONSEGUENZE_ORDINARIO,
+        ...conseguenzeOrdinario(imp, par),
       ],
     };
   }
@@ -321,7 +326,7 @@ export function proponiRegime(
       fatturaCheSupera: null,
       titolo: `Dal 1° gennaio ${anno + 1} sei in regime ordinario`,
       spiegazione: `Con ${euro(p.ricaviRilevanti)} di ricavi incassati hai superato il limite di ${euro(par.limiteForfettario)}. Il ${anno} resta forfettario fino in fondo; è l'anno successivo che cambia, e cambia per legge.`,
-      conseguenze: CONSEGUENZE_ORDINARIO,
+      conseguenze: conseguenzeOrdinario(imp, par),
     };
   }
 

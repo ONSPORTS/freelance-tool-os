@@ -228,13 +228,16 @@ export const PASSI: Passo[] = [
     ordine: 80,
   },
   {
-    id: "demo",
-    titolo: "Dati dimostrativi",
-    domanda: "Vuoi vedere le schermate popolate prima di inserire i tuoi dati?",
+    // L'identificativo era «demo» quando il passo offriva solo il dataset
+    // dimostrativo. Ora sono due strade, e chi aveva già risposto se lo ritrova
+    // da rispondere una volta: nient'altro va perso.
+    id: "partenza",
+    titolo: "Da dove partiamo",
+    domanda: "Vuoi vedere l'app con dei dati dentro, o caricare subito il tuo storico?",
     perche:
-      "Un'app di contabilità vuota non si capisce: tutte le schermate mostrano zeri e non si vede a cosa servono. Il dataset dimostrativo riempie un anno intero di fatture, costi e movimenti inventati, così puoi girare fra le schermate e capire cosa aspettarti. Si svuota in un clic da Dati e backup.",
+      "Un'app di contabilità vuota non si capisce: tutte le schermate mostrano zeri e non si vede a cosa servano. Ma chi arriva a metà anno lo storico ce l'ha già, e non ha bisogno di un esempio: ha bisogno di vedere i propri numeri. Sono due strade diverse e nessuna delle due è quella giusta per tutti.",
     seSalti: () =>
-      "L'archivio resta vuoto: si parte dalla prima fattura vera. Il dataset si può caricare in qualsiasi momento da Dati e backup.",
+      "L'archivio resta vuoto e si parte dalla prima fattura vera. Sia il dataset dimostrativo sia l'import CSV restano disponibili dopo, da Dati e backup e da Importa.",
     contesti: ["primoAvvio"],
     ordine: 90,
   },
