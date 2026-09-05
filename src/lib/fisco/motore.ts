@@ -24,8 +24,10 @@ import type {
   CostoCalcolato,
   Fattura,
   FatturaCalcolata,
+  Gestione,
   Impostazioni,
   ParametriAnno,
+  RegolaAccontoContributi,
   ScaglioneIrpef,
   VersamentoF24,
 } from "./tipi";
@@ -95,6 +97,9 @@ export type Acconti = {
   secondo: number;
   /** Sotto la soglia dei 257,52 € l'acconto è unico e si versa a novembre. */
   accontoUnico: boolean;
+  /** Le due quote di cui ogni rata è fatta, perché il prospetto possa dirlo. */
+  imposte: { primo: number; secondo: number; unico: boolean };
+  contributi: { primo: number; secondo: number; base: number; quota: number };
   /** Quanto del credito dell'anno precedente è servito a coprire gli acconti. */
   creditoUtilizzato: number;
   /** Quello che resta del credito dopo aver coperto gli acconti. */
@@ -199,9 +204,15 @@ export type Prospetto = {
   pressione: number;
   costiNettiACarico: number;
   nettoDisponibile: number;
+  /** La percentuale che coprirebbe il fabbisogno di cassa, non il carico. */
   percentualeTeoricaAccantonamento: number;
   percentualeImpostata: number;
   accantonamentoAnnuo: number;
+  /**
+   * Quanto resta davvero da mettere da parte: carico totale meno le ritenute
+   * già subite e il credito riportato dall'anno prima. Sono imposta già pagata.
+   */
+  fabbisognoDaAccantonare: number;
   scostamentoAccantonamento: number;
   accantonamentoMensile: number;
 
@@ -277,38 +288,93 @@ export function contributiPrevidenziali(
 }
 
 /**
- * Acconti con metodo storico.
+ * Acconti con metodo storico, su due basi separate.
  *
- * Rispetto all'Excel, che spalmava sempre 40/60, qui valgono anche le due soglie
- * di legge: sotto 51,65 € non si versa acconto, sotto 257,52 € l'acconto è unico
- * a novembre. Cambia solo il comportamento su importi minuscoli, dove il 40/60
- * produceva rate che nessuno versa davvero.
+ * Imposte e contributi non seguono la stessa regola, e trattarli come un unico
+ * importo gonfiava la rata di novembre: le imposte vanno 40/60 sul dovuto, i
+ * contributi seguono la loro gestione — l'80 % in due rate del 40 % per la
+ * Gestione Separata, il 100 % in due rate del 50 % sull'eccedenza al minimale
+ * per artigiani e commercianti.
+ *
+ * Valgono anche le due soglie di legge, ma solo sulle imposte, perché è lì che
+ * la norma le mette: sotto 51,65 € non si versa acconto, sotto 257,52 €
+ * l'acconto è unico a novembre. Un contributo previdenziale piccolo si versa
+ * comunque nelle sue rate.
  */
 export function calcolaAcconti(
-  dovuto: number,
+  imposte: number,
+  contributi: { base: number; regola: RegolaAccontoContributi | null },
   par: ParametriAnno,
   creditoInIngresso = 0,
 ): Acconti {
   const credito = nonNegativo(creditoInIngresso);
 
-  if (dovuto < par.sogliaAcconti) {
-    return conCredito({ dovuti: false, primo: 0, secondo: 0, accontoUnico: false }, credito);
+  // — Imposte: 40/60, con le due soglie ————————————————
+  const dovutoImposte = nonNegativo(imposte);
+  let impostePrimo = 0;
+  let imposteSecondo = 0;
+  let imposteUnico = false;
+  if (dovutoImposte >= par.sogliaAcconti) {
+    if (dovutoImposte < par.sogliaAccontoUnico) {
+      imposteUnico = true;
+      imposteSecondo = round2(dovutoImposte);
+    } else {
+      impostePrimo = round2(dovutoImposte * par.quotaPrimoAcconto);
+      imposteSecondo = round2(dovutoImposte * par.quotaSecondoAcconto);
+    }
   }
-  if (dovuto < par.sogliaAccontoUnico) {
-    return conCredito(
-      { dovuti: true, primo: 0, secondo: round2(dovuto), accontoUnico: true },
-      credito,
-    );
-  }
+
+  // — Contributi: la regola della gestione ——————————————
+  const baseContributi = nonNegativo(contributi.base);
+  const regola = contributi.regola;
+  const accontoContributi = regola ? round2(baseContributi * regola.quota) : 0;
+  const rate = regola?.rate ?? 0;
+  const contributiPrimo = rate > 1 ? round2(accontoContributi / rate) : 0;
+  // La seconda rata prende il resto: dividendo per due un importo dispari, un
+  // centesimo deve pur finire da qualche parte, e finisce nell'ultima rata.
+  const contributiSecondo =
+    rate > 1 ? round2(accontoContributi - contributiPrimo * (rate - 1)) : accontoContributi;
+
+  const primo = round2(impostePrimo + contributiPrimo);
+  const secondo = round2(imposteSecondo + contributiSecondo);
+
   return conCredito(
     {
-      dovuti: true,
-      primo: round2(dovuto * par.quotaPrimoAcconto),
-      secondo: round2(dovuto * par.quotaSecondoAcconto),
-      accontoUnico: false,
+      dovuti: primo + secondo > 0,
+      primo,
+      secondo,
+      // Unico davvero solo se non c'è nulla da versare a giugno.
+      accontoUnico: imposteUnico && contributiPrimo === 0,
+      imposte: { primo: impostePrimo, secondo: imposteSecondo, unico: imposteUnico },
+      contributi: {
+        primo: contributiPrimo,
+        secondo: contributiSecondo,
+        base: baseContributi,
+        quota: regola?.quota ?? 0,
+      },
     },
     credito,
   );
+}
+
+/**
+ * La base su cui si calcola l'acconto dei contributi, gestione per gestione.
+ *
+ * Per artigiani e commercianti è solo la parte eccedente il minimale: i
+ * contributi fissi si versano in quattro rate trimestrali e un acconto non ce
+ * l'hanno. Contarli qui li farebbe pagare due volte.
+ */
+export function baseAccontoContributi(p: {
+  gestione: Gestione;
+  contributiGestioneSeparata: number;
+  contributiArtigiani: number;
+  contributiFissi: number;
+}): number {
+  if (p.gestione === "separata") return nonNegativo(p.contributiGestioneSeparata);
+  if (p.gestione === "artigiani") {
+    return nonNegativo(round2(p.contributiArtigiani - p.contributiFissi));
+  }
+  return 0;
 }
 
 /**
@@ -319,7 +385,7 @@ export function calcolaAcconti(
  * esce dal conto.
  */
 function conCredito(
-  base: { dovuti: boolean; primo: number; secondo: number; accontoUnico: boolean },
+  base: Omit<Acconti, "creditoUtilizzato" | "creditoResiduo" | "primoDaVersare" | "secondoDaVersare">,
   credito: number,
 ): Acconti {
   const suPrimo = Math.min(credito, base.primo);
@@ -532,6 +598,10 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   // — E · Sintesi ————————————————————————————————————
   const caricoTotale = somma(totaleImposte, contributiCompetenza);
   const pressione = rapporto(caricoTotale, ricaviRilevanti);
+  // Il credito che arriva dall'anno precedente copre prima il saldo, poi gli
+  // acconti: è l'ordine in cui si compensa in F24. Si legge qui perché serve
+  // già all'accantonamento, prima ancora che al saldo.
+  const creditoAnnoPrecedente = nonNegativo(ingresso.creditoAnnoPrecedente ?? 0);
   // In forfettario l'IVA sugli acquisti è indetraibile e diventa costo pieno.
   const costiNettiACarico = round2(
     (forfettario ? costiPagatiTotale : costiPagatiTotale - ivaDetraibilePagata) + bolloACarico,
@@ -539,6 +609,22 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   const nettoDisponibile = round2(ricaviRilevanti - costiNettiACarico - caricoTotale);
 
   const accantonamentoAnnuo = round2(ricaviRilevanti * imp.percentualeAccantonamento);
+  /*
+    Quanto mettere da parte non si misura sul carico, si misura su quello che
+    uscirà davvero dal conto. Le ritenute sono imposta già pagata — trattenuta
+    dal committente al momento dell'incasso, quel denaro non è mai arrivato — e
+    il credito riportato dall'anno prima è denaro già versato. Chiedere di
+    accantonarli di nuovo significa mettere da parte due volte la stessa
+    imposta: con la ritenuta al 20 % è un quinto dei compensi immobilizzato per
+    niente.
+
+    Il carico totale e il netto disponibile restano quelli di competenza: sono
+    giusti, e rispondono a un'altra domanda.
+  */
+  const fabbisognoDaAccantonare = round2(
+    nonNegativo(caricoTotale - ritenuteSubite - creditoAnnoPrecedente),
+  );
+  const percentualeDaAccantonare = rapporto(fabbisognoDaAccantonare, ricaviRilevanti);
 
   // — F · Saldo e acconti ————————————————————————————
   const totaleDovuto = somma(imposteNetteASaldo, contributiCompetenza);
@@ -547,13 +633,23 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
       .filter((v) => v.tipo !== "iva" && annoDi(v.data) === anno)
       .map((v) => v.importo),
   );
-  // Il credito che arriva dall'anno precedente copre prima il saldo, poi gli
-  // acconti: è l'ordine in cui si compensa in F24.
-  const creditoAnnoPrecedente = nonNegativo(ingresso.creditoAnnoPrecedente ?? 0);
   const dopoVersamenti = nonNegativo(totaleDovuto - giaVersato);
   const creditoSuSaldo = Math.min(creditoAnnoPrecedente, dopoVersamenti);
   const saldoResiduo = round2(dopoVersamenti - creditoSuSaldo);
-  const acconti = calcolaAcconti(totaleDovuto, par, creditoAnnoPrecedente - creditoSuSaldo);
+  const acconti = calcolaAcconti(
+    imposteNetteASaldo,
+    {
+      base: baseAccontoContributi({
+        gestione: imp.gestione,
+        contributiGestioneSeparata: contributi.separata,
+        contributiArtigiani: contributi.artigiani,
+        contributiFissi: imp.contributiFissi,
+      }),
+      regola: par.accontoContributi[imp.gestione],
+    },
+    par,
+    creditoAnnoPrecedente - creditoSuSaldo,
+  );
   const daRateizzare = saldoResiduo + acconti.primoDaVersare;
   const rataRateizzazione = round2(daRateizzare / par.rateRateizzazione);
   // Interesse semplice crescente sulle rate successive alla prima.
@@ -622,11 +718,12 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
     pressione,
     costiNettiACarico,
     nettoDisponibile,
-    percentualeTeoricaAccantonamento: pressione,
+    percentualeTeoricaAccantonamento: percentualeDaAccantonare,
     percentualeImpostata: imp.percentualeAccantonamento,
     accantonamentoAnnuo,
-    scostamentoAccantonamento: round2(accantonamentoAnnuo - caricoTotale),
-    accantonamentoMensile: round2(caricoTotale / 12),
+    fabbisognoDaAccantonare,
+    scostamentoAccantonamento: round2(accantonamentoAnnuo - fabbisognoDaAccantonare),
+    accantonamentoMensile: round2(fabbisognoDaAccantonare / 12),
 
     totaleDovuto,
     giaVersato,

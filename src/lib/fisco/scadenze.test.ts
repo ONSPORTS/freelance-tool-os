@@ -71,10 +71,17 @@ describe("scadenzario", () => {
     const imp = impostazioniForfettario();
     const scadenze = scadenzeDi(imp);
     const saldo = scadenze.find((s) => s.id === "saldo-e-primo-acconto");
-    // Dovuto 2.173,84 €: saldo intero più il 40% di acconto.
-    expect(saldo?.importo).toBeCloseTo(2173.84 + 869.54, 2);
+    /*
+      Dovuto 2.173,84 €: 648,74 di imposte e 1.525,10 di contributi.
+      Giugno: saldo intero, più il 40 % delle imposte (259,50) e la prima
+      rata dell'acconto contributivo — 80 % di 1.525,10 in due rate: 610,04.
+      Novembre: il 60 % delle imposte (389,24) più la seconda rata (610,04).
+      Prima i contributi seguivano il 40/60 delle imposte, e novembre portava
+      305,02 € di troppo: il 20 % dei contributi che non è mai stato in acconto.
+    */
+    expect(saldo?.importo).toBeCloseTo(2173.84 + 259.5 + 610.04, 2);
     const secondo = scadenze.find((s) => s.id === "secondo-acconto");
-    expect(secondo?.importo).toBeCloseTo(1304.3, 2);
+    expect(secondo?.importo).toBeCloseTo(389.24 + 610.04, 2);
   });
 
   it("sposta le scadenze che cadono in un giorno festivo", () => {

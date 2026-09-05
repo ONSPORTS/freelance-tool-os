@@ -14,6 +14,7 @@ export const PARAMETRI_2026: ParametriAnno = {
     "Allegato n. 2 alla Legge 190/2014 — coefficienti di redditività",
     "Circolare INPS n. 8 del 3 febbraio 2026 — aliquote previdenziali",
     "Art. 13 TUIR — detrazione per redditi di lavoro autonomo",
+    "Circolare INPS n. 14 del 9 febbraio 2026 — artigiani e commercianti",
   ],
   provvisorio: false,
 
@@ -100,6 +101,28 @@ export const PARAMETRI_2026: ParametriAnno = {
   aliquotaRitenuta: 0.2,
   importoBollo: 2,
   sogliaBollo: 77.47,
+
+  /*
+    L'acconto dei contributi ha regole sue, diverse da quelle delle imposte.
+
+    Gestione Separata: 80 % del contributo dovuto, in due rate del 40 %, alle
+    scadenze del primo e del secondo acconto IRPEF (Circolare INPS n. 8 del
+    3 febbraio 2026 per le aliquote; le regole di riscossione di saldo e
+    acconto sono quelle richiamate ogni anno nella circolare sul quadro RR).
+
+    Artigiani e commercianti: il contributo sul reddito eccedente il minimale
+    si versa in due rate di pari importo — 50 % e 50 % — alle stesse scadenze.
+    I contributi sul minimale non hanno acconto: vanno in quattro rate fisse
+    a febbraio, maggio, agosto e novembre, e infatti restano fuori dalla base.
+
+    Casse professionali: ognuna ha regolamento e scadenze proprie, e l'app non
+    le conosce. Meglio non calcolare un acconto che calcolarne uno inventato.
+  */
+  accontoContributi: {
+    separata: { quota: 0.8, rate: 2 },
+    artigiani: { quota: 1, rate: 2 },
+    cassa: null,
+  },
 
   sogliaVistoCompensazione: 5_000,
   sogliaAcconti: 51.65,

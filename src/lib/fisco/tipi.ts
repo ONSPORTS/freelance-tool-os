@@ -51,6 +51,17 @@ export type DetrazioneLavoroAutonomo = {
   maggiorazione: { importo: number; da: number; a: number };
 };
 
+/**
+ * Come si versa in acconto un contributo previdenziale.
+ *
+ * `quota` è la parte del dovuto che si anticipa, `rate` in quante parti uguali
+ * si divide fra le scadenze di giugno e novembre.
+ */
+export type RegolaAccontoContributi = {
+  quota: number;
+  rate: number;
+};
+
 export type ParametriAnno = {
   anno: number;
   /** Da citare nell'interfaccia accanto ai parametri. */
@@ -97,6 +108,16 @@ export type ParametriAnno = {
    * conformità sulla dichiarazione.
    */
   sogliaVistoCompensazione: number;
+  /**
+   * L'acconto dei contributi, gestione per gestione.
+   *
+   * Non segue la regola delle imposte, e non è un dettaglio: la Gestione
+   * Separata vuole l'80 % in due rate del 40 %, artigiani e commercianti il
+   * 100 % del contributo sull'eccedenza in due rate del 50 %. Applicare il
+   * 40/60 delle imposte gonfia la rata di novembre di un quinto dei contributi.
+   * `null` dove la regola non è dell'INPS: ogni cassa professionale ha la sua.
+   */
+  accontoContributi: Record<Gestione, RegolaAccontoContributi | null>;
   /** Sotto questa soglia di imposta dovuta non si versano acconti. */
   sogliaAcconti: number;
   /** Sotto questa soglia l'acconto è unico, a novembre. */

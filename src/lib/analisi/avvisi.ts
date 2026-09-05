@@ -85,7 +85,10 @@ export function generaAvvisi(ing: IngressoAvvisi): Avviso[] {
     avvisi.push({
       id: "accantonamento",
       tono: "attenzione",
-      testo: `Stai accantonando il ${percentuale(p.percentualeImpostata, 0)} ma il carico reale è del ${percentuale(p.pressione, 0)}: mancano ${euro(-p.scostamentoAccantonamento)}. Porta la percentuale almeno al ${minima}%.`,
+      // Sul fabbisogno di cassa, non sul carico: con le ritenute in mezzo i due
+      // numeri divergono, e consigliare la percentuale sbagliata qui vorrebbe
+      // dire far accantonare due volte la stessa imposta.
+      testo: `Stai accantonando il ${percentuale(p.percentualeImpostata, 0)} ma da mettere da parte ce n'è il ${percentuale(p.percentualeTeoricaAccantonamento, 0)}: mancano ${euro(-p.scostamentoAccantonamento)}. Porta la percentuale almeno al ${minima}%.`,
     });
   }
 

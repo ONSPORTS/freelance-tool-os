@@ -134,12 +134,35 @@ describe("prospetto dettagliato", () => {
     expect(riga(sezioni, "imposte-a-saldo")).toBeUndefined();
   });
 
-  it("spiega perché gli acconti non sono dovuti su importi minuscoli", () => {
+  it("spiega perché gli acconti d'imposta non sono dovuti su importi minuscoli", () => {
+    /*
+      60 € di compenso: l'imposta sostitutiva è sotto la soglia dei 51,65 € e
+      non fa acconto. I contributi invece l'acconto ce l'hanno comunque — la
+      soglia è una regola delle imposte — quindi le due rate esistono, fatte
+      di soli contributi, e la nota lo dice.
+    */
     const piccola = [{ ...FATTURE_FIXTURE[0], imponibile: 60, dataIncasso: "2026-02-10" }];
-    const { sezioni } = sezioniDi(impostazioniForfettario(), piccola, []);
-    const acconti = riga(sezioni, "acconti-non-dovuti");
-    expect(acconti?.valore).toBe("Non dovuti");
-    expect(acconti?.formula).toContain(euro(51.65));
+    const { sezioni, prospetto } = sezioniDi(impostazioniForfettario(), piccola, []);
+    expect(prospetto.imposteNetteASaldo).toBeLessThan(51.65);
+    expect(prospetto.acconti.imposte.primo).toBe(0);
+    expect(prospetto.acconti.imposte.secondo).toBe(0);
+    expect(riga(sezioni, "acconti-non-dovuti")).toBeUndefined();
+    const primo = riga(sezioni, "primo-acconto")!;
+    expect(primo.valore).toBe(prospetto.acconti.contributi.primo);
+    expect(primo.nota).toContain("di contributi");
+    expect(primo.nota).not.toContain("di imposte");
+  });
+
+  it("dice di che cosa è fatta ogni rata di acconto", () => {
+    const { sezioni, prospetto } = sezioniDi(impostazioniForfettario());
+    const primo = riga(sezioni, "primo-acconto")!;
+    const secondo = riga(sezioni, "secondo-acconto")!;
+    // Imposte 40/60, contributi 80 % in due rate uguali: le due quote sono
+    // scritte una per una, perché sulla somma non torna nessuna percentuale.
+    expect(primo.nota).toContain(euro(prospetto.acconti.imposte.primo));
+    expect(primo.nota).toContain(euro(prospetto.acconti.contributi.primo));
+    expect(secondo.nota).toContain("80 %");
+    expect(prospetto.acconti.contributi.primo).toBe(prospetto.acconti.contributi.secondo);
   });
 
   it("descrive la rateizzazione con e senza interessi", () => {

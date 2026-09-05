@@ -9,9 +9,15 @@ import {
   impostazioniForfettario,
   impostazioniOrdinario,
 } from "./fixture";
-import { calcolaAcconti, calcolaProspetto, contributiPrevidenziali, irpefScaglioni } from "./motore";
+import {
+  baseAccontoContributi,
+  calcolaAcconti,
+  calcolaProspetto,
+  contributiPrevidenziali,
+  irpefScaglioni,
+} from "./motore";
 import { PARAMETRI_2026 } from "./parametri/2026";
-import type { Fattura, Impostazioni, NotaCredito } from "./tipi";
+import type { Costo, Fattura, Impostazioni, NotaCredito } from "./tipi";
 
 const par = PARAMETRI_2026;
 
@@ -286,6 +292,121 @@ describe("ritenute d'acconto e note di credito", () => {
   });
 });
 
+describe("accantonamento e ritenute", () => {
+  /*
+    Stesso dataset, tre livelli di ritenuta. Il carico è identico in tutti e
+    tre: cambia solo quanto di quel carico è già stato pagato, e quindi quanto
+    ha senso chiedere di mettere da parte.
+
+    Su 40.000 € incassati senza costi: contributi 40.000 × 26,07 % = 10.428;
+    imponibile 29.572; IRPEF 6.958,76 meno 227,27 di detrazione = 6.731,49;
+    addizionali 511,60 + 236,58. Imposte 7.479,67, carico 17.907,67.
+  */
+  const fattura: Fattura = {
+    id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+    clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: 40_000,
+  };
+  function scenario(extra: Partial<Impostazioni>, costi: Costo[] = [], credito = 0) {
+    return calcolaProspetto({
+      impostazioni: { ...impostazioniOrdinario(), ...extra },
+      parametri: par, fatture: [fattura], costi, oggi: OGGI_FIXTURE,
+      creditoAnnoPrecedente: credito,
+    });
+  }
+
+  it("senza ritenuta si accantona tutto il carico", () => {
+    const p = scenario({ ritenutaAttiva: false });
+    expect(p.caricoTotale).toBe(17_907.67);
+    expect(p.ritenuteSubite).toBe(0);
+    expect(p.fabbisognoDaAccantonare).toBe(17_907.67);
+    expect(p.accantonamentoMensile).toBe(1_492.31);
+  });
+
+  it("con la ritenuta al 20 % si accantona solo quello che resta da versare", () => {
+    // 8.000 € li ha già trattenuti il committente: accantonarli di nuovo
+    // vorrebbe dire mettere da parte due volte la stessa imposta.
+    const p = scenario({ ritenutaAttiva: true });
+    expect(p.caricoTotale).toBe(17_907.67);
+    expect(p.ritenuteSubite).toBe(8_000);
+    expect(p.fabbisognoDaAccantonare).toBe(9_907.67);
+    expect(p.accantonamentoMensile).toBe(825.64);
+    // La percentuale suggerita scende con la stessa base: 9.907,67 ÷ 40.000.
+    expect(percentuale(p.percentualeTeoricaAccantonamento, 0)).toBe("25 %");
+  });
+
+  it("quando le ritenute superano il carico non c'è niente da accantonare", () => {
+    /*
+      35.000 € di costi deducibili: reddito lordo 5.000, contributi 1.303,50,
+      IRPEF azzerata dalla detrazione piena. Carico 1.303,50 contro 8.000 € di
+      ritenute già subite.
+    */
+    const costo: Costo = {
+      id: "c1", dataDocumento: "2026-03-01", dataPagamento: "2026-03-01",
+      fornitore: "", categoria: "", descrizione: "", natura: "variabile",
+      imponibile: 35_000, aliquotaIva: 0, percentualeDeducibilita: 1,
+    };
+    const p = scenario({ ritenutaAttiva: true }, [costo]);
+    expect(p.caricoTotale).toBe(1_303.5);
+    expect(p.ritenuteSubite).toBe(8_000);
+    expect(p.fabbisognoDaAccantonare).toBe(0);
+    expect(p.accantonamentoMensile).toBe(0);
+    expect(p.percentualeTeoricaAccantonamento).toBe(0);
+  });
+
+  it("anche il credito riportato dall'anno prima abbassa il fabbisogno", () => {
+    const p = scenario({ ritenutaAttiva: true }, [], 2_000);
+    expect(p.fabbisognoDaAccantonare).toBe(7_907.67);
+  });
+
+  it("il carico totale e il netto disponibile non si muovono", () => {
+    // Sono corretti per competenza e rispondono a un'altra domanda.
+    const senza = scenario({ ritenutaAttiva: false });
+    const con = scenario({ ritenutaAttiva: true });
+    expect(con.caricoTotale).toBe(senza.caricoTotale);
+    expect(con.nettoDisponibile).toBe(senza.nettoDisponibile);
+    expect(con.pressione).toBe(senza.pressione);
+  });
+});
+
+describe("acconti dentro il prospetto, gestione per gestione", () => {
+  const fattura: Fattura = {
+    id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+    clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: 40_000,
+  };
+  const con = (extra: Partial<Impostazioni>) =>
+    calcolaProspetto({
+      impostazioni: { ...impostazioniOrdinario(), ...extra },
+      parametri: par, fatture: [fattura], costi: [], oggi: OGGI_FIXTURE,
+    });
+
+  it("in Gestione Separata l'acconto contributivo è l'80 % in due rate uguali", () => {
+    const p = con({ gestione: "separata" });
+    expect(p.acconti.contributi.base).toBe(p.contributiGestioneSeparata);
+    expect(p.acconti.contributi.primo).toBe(p.acconti.contributi.secondo);
+    expect(round2(p.acconti.contributi.primo + p.acconti.contributi.secondo)).toBe(
+      round2(p.contributiGestioneSeparata * 0.8),
+    );
+  });
+
+  it("per gli artigiani l'acconto guarda solo la parte eccedente il minimale", () => {
+    // I contributi fissi hanno le loro quattro rate trimestrali: contarli qui
+    // li farebbe versare due volte.
+    const fissi = impostazioniOrdinario().contributiFissi;
+    const p = con({ gestione: "artigiani" });
+    expect(p.acconti.contributi.base).toBe(round2(p.contributiArtigiani - fissi));
+    expect(p.acconti.contributi.primo).toBe(p.acconti.contributi.secondo);
+  });
+
+  it("con una cassa professionale non si inventa un acconto contributivo", () => {
+    const p = con({ gestione: "cassa" });
+    expect(p.contributiCassa).toBeGreaterThan(0);
+    expect(p.acconti.contributi.primo).toBe(0);
+    expect(p.acconti.contributi.secondo).toBe(0);
+    // Le imposte, invece, l'acconto ce l'hanno eccome.
+    expect(p.acconti.imposte.primo).toBeGreaterThan(0);
+  });
+});
+
 // ————————————————————————————————————————————————————————————
 // Casi limite
 // ————————————————————————————————————————————————————————————
@@ -445,22 +566,91 @@ describe("casi limite", () => {
 });
 
 describe("acconti", () => {
+  /** Le sole imposte: nessun contributo in acconto. */
+  const soloImposte = { base: 0, regola: null };
+
   it("sotto 51,65 € non si versa nulla", () => {
-    expect(calcolaAcconti(40, par).dovuti).toBe(false);
+    expect(calcolaAcconti(40, soloImposte, par).dovuti).toBe(false);
   });
 
   it("fra 51,65 e 257,52 € l'acconto è unico a novembre", () => {
-    const a = calcolaAcconti(200, par);
+    const a = calcolaAcconti(200, soloImposte, par);
     expect(a.accontoUnico).toBe(true);
     expect(a.primo).toBe(0);
     expect(a.secondo).toBe(200);
   });
 
   it("sopra 257,52 € si divide in 40% e 60%", () => {
-    const a = calcolaAcconti(2173.84, par);
+    const a = calcolaAcconti(2173.84, soloImposte, par);
     expect(a.accontoUnico).toBe(false);
     expect(a.primo).toBe(869.54);
     expect(a.secondo).toBe(1304.3);
+  });
+
+  it("i contributi della Gestione Separata vanno all'80 % in due rate uguali", () => {
+    // 10.000 € di contributi → acconto 8.000, cioè 4.000 e 4.000.
+    const a = calcolaAcconti(0, { base: 10_000, regola: par.accontoContributi.separata }, par);
+    expect(a.contributi.primo).toBe(4_000);
+    expect(a.contributi.secondo).toBe(4_000);
+    expect(a.primo).toBe(4_000);
+    expect(a.secondo).toBe(4_000);
+    expect(a.accontoUnico).toBe(false);
+  });
+
+  it("le due basi si sommano rata per rata, ognuna con la sua regola", () => {
+    // Imposte 1.000 → 400 e 600. Contributi 10.000 → 4.000 e 4.000.
+    const a = calcolaAcconti(1_000, { base: 10_000, regola: par.accontoContributi.separata }, par);
+    expect(a.imposte).toEqual({ primo: 400, secondo: 600, unico: false });
+    expect(a.primo).toBe(4_400);
+    expect(a.secondo).toBe(4_600);
+  });
+
+  it("artigiani e commercianti: 100 % dell'eccedenza, in due rate del 50 %", () => {
+    const a = calcolaAcconti(0, { base: 3_000, regola: par.accontoContributi.artigiani }, par);
+    expect(a.contributi.primo).toBe(1_500);
+    expect(a.contributi.secondo).toBe(1_500);
+  });
+
+  it("senza regola — le casse professionali — non si calcola nessun acconto contributivo", () => {
+    const a = calcolaAcconti(0, { base: 9_000, regola: par.accontoContributi.cassa }, par);
+    expect(a.contributi.primo).toBe(0);
+    expect(a.contributi.secondo).toBe(0);
+    expect(a.dovuti).toBe(false);
+  });
+
+  it("il centesimo dispari finisce nell'ultima rata, non sparisce", () => {
+    // 8.000,01 × 80 % = 6.400,01: 3.200 e 3.200,01.
+    const a = calcolaAcconti(0, { base: 8_000.01, regola: par.accontoContributi.separata }, par);
+    expect(round2(a.contributi.primo + a.contributi.secondo)).toBe(6_400.01);
+  });
+
+  it("le soglie valgono sulle imposte, non sui contributi", () => {
+    // 40 € di imposte non fanno acconto; 1.000 € di contributi sì.
+    const a = calcolaAcconti(40, { base: 1_000, regola: par.accontoContributi.separata }, par);
+    expect(a.imposte.primo).toBe(0);
+    expect(a.imposte.secondo).toBe(0);
+    expect(a.dovuti).toBe(true);
+    expect(a.primo).toBe(400);
+  });
+
+  it("la base degli artigiani esclude i contributi fissi, che hanno le loro rate", () => {
+    expect(
+      baseAccontoContributi({
+        gestione: "artigiani",
+        contributiGestioneSeparata: 0,
+        contributiArtigiani: 7_000,
+        contributiFissi: 4_500,
+      }),
+    ).toBe(2_500);
+    // Sotto il minimale non c'è eccedenza: nessun acconto.
+    expect(
+      baseAccontoContributi({
+        gestione: "artigiani",
+        contributiGestioneSeparata: 0,
+        contributiArtigiani: 4_500,
+        contributiFissi: 4_500,
+      }),
+    ).toBe(0);
   });
 });
 

@@ -544,18 +544,19 @@ export function prospettoDettagliato(
         etichetta: "Da accantonare al mese",
         valore: p.accantonamentoMensile,
         formato: "euro",
-        formula: `${euro(p.caricoTotale)} ÷ 12, da spostare su un conto separato dedicato alle imposte.`,
+        formula: `${euro(p.fabbisognoDaAccantonare)} ÷ 12, da spostare su un conto separato dedicato alle imposte.`,
+        nota: notaFabbisogno(p),
       },
       {
         id: "scostamento",
         etichetta: "Scostamento sull'accantonamento impostato",
         valore: p.scostamentoAccantonamento,
         formato: "euro",
-        formula: `Accantoni il ${percentuale(p.percentualeImpostata, 0)} dei ricavi, cioè ${euro(p.accantonamentoAnnuo)}; il carico reale è ${euro(p.caricoTotale)}.`,
+        formula: `Accantoni il ${percentuale(p.percentualeImpostata, 0)} dei ricavi, cioè ${euro(p.accantonamentoAnnuo)}; da mettere da parte ce ne sono ${euro(p.fabbisognoDaAccantonare)}.`,
         nota:
           p.scostamentoAccantonamento < 0
-            ? `Non basta: porta la percentuale almeno al ${Math.ceil(p.pressione * 100)}%.`
-            : "Copri il carico stimato con un margine.",
+            ? `Non basta: porta la percentuale almeno al ${Math.ceil(p.percentualeTeoricaAccantonamento * 100)}%.`
+            : "Copri il fabbisogno stimato con un margine.",
       },
     ],
   });
@@ -648,7 +649,7 @@ export function prospettoDettagliato(
       etichetta: `Acconti per il ${prossimo}`,
       valore: "Non dovuti",
       formato: "testo",
-      formula: `Il dovuto (${euro(p.totaleDovuto)}) resta sotto la soglia di ${euro(par.sogliaAcconti)}: nessun acconto.`,
+      formula: `Le imposte dell'anno (${euro(p.imposteNetteASaldo)}) restano sotto la soglia di ${euro(par.sogliaAcconti)}, e non ci sono contributi da anticipare: nessun acconto.`,
     });
   } else if (p.acconti.accontoUnico) {
     acconti.push({
@@ -656,7 +657,7 @@ export function prospettoDettagliato(
       etichetta: `Acconto unico per il ${prossimo}`,
       valore: p.acconti.secondo,
       formato: "euro",
-      formula: `Sotto ${euro(par.sogliaAccontoUnico)} l'acconto non si divide: si versa tutto in una volta, entro il 30 novembre ${prossimo}.`,
+      formula: `Sotto ${euro(par.sogliaAccontoUnico)} l'acconto delle imposte non si divide: si versa tutto in una volta, entro il 30 novembre ${prossimo}.`,
     });
   } else {
     acconti.push({
@@ -664,14 +665,16 @@ export function prospettoDettagliato(
       etichetta: `Primo acconto per il ${prossimo}`,
       valore: p.acconti.primo,
       formato: "euro",
-      formula: `${percentuale(par.quotaPrimoAcconto, 0)} di ${euro(p.totaleDovuto)}, metodo storico: si calcola sulle imposte del ${p.anno}. Si versa entro il 30 giugno ${prossimo}, insieme al saldo.`,
+      formula: `Si versa entro il 30 giugno ${prossimo}, insieme al saldo. Metodo storico: si calcola sui numeri del ${p.anno}.`,
+      nota: composizioneRata(p, imp, par, "primo"),
     });
     acconti.push({
       id: "secondo-acconto",
       etichetta: `Secondo acconto per il ${prossimo}`,
       valore: p.acconti.secondo,
       formato: "euro",
-      formula: `${percentuale(par.quotaSecondoAcconto, 0)} di ${euro(p.totaleDovuto)}. Si versa entro il 30 novembre ${prossimo}.`,
+      formula: `Si versa entro il 30 novembre ${prossimo}.`,
+      nota: composizioneRata(p, imp, par, "secondo"),
     });
     acconti.push({
       id: "rata",
@@ -692,6 +695,77 @@ export function prospettoDettagliato(
   });
 
   return sezioni;
+}
+
+/**
+ * Di che cosa è fatta una rata di acconto.
+ *
+ * Imposte e contributi hanno regole diverse — 40/60 sul dovuto le prime, la
+ * quota della propria gestione i secondi — e la rata è la somma delle due.
+ * Senza questa frase le percentuali non tornano su nessuno dei due totali, e
+ * chi prova a rifare il conto trova un numero che non esiste.
+ */
+function composizioneRata(
+  p: Prospetto,
+  imp: Impostazioni,
+  par: ParametriAnno,
+  quale: "primo" | "secondo",
+): string | undefined {
+  const a = p.acconti;
+  const pezzi: string[] = [];
+  const quotaImposte = quale === "primo" ? par.quotaPrimoAcconto : par.quotaSecondoAcconto;
+  if (a.imposte[quale] > 0) {
+    pezzi.push(
+      `${euro(a.imposte[quale])} di imposte, il ${percentuale(quotaImposte, 0)} di ${euro(p.imposteNetteASaldo)}`,
+    );
+  }
+  if (a.contributi[quale] > 0) {
+    const regola = par.accontoContributi[imp.gestione];
+    const quotaRata = regola ? regola.quota / regola.rate : 0;
+    const dove =
+      imp.gestione === "artigiani"
+        ? `${euro(a.contributi.base)} di contributi sul reddito eccedente il minimale`
+        : `${euro(a.contributi.base)} di contributi`;
+    pezzi.push(
+      `${euro(a.contributi[quale])} di contributi, il ${percentuale(quotaRata, 0)} di ${dove}` +
+        ` (l'acconto è il ${percentuale(a.contributi.quota, 0)} in ${interoIt.format(regola?.rate ?? 0)} rate uguali)`,
+    );
+  }
+  if (pezzi.length === 0) return undefined;
+  const coda =
+    imp.gestione === "artigiani"
+      ? " I contributi sul minimale non entrano qui: si versano in quattro rate fisse."
+      : imp.gestione === "cassa"
+        ? " I contributi di cassa non entrano qui: la tua cassa ha scadenze e regole proprie."
+        : "";
+  return `${elenco(pezzi)}.${coda}`;
+}
+
+/**
+ * Perché il fabbisogno è più basso del carico.
+ *
+ * Va detto ogni volta che i due numeri divergono, e nella riga in cui si chiede
+ * di mettere da parte del denaro: chi legge «carico 13.431 €» due righe sopra e
+ * «da accantonare 1.119 €» qui, senza una frase in mezzo, pensa a un errore.
+ */
+function notaFabbisogno(p: Prospetto): string {
+  const scomputi: string[] = [];
+  if (p.ritenuteSubite > 0) {
+    scomputi.push(`${euro(p.ritenuteSubite)} di ritenute già trattenute dai committenti`);
+  }
+  if (p.creditoAnnoPrecedente > 0) {
+    scomputi.push(`${euro(p.creditoAnnoPrecedente)} di credito riportato dal ${p.anno - 1}`);
+  }
+  if (scomputi.length === 0) {
+    return "Non hai ritenute né crediti a copertura: da mettere da parte c'è tutto il carico dell'anno.";
+  }
+  return `Il carico dell'anno è ${euro(p.caricoTotale)}, ma ${elenco(scomputi)}: sono imposta già pagata e non vanno accantonati una seconda volta.`;
+}
+
+/** «a, b e c»: l'elenco come lo si scrive in italiano. */
+function elenco(voci: string[]): string {
+  if (voci.length === 1) return voci[0];
+  return `${voci.slice(0, -1).join(", ")} e ${voci[voci.length - 1]}`;
 }
 
 /** «28.000 € al 23%, poi 22.000 € al 33%»: gli scaglioni davvero applicati. */
