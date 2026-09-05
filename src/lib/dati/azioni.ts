@@ -379,6 +379,21 @@ export async function creaVersamento(versamento: Omit<VersamentoF24, "id">) {
   });
 }
 
+/**
+ * Assegna a un versamento l'anno d'imposta a cui si riferisce.
+ *
+ * Esiste come azione a sé perché è la riparazione di un dato mancante, non una
+ * modifica: chi ha registrato F24 prima che il campo esistesse deve poterli
+ * sistemare uno per uno da dove li vede, senza cancellarli e riscriverli.
+ */
+export async function assegnaAnnoImposta(versamento: VersamentoF24, annoImposta: number) {
+  const precedente = { ...versamento };
+  await archivio().versamenti.salva({ ...versamento, annoImposta });
+  toast.conferma(`Versamento assegnato al ${annoImposta}`, async () => {
+    await archivio().versamenti.salva(precedente);
+  });
+}
+
 export async function eliminaVersamento(versamento: VersamentoF24) {
   await archivio().versamenti.elimina(versamento.id);
   toast.conferma("Versamento eliminato", async () => {

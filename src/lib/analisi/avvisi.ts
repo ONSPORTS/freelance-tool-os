@@ -92,6 +92,20 @@ export function generaAvvisi(ing: IngressoAvvisi): Avviso[] {
     });
   }
 
+  /*
+    Non sparisce finché non lo si assegna, ed è voluto: la ricaduta sull'anno
+    della data tiene i numeri come erano prima, ma resta una supposizione, e
+    una supposizione silenziosa qui varrebbe quanto un errore.
+  */
+  if (p.versamentiSenzaAnno > 0) {
+    avvisi.push({
+      id: "versamenti-senza-anno",
+      tono: "attenzione",
+      testo: `${euro(p.versamentiSenzaAnno)} di versamenti F24 non hanno un anno d'imposta: sono contati sul ${p.anno} per la data di pagamento. Se erano il saldo del ${p.anno - 1} stanno abbassando il dovuto dell'anno sbagliato.`,
+      azione: { etichetta: "Assegna l'anno ai versamenti", href: "/cashflow" },
+    });
+  }
+
   // — Accredito contributivo ————————————————————————
   if (p.accreditoIntero === false && p.redditoLordo > 0) {
     avvisi.push({

@@ -413,6 +413,25 @@ export function controlliChiusura(ing: {
     });
   }
 
+  /*
+    Un versamento senza anno d'imposta è contato sull'anno della sua data, che
+    è la ricaduta e non un dato: se qualcuno di quelli era il saldo dell'anno
+    prima, il saldo residuo che si sta per fotografare è più basso del vero.
+    Chiudere è il momento in cui quel numero smette di essere provvisorio.
+  */
+  if (p.versamentiSenzaAnno > 0) {
+    controlli.push({
+      id: "versamenti-senza-anno",
+      gravita: "attenzione",
+      titolo: `${euro(p.versamentiSenzaAnno)} di versamenti senza anno d'imposta`,
+      dettaglio:
+        `Sono contati sul ${p.anno} perché è l'anno in cui li hai pagati, ma a giugno si versa ` +
+        `insieme il saldo del ${p.anno - 1} e il primo acconto del ${p.anno}: se qualcuno di ` +
+        "questi era un saldo dell'anno prima, qui sta abbassando il dovuto dell'anno sbagliato. " +
+        "Assegna l'anno d'imposta dal Cashflow, poi chiudi.",
+    });
+  }
+
   if (r.fattureDaIncassare.numero > 0) {
     controlli.push({
       id: "fatture-sospese",

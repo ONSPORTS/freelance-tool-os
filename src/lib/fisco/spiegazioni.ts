@@ -577,12 +577,26 @@ export function prospettoDettagliato(
     },
     {
       id: "gia-versato",
-      etichetta: "Già versato con F24 nell'anno",
+      etichetta: `Già versato per l'anno d'imposta ${p.anno}`,
       valore: p.giaVersato,
       formato: "euro",
-      formula: "Somma dei versamenti registrati, esclusi quelli di IVA.",
+      formula: `Versamenti F24 riferiti al ${p.anno}, esclusa l'IVA. Conta l'anno d'imposta, non la data: il saldo di un anno si versa a giugno di quello dopo, insieme al primo acconto dell'anno in corso.`,
+      nota:
+        p.versamentiSenzaAnno > 0
+          ? `${euro(p.versamentiSenzaAnno)} non hanno un anno d'imposta dichiarato: sono contati qui per la data di pagamento. Se qualcuno di questi era il saldo del ${p.anno - 1}, questo numero è più alto del vero — assegnali dal Cashflow.`
+          : undefined,
     },
   ];
+
+  if (p.versamentiAltriAnni > 0) {
+    acconti.push({
+      id: "versamenti-altri-anni",
+      etichetta: `Versato nel ${p.anno} per altri anni d'imposta`,
+      valore: p.versamentiAltriAnni,
+      formato: "euro",
+      formula: `Uscito dal conto quest'anno — tipicamente il saldo del ${p.anno - 1}, versato a giugno — ma riferito a un altro anno: non scomputa il dovuto del ${p.anno}. Nel cashflow c'è, qui no.`,
+    });
+  }
 
   // Il credito che arriva dalla chiusura dell'anno prima compare solo quando
   // c'è: una riga da zero euro in un prospetto è rumore.
@@ -623,6 +637,10 @@ export function prospettoDettagliato(
       valore: eccedenzaVersamenti,
       formato: "euro",
       formula: `${euro(p.giaVersato)} versati con F24 contro ${euro(p.totaleDovuto)} dovuti. La differenza non si perde: entra nel riporto al ${prossimo} insieme all'eventuale credito d'imposta.`,
+      nota:
+        p.versamentiSenzaAnno > 0
+          ? `Da verificare prima di contarci: ${euro(p.versamentiSenzaAnno)} dei versamenti non hanno un anno d'imposta dichiarato.`
+          : undefined,
     });
   }
 

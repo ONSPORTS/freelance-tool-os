@@ -36,6 +36,7 @@ import { CellaModificabile } from "@/components/tabella/cella-modificabile";
 import { AndamentoCassa } from "@/components/grafici/andamento-cassa";
 import { Guscio } from "@/components/guscio/guscio";
 import {
+  assegnaAnnoImposta,
   creaVersamento,
   eliminaVersamento,
   salvaMovimentoAttivita,
@@ -350,10 +351,55 @@ export function SchermataCashflow() {
   );
 }
 
+/**
+ * L'anno d'imposta di un versamento, e il modo di assegnarlo se manca.
+ *
+ * Chi ha registrato F24 prima che il campo esistesse li vede contrassegnati:
+ * il numero non è cambiato, ma è una supposizione basata sulla data, e finché
+ * resta tale va detto qui — dove il versamento si vede — e non solo nel
+ * prospetto.
+ */
+function AnnoImposta({ versamento }: { versamento: VersamentoF24 }) {
+  const annoDellaData = Number(versamento.data.slice(0, 4));
+  if (versamento.annoImposta !== undefined) {
+    return (
+      <span className="text-micro text-inchiostro-tenue">
+        anno d&apos;imposta {versamento.annoImposta}
+      </span>
+    );
+  }
+  return (
+    <span className="flex items-center gap-1.5">
+      <span className="rounded-full bg-attenzione-tenue px-2 py-0.5 text-micro text-inchiostro">
+        anno d&apos;imposta da assegnare
+      </span>
+      {[annoDellaData - 1, annoDellaData].map((a) => (
+        <Button
+          scrive
+          key={a}
+          variante="contorno"
+          taglia="sm"
+          onClick={() => void assegnaAnnoImposta(versamento, a)}
+        >
+          {a}
+        </Button>
+      ))}
+    </span>
+  );
+}
+
 function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: VersamentoF24[] }) {
   const [data, setData] = React.useState(`${anno}-06-30`);
   const [tipo, setTipo] = React.useState<VersamentoF24["tipo"]>("imposte");
   const [importo, setImporto] = React.useState("");
+  /*
+    L'anno d'imposta non si deduce dalla data: il 30 giugno escono insieme il
+    saldo dell'anno prima e il primo acconto di quello in corso. Si propone
+    l'anno della data — scritto, non nascosto — e l'altro è una scelta sola.
+  */
+  const [annoScelto, setAnnoScelto] = React.useState<number | null>(null);
+  const annoDellaData = Number(data.slice(0, 4)) || anno;
+  const annoImposta = annoScelto ?? annoDellaData;
 
   const valore = analizzaNumero(importo) ?? 0;
   const totale = versamenti.reduce((a, v) => a + v.importo, 0);
@@ -364,7 +410,10 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
         <CardTitolo>Versamenti F24 dell&apos;anno</CardTitolo>
         <CardSottotitolo>
           Quello che hai davvero pagato. I contributi registrati qui vengono dedotti per
-          cassa nel prospetto fiscale, al posto di quelli di competenza.
+          cassa nel prospetto fiscale, al posto di quelli di competenza. L&apos;anno
+          d&apos;imposta è un&apos;altra cosa dalla data: il 30 giugno si versa insieme il
+          saldo dell&apos;anno prima e il primo acconto di quello in corso, e solo il
+          secondo abbassa il dovuto dell&apos;anno in corso.
         </CardSottotitolo>
       </CardCorpo>
 
@@ -376,11 +425,12 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
         ) : (
           versamenti.map((v) => (
             <li key={v.id} className="flex items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
-              <span className="flex items-center gap-3">
+              <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                 <span className="cifre text-etichetta text-inchiostro-tenue">{fmtData(v.data)}</span>
                 <span className="text-corpo">
                   {TIPI_F24.find((t) => t.valore === v.tipo)?.etichetta}
                 </span>
+                <AnnoImposta versamento={v} />
               </span>
               <span className="flex items-center gap-3">
                 <span className="cifre text-corpo font-medium">{euro(v.importo)}</span>
@@ -411,7 +461,7 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
           onSubmit={(e) => {
             e.preventDefault();
             if (valore <= 0) return;
-            void creaVersamento({ data, tipo, importo: valore });
+            void creaVersamento({ data, tipo, importo: valore, annoImposta });
             setImporto("");
           }}
         >
@@ -427,6 +477,21 @@ function ElencoVersamenti({ anno, versamenti }: { anno: number; versamenti: Vers
               <SelectContent>
                 {TIPI_F24.map((t) => (
                   <SelectItem key={t.valore} value={t.valore}>{t.etichetta}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Campo>
+          <Campo etichetta="Anno d'imposta" htmlFor="f24-anno" className="w-44">
+            <Select
+              value={String(annoImposta)}
+              onValueChange={(v) => setAnnoScelto(Number(v))}
+            >
+              <SelectTrigger id="f24-anno">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[annoDellaData - 1, annoDellaData].map((a) => (
+                  <SelectItem key={a} value={String(a)}>{a}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

@@ -302,11 +302,16 @@ const convalidaVersamento: Convalida<Dati["versamenti"][number]> = (riga, i, err
     return null;
   }
   const tipo = riga.tipo;
+  // L'anno d'imposta manca nei backup scritti prima che il campo esistesse, e
+  // manca per davvero: non si deduce dalla data, si lascia assente. Chi lo
+  // legge sa che cosa farne — vale l'anno della data, dichiarandolo.
+  const annoImposta = Number(riga.annoImposta);
   return {
     id,
     data,
     tipo: tipo === "iva" || tipo === "imposte" || tipo === "contributi" ? tipo : "imposte",
     importo: numero(riga.importo),
+    ...(Number.isFinite(annoImposta) && annoImposta > 1900 ? { annoImposta } : {}),
   };
 };
 

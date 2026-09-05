@@ -361,11 +361,22 @@ function costruisciMovimentiAttivita(): MovimentoAttivita[] {
 }
 
 /** F24 dell'anno: saldo e primo acconto a giugno, secondo acconto a novembre. */
+/*
+  Gli F24 dell'anno, con l'anno d'imposta a cui si riferiscono davvero.
+
+  Il 30 giugno è il giorno in cui l'anno d'imposta e l'anno di cassa non
+  coincidono: nello stesso F24 escono il saldo dell'anno prima e il primo
+  acconto di quello in corso. Il dataset lo mette in scena — `f24-00` è il
+  saldo del 2025 versato a giugno 2026 — perché è il caso in cui il prospetto
+  deve mostrare che non lo scomputa: 1.140 € usciti dal conto nel 2026 che
+  non abbassano di un centesimo il dovuto del 2026.
+*/
 const VERSAMENTI: VersamentoF24[] = [
-  { id: "f24-01", data: iso(6, 30), tipo: "contributi", importo: 4180 },
-  { id: "f24-02", data: iso(6, 30), tipo: "imposte", importo: 1290 },
-  { id: "f24-03", data: iso(11, 30), tipo: "contributi", importo: 2510 },
-  { id: "f24-04", data: iso(11, 30), tipo: "imposte", importo: 770 },
+  { id: "f24-00", data: iso(6, 30), tipo: "imposte", importo: 1140, annoImposta: ANNO_DEMO - 1 },
+  { id: "f24-01", data: iso(6, 30), tipo: "contributi", importo: 4180, annoImposta: ANNO_DEMO },
+  { id: "f24-02", data: iso(6, 30), tipo: "imposte", importo: 1290, annoImposta: ANNO_DEMO },
+  { id: "f24-03", data: iso(11, 30), tipo: "contributi", importo: 2510, annoImposta: ANNO_DEMO },
+  { id: "f24-04", data: iso(11, 30), tipo: "imposte", importo: 770, annoImposta: ANNO_DEMO },
 ];
 
 const PATRIMONIO: VocePatrimonio[] = [

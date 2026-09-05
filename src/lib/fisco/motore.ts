@@ -221,6 +221,14 @@ export type Prospetto = {
   /** F · Saldo, acconti e rateizzazione */
   totaleDovuto: number;
   giaVersato: number;
+  /**
+   * Quanto di `giaVersato` è finito qui solo per la data di pagamento, senza
+   * un anno d'imposta dichiarato. È la parte che potrebbe essere di un altro
+   * anno, e va detta finché resta.
+   */
+  versamentiSenzaAnno: number;
+  /** Versato nell'anno ma riferito ad altri anni d'imposta: non scomputa qui. */
+  versamentiAltriAnni: number;
   saldoResiduo: number;
   acconti: Acconti;
   rataRateizzazione: number;
@@ -524,9 +532,17 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   const contributi = contributiPrevidenziali(baseContributiva, imp);
   const contributiCompetenza = contributi.totale;
 
-  // Principio di cassa: si deducono i contributi effettivamente versati nell'anno.
-  // Se l'utente non ha ancora registrato F24 si ricade sulla competenza, come
-  // faceva l'Excel, dichiarandolo nel prospetto.
+  /*
+    Principio di cassa: si deducono i contributi effettivamente versati
+    nell'anno. Se l'utente non ha ancora registrato F24 si ricade sulla
+    competenza, come faceva l'Excel, dichiarandolo nel prospetto.
+
+    Qui la data di pagamento è il criterio giusto, e resta: un contributo si
+    deduce nell'anno in cui esce dal conto, quale che sia l'anno d'imposta a
+    cui si riferisce. È la stessa tabella letta con due criteri diversi —
+    `annoImposta` per lo scomputo dal dovuto, `data` per la deduzione — e sono
+    corretti entrambi. Uniformarli romperebbe la deduzione.
+  */
   const versamentiContributi = somma(
     ...(ingresso.versamenti ?? [])
       .filter((v) => v.tipo === "contributi" && annoDi(v.data) === anno)
@@ -653,9 +669,30 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
 
   // — F · Saldo e acconti ————————————————————————————
   const totaleDovuto = somma(imposteNetteASaldo, contributiCompetenza);
-  const giaVersato = somma(
-    ...(ingresso.versamenti ?? [])
-      .filter((v) => v.tipo !== "iva" && annoDi(v.data) === anno)
+  /*
+    Che cosa è già stato versato *per questo anno d'imposta*.
+
+    Non per data di pagamento: il saldo di un anno si versa a giugno di quello
+    dopo, insieme al primo acconto dell'anno in corso. Sommare per data
+    significava scomputare dal dovuto del 2026 il saldo del 2025.
+
+    I versamenti registrati prima che il campo esistesse non hanno un anno
+    d'imposta: continuano a valere per l'anno della loro data — nessun numero
+    cambia a chi aggiorna — e il prospetto dice quali sono e quanto pesano,
+    perché quello è esattamente il conto che potrebbe essere sbagliato.
+  */
+  const nonIva = (ingresso.versamenti ?? []).filter((v) => v.tipo !== "iva");
+  const diCompetenza = nonIva.filter((v) => (v.annoImposta ?? annoDi(v.data)) === anno);
+  const giaVersato = somma(...diCompetenza.map((v) => v.importo));
+  const versamentiSenzaAnno = somma(
+    ...diCompetenza.filter((v) => v.annoImposta === undefined).map((v) => v.importo),
+  );
+  // Usciti dal conto quest'anno ma riferiti a un altro anno d'imposta: il
+  // saldo di dicembre scorso pagato a giugno. Vanno detti, altrimenti chi
+  // guarda l'estratto conto trova denaro versato che nel prospetto non c'è.
+  const versamentiAltriAnni = somma(
+    ...nonIva
+      .filter((v) => annoDi(v.data) === anno && (v.annoImposta ?? anno) !== anno)
       .map((v) => v.importo),
   );
   const dopoVersamenti = nonNegativo(totaleDovuto - giaVersato);
@@ -764,6 +801,8 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
 
     totaleDovuto,
     giaVersato,
+    versamentiSenzaAnno,
+    versamentiAltriAnni,
     saldoResiduo,
     acconti,
     rataRateizzazione,

@@ -300,9 +300,22 @@ export type Costo = {
 
 export type VersamentoF24 = {
   id: string;
+  /** Quando è uscito dal conto. Comanda sulla deduzione dei contributi. */
   data: string;
   tipo: TipoVersamento;
   importo: number;
+  /**
+   * A quale anno d'imposta si riferisce.
+   *
+   * Non è la data: a giugno si versano insieme il saldo dell'anno prima e il
+   * primo acconto di quello in corso, e sono due anni diversi. Senza questo
+   * campo un saldo 2025 pagato a giugno 2026 riduceva il dovuto del 2026.
+   *
+   * Assente sui versamenti registrati prima che il campo esistesse: valgono
+   * per l'anno della data, e il prospetto dichiara quali sono e quanto pesano
+   * invece di far finta di saperlo.
+   */
+  annoImposta?: number;
 };
 
 /** Fattura con i campi derivati calcolati. Non si salva mai così. */

@@ -17,7 +17,7 @@ import {
   irpefScaglioni,
 } from "./motore";
 import { PARAMETRI_2026 } from "./parametri/2026";
-import type { Costo, Fattura, Impostazioni, NotaCredito } from "./tipi";
+import type { Costo, Fattura, Impostazioni, NotaCredito, VersamentoF24 } from "./tipi";
 
 const par = PARAMETRI_2026;
 
@@ -461,6 +461,62 @@ describe("acconti dentro il prospetto, gestione per gestione", () => {
     expect(p.acconti.contributi.secondo).toBe(0);
     // Le imposte, invece, l'acconto ce l'hanno eccome.
     expect(p.acconti.imposte.primo).toBeGreaterThan(0);
+  });
+});
+
+describe("versamenti per anno d'imposta", () => {
+  const fattura: Fattura = {
+    id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+    clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: 40_000,
+  };
+  const con = (versamenti: VersamentoF24[]) =>
+    calcolaProspetto({
+      impostazioni: impostazioniForfettario(), parametri: par,
+      fatture: [fattura], costi: [], versamenti, oggi: OGGI_FIXTURE,
+    });
+
+  it("il saldo dell'anno prima, versato a giugno, non scomputa il dovuto di quest'anno", () => {
+    // È il caso per cui il campo esiste: stesso F24, due anni d'imposta.
+    const p = con([
+      { id: "a", data: "2026-06-30", tipo: "imposte", importo: 1_000, annoImposta: 2025 },
+      { id: "b", data: "2026-06-30", tipo: "imposte", importo: 400, annoImposta: 2026 },
+    ]);
+    expect(p.giaVersato).toBe(400);
+    expect(p.versamentiSenzaAnno).toBe(0);
+  });
+
+  it("un versamento senza anno vale per l'anno della data, e viene dichiarato", () => {
+    const p = con([{ id: "a", data: "2026-06-30", tipo: "imposte", importo: 1_000 }]);
+    expect(p.giaVersato).toBe(1_000);
+    expect(p.versamentiSenzaAnno).toBe(1_000);
+  });
+
+  it("assegnare l'anno a un vecchio versamento lo toglie dal conto dichiarato", () => {
+    const p = con([
+      { id: "a", data: "2026-06-30", tipo: "imposte", importo: 1_000, annoImposta: 2026 },
+    ]);
+    expect(p.giaVersato).toBe(1_000);
+    expect(p.versamentiSenzaAnno).toBe(0);
+  });
+
+  it("l'IVA resta fuori, con o senza anno d'imposta", () => {
+    const p = con([{ id: "a", data: "2026-06-30", tipo: "iva", importo: 900, annoImposta: 2026 }]);
+    expect(p.giaVersato).toBe(0);
+  });
+
+  it("i contributi si deducono per data di pagamento, non per anno d'imposta", () => {
+    /*
+      Due criteri sulla stessa tabella, ed è giusto così: un contributo si
+      deduce nell'anno in cui esce dal conto, quale che sia l'anno d'imposta
+      del debito che sta pagando.
+    */
+    const p = con([
+      { id: "a", data: "2026-06-30", tipo: "contributi", importo: 3_000, annoImposta: 2025 },
+    ]);
+    expect(p.contributiDedotti).toBe(3_000);
+    expect(p.fonteContributiDedotti).toBe("versamenti");
+    // Ma dal dovuto del 2026 non scomputa niente.
+    expect(p.giaVersato).toBe(0);
   });
 });
 

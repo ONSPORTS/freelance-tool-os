@@ -433,6 +433,24 @@ describe("prospetto dettagliato", () => {
     expect(secondo.nota).not.toContain("addizionale comunale");
   });
 
+  it("il versato per altri anni si vede, e si vede che non scomputa", () => {
+    const imp = impostazioniForfettario();
+    const p = calcolaProspetto({
+      impostazioni: imp, parametri: par, fatture: FATTURE_FIXTURE, costi: COSTI_FIXTURE,
+      versamenti: [
+        { id: "v1", data: "2026-06-30", tipo: "imposte", importo: 1_140, annoImposta: 2025 },
+        { id: "v2", data: "2026-06-30", tipo: "imposte", importo: 500, annoImposta: 2026 },
+      ],
+      oggi: OGGI_FIXTURE,
+    });
+    expect(p.giaVersato).toBe(500);
+    const sezioni = prospettoDettagliato(p, imp, par);
+    expect(riga(sezioni, "gia-versato")?.etichetta).toContain("anno d'imposta 2026");
+    const altri = riga(sezioni, "versamenti-altri-anni")!;
+    expect(altri.valore).toBe(1_140);
+    expect(altri.formula).toContain("non scomputa");
+  });
+
   it("con la ritenuta attiva e nessuna trattenuta, lo zero è scritto", () => {
     /*
       Su carta non si può chiedere all'app perché una voce manchi: chi applica

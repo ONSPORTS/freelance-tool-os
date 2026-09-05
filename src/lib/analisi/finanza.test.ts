@@ -56,8 +56,13 @@ describe("cashflow", () => {
 
   it("gli F24 escono nel mese in cui sono stati versati", () => {
     const giugno = cashflow.mesi[5];
-    // 4.180 € di contributi più 1.290 € di imposte, registrati al 30 giugno.
-    expect(giugno.imposteEContributi).toBe(5470);
+    /*
+      4.180 € di contributi più 1.290 € di imposte del 2026, più 1.140 € di
+      saldo 2025: al 30 giugno dal conto escono tutti e tre. Qui comanda la
+      data, non l'anno d'imposta — la cassa non sa di che anno è il debito che
+      sta pagando.
+    */
+    expect(giugno.imposteEContributi).toBe(6610);
     expect(cashflow.mesi[10].imposteEContributi).toBe(3280);
   });
 
