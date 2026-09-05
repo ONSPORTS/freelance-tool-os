@@ -15,6 +15,7 @@ import {
   addizionaleDovuta,
   addizionaleRegionaleDi,
 } from "./addizionali";
+import { detrazioneLavoroAutonomo } from "./detrazioni";
 import type { Impostazioni, ParametriAnno } from "./tipi";
 
 export type ScenarioRegime = {
@@ -90,12 +91,25 @@ function scenario(
     : round2(Math.min(imp.fondoPensione, par.tettoFondoPensione));
   const imponibile = round2(nonNegativo(redditoLordo - contributi - oneriDeducibili));
 
+  // La stessa catena del prospetto, detrazione dell'art. 13 compresa: se il
+  // confronto non la contasse, l'ordinario sembrerebbe più caro di quello che
+  // è, e la proposta di cambio regime nascerebbe da un numero sbagliato.
+  const irpefNetta = nonNegativo(
+    irpefScaglioni(imponibile, imp.scaglioniIrpef) -
+      imp.detrazioniPersonali -
+      detrazioneLavoroAutonomo(redditoLordo, par.detrazioneLavoroAutonomo).importo,
+  );
   const imposte = forfettario
     ? round2(imponibile * imp.aliquotaSostitutiva)
     : somma(
-        nonNegativo(irpefScaglioni(imponibile, imp.scaglioniIrpef) - imp.detrazioniPersonali),
-        addizionaleDovuta(imponibile, addizionaleRegionaleDi(imp)),
-        addizionaleDovuta(imponibile, addizionaleComunaleDi(imp)),
+        irpefNetta,
+        // Senza IRPEF dovuta non sono dovute nemmeno le addizionali.
+        ...(irpefNetta > 0
+          ? [
+              addizionaleDovuta(imponibile, addizionaleRegionaleDi(imp)),
+              addizionaleDovuta(imponibile, addizionaleComunaleDi(imp)),
+            ]
+          : []),
       );
 
   const caricoTotale = somma(imposte, contributi);

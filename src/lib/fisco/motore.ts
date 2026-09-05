@@ -12,6 +12,7 @@ import {
   addizionaleDovuta,
   addizionaleRegionaleDi,
 } from "./addizionali";
+import { detrazioneLavoroAutonomo } from "./detrazioni";
 import { impostaProgressiva } from "./scaglioni";
 import { interoIt } from "../format";
 import { annoDi, calcolaCosto, calcolaFattura } from "./documenti";
@@ -165,12 +166,23 @@ export type Prospetto = {
   /** C · Imposte */
   impostaSostitutiva: number;
   irpefLorda: number;
+  /** Detrazioni indicate a mano nelle impostazioni: familiari, spese, altro. */
   detrazioni: number;
+  /** Art. 13 TUIR: spetta d'ufficio sui redditi di lavoro autonomo. */
+  detrazioneAutonomo: number;
+  /** Le due sommate, prima del confronto con l'imposta lorda. */
+  detrazioniTotali: number;
+  /** Quante ne sono servite davvero: oltre l'imposta lorda l'eccedenza si perde. */
+  detrazioniApplicate: number;
   irpefNetta: number;
   addizionaleRegionale: number;
   addizionaleComunale: number;
   totaleImposte: number;
   ritenuteSubite: number;
+  /** L'imponibile su cui sono state trattenute: netto degli storni riconciliati. */
+  baseRitenute: number;
+  /** Quanto le note di credito hanno tolto a quella base. */
+  stornoDedottoDalleRitenute: number;
   imposteNetteASaldo: number;
   creditoImposta: number;
 
@@ -442,15 +454,38 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   const impostaSostitutiva = forfettario ? round2(imponibile * imp.aliquotaSostitutiva) : 0;
   const irpefLorda = forfettario ? 0 : irpefScaglioni(imponibile, imp.scaglioniIrpef);
   const detrazioni = forfettario ? 0 : imp.detrazioniPersonali;
-  const irpefNetta = forfettario ? 0 : round2(nonNegativo(irpefLorda - detrazioni));
+  /*
+    La detrazione dell'art. 13 spetta d'ufficio a chi ha redditi di lavoro
+    autonomo: non si dichiara, non dipende da spese, e senza di lei l'IRPEF
+    usciva più alta del vero per ogni reddito sotto i 50.000 €.
+
+    Si calcola sul reddito **complessivo** — il reddito lordo, prima della
+    deduzione dei contributi — non sull'imponibile: sono due numeri diversi e
+    scambiarli sposta la detrazione senza che si veda.
+  */
+  const detrazioneAutonomo = forfettario
+    ? 0
+    : detrazioneLavoroAutonomo(redditoLordo, par.detrazioneLavoroAutonomo).importo;
+  const detrazioniTotali = round2(detrazioni + detrazioneAutonomo);
+  // Incapienza: l'eccedenza si perde, non si rimborsa e non si riporta.
+  const detrazioniApplicate = forfettario ? 0 : round2(Math.min(detrazioniTotali, irpefLorda));
+  const irpefNetta = forfettario ? 0 : round2(nonNegativo(irpefLorda - detrazioniTotali));
+  /*
+    Le addizionali seguono l'IRPEF: sono dovute solo se l'IRPEF, al netto delle
+    detrazioni, risulta dovuta (art. 50 D.Lgs. 446/1997 per la regionale, art. 1
+    D.Lgs. 360/1998 per la comunale). Con la detrazione dell'art. 13 che azzera
+    l'imposta, un'addizionale che resta in piedi è un importo da versare che
+    non esiste — e nessuno lo verificherebbe, perché è piccolo e plausibile.
+  */
+  const irpefDovuta = !forfettario && irpefNetta > 0;
   // Aliquota unica o scaglioni, e la soglia di esenzione: la regola sta in un
   // posto solo, perché qui e nel confronto fra regimi deve dare lo stesso conto.
-  const addizionaleRegionale = forfettario
-    ? 0
-    : addizionaleDovuta(imponibile, addizionaleRegionaleDi(imp));
-  const addizionaleComunale = forfettario
-    ? 0
-    : addizionaleDovuta(imponibile, addizionaleComunaleDi(imp));
+  const addizionaleRegionale = irpefDovuta
+    ? addizionaleDovuta(imponibile, addizionaleRegionaleDi(imp))
+    : 0;
+  const addizionaleComunale = irpefDovuta
+    ? addizionaleDovuta(imponibile, addizionaleComunaleDi(imp))
+    : 0;
   const totaleImposte = somma(
     impostaSostitutiva,
     irpefNetta,
@@ -458,7 +493,39 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
     addizionaleComunale,
   );
 
-  const ritenuteSubite = somma(...incassateNellAnno.map((f) => f.ritenuta));
+  /*
+    Le ritenute seguono la fattura, e una nota di credito riconciliata segue la
+    fattura che rettifica: se lo storno è stato rimborsato nello stesso anno,
+    la base su cui il committente ha trattenuto si è ridotta con lui. Calcolarle
+    sull'imponibile lordo dava una ritenuta più alta dei compensi dichiarati —
+    e un credito d'imposta inventato.
+
+    Uno storno non riconciliato a nessuna fattura resta fuori: riduce i ricavi,
+    ma non si sa a quale committente attribuirlo, e attribuirlo a caso
+    sposterebbe la ritenuta di qualcun altro. Il prospetto lo dice.
+  */
+  const stornoSuFatturaNellAnno = new Map<string, number>();
+  for (const n of rn.perCassa) {
+    for (const r of n.riconciliazioni ?? []) {
+      const gia = stornoSuFatturaNellAnno.get(r.fatturaId) ?? 0;
+      stornoSuFatturaNellAnno.set(r.fatturaId, round2(gia + Math.abs(r.imponibile)));
+    }
+  }
+  const conRitenuta = incassateNellAnno.filter((f) => f.ritenuta > 0);
+  const baseRitenute = somma(
+    ...conRitenuta.map((f) => nonNegativo(f.imponibile - (stornoSuFatturaNellAnno.get(f.id) ?? 0))),
+  );
+  const ritenuteSubite = somma(
+    ...conRitenuta.map((f) => {
+      const netto = nonNegativo(f.imponibile - (stornoSuFatturaNellAnno.get(f.id) ?? 0));
+      // In proporzione, non ricalcolando l'aliquota: la regola della ritenuta
+      // sta in `documenti.ts` e deve restare in un posto solo.
+      return round2(f.ritenuta * rapporto(netto, f.imponibile));
+    }),
+  );
+  const stornoDedottoDalleRitenute = round2(
+    somma(...conRitenuta.map((f) => f.imponibile)) - baseRitenute,
+  );
   const imposteNetteASaldo = round2(nonNegativo(totaleImposte - ritenuteSubite));
   const creditoImposta = round2(nonNegativo(ritenuteSubite - totaleImposte));
 
@@ -530,11 +597,16 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
     impostaSostitutiva,
     irpefLorda,
     detrazioni,
+    detrazioneAutonomo,
+    detrazioniTotali,
+    detrazioniApplicate,
     irpefNetta,
     addizionaleRegionale,
     addizionaleComunale,
     totaleImposte,
     ritenuteSubite,
+    baseRitenute,
+    stornoDedottoDalleRitenute,
     imposteNetteASaldo,
     creditoImposta,
 
@@ -571,9 +643,9 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
         ...rf.versoAnniSuccessivi.map((f) => f.iva),
         ...rf.sospesi.map((f) => f.iva),
       ),
-      costiDaAnniPrecedenti: somma(...rc.daAnniPrecedenti.map((c) => c.costoDeducibile)),
-      costiVersoAnniSuccessivi: somma(...rc.versoAnniSuccessivi.map((c) => c.costoDeducibile)),
-      costiSospesi: somma(...rc.sospesi.map((c) => c.costoDeducibile)),
+      costiDaAnniPrecedenti: somma(...rc.daAnniPrecedenti.map((c) => c.totale)),
+      costiVersoAnniSuccessivi: somma(...rc.versoAnniSuccessivi.map((c) => c.totale)),
+      costiSospesi: somma(...rc.sospesi.map((c) => c.totale)),
       ivaDetraibileSuPagamentiFuturi: somma(
         ...rc.versoAnniSuccessivi.map((c) => c.ivaDetraibile),
         ...rc.sospesi.map((c) => c.ivaDetraibile),

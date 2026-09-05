@@ -27,6 +27,30 @@ export type GruppoAteco = {
  * Aliquote e soglie non si scrivono nel codice: l'aggiornamento di gennaio
  * è la modifica di un file solo.
  */
+/**
+ * La detrazione per redditi di lavoro autonomo, art. 13 comma 5 e 5-bis TUIR.
+ *
+ * Una spezzata decrescente sul reddito complessivo: piena fino alla prima
+ * soglia, poi in calo su due tratti fino ad azzerarsi. Sta nei parametri
+ * dell'anno come tutto il resto della legge, perché a gennaio si cambia in un
+ * posto solo.
+ */
+export type DetrazioneLavoroAutonomo = {
+  /** Fino a questo reddito complessivo spetta l'importo pieno. */
+  sogliaPiena: number;
+  importoPieno: number;
+  /** Fine del primo tratto decrescente. */
+  sogliaMedia: number;
+  /** Quota che resta comunque nel primo tratto decrescente. */
+  importoFisso: number;
+  /** Quota che si consuma linearmente fra la soglia piena e quella media. */
+  quotaDecrescente: number;
+  /** Oltre questo reddito la detrazione non spetta più. */
+  sogliaAzzeramento: number;
+  /** Il gradino della fascia intermedia: o c'è tutto o non c'è. */
+  maggiorazione: { importo: number; da: number; a: number };
+};
+
 export type ParametriAnno = {
   anno: number;
   /** Da citare nell'interfaccia accanto ai parametri. */
@@ -49,6 +73,7 @@ export type ParametriAnno = {
   gruppiAteco: GruppoAteco[];
 
   scaglioniIrpef: ScaglioneIrpef[];
+  detrazioneLavoroAutonomo: DetrazioneLavoroAutonomo;
   tettoFondoPensione: number;
 
   aliquotaGestioneSeparata: number;
@@ -67,6 +92,11 @@ export type ParametriAnno = {
   importoBollo: number;
   sogliaBollo: number;
 
+  /**
+   * Oltre questo credito annuo la compensazione in F24 richiede il visto di
+   * conformità sulla dichiarazione.
+   */
+  sogliaVistoCompensazione: number;
   /** Sotto questa soglia di imposta dovuta non si versano acconti. */
   sogliaAcconti: number;
   /** Sotto questa soglia l'acconto è unico, a novembre. */

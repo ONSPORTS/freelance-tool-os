@@ -13,6 +13,7 @@ export const PARAMETRI_2026: ParametriAnno = {
     "Legge di Bilancio 2026",
     "Allegato n. 2 alla Legge 190/2014 — coefficienti di redditività",
     "Circolare INPS n. 8 del 3 febbraio 2026 — aliquote previdenziali",
+    "Art. 13 TUIR — detrazione per redditi di lavoro autonomo",
   ],
   provvisorio: false,
 
@@ -69,6 +70,18 @@ export const PARAMETRI_2026: ParametriAnno = {
     { limite: 50_000, aliquota: 0.33 },
     { limite: null, aliquota: 0.43 },
   ],
+  // Art. 13 comma 5 e 5-bis TUIR, nella formulazione della Legge 234/2021:
+  // 1.265 € fino a 5.500 €, poi in calo fino ad azzerarsi a 50.000 €, con il
+  // gradino di 50 € nella fascia fra 11.000 e 17.000 €.
+  detrazioneLavoroAutonomo: {
+    sogliaPiena: 5_500,
+    importoPieno: 1_265,
+    sogliaMedia: 28_000,
+    importoFisso: 500,
+    quotaDecrescente: 765,
+    sogliaAzzeramento: 50_000,
+    maggiorazione: { importo: 50, da: 11_000, a: 17_000 },
+  },
   tettoFondoPensione: 5_164.57,
 
   aliquotaGestioneSeparata: 0.2607,
@@ -88,6 +101,7 @@ export const PARAMETRI_2026: ParametriAnno = {
   importoBollo: 2,
   sogliaBollo: 77.47,
 
+  sogliaVistoCompensazione: 5_000,
   sogliaAcconti: 51.65,
   sogliaAccontoUnico: 257.52,
   quotaPrimoAcconto: 0.4,

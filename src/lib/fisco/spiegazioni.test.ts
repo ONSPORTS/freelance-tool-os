@@ -6,6 +6,7 @@ import {
   impostazioniForfettario,
   impostazioniOrdinario,
 } from "./fixture";
+import { round2 } from "./aritmetica";
 import { calcolaProspetto } from "./motore";
 import { PARAMETRI_2026 } from "./parametri/2026";
 import { euro, percentuale } from "@/lib/format";
@@ -283,6 +284,111 @@ describe("prospetto dettagliato", () => {
     expect(riga(sezioni, "fatture-incassate")).toBeUndefined();
     expect(riga(sezioni, "storno-note")).toBeUndefined();
     expect(riga(sezioni, "compensi")?.etichetta).toBe("Compensi incassati nell'anno");
+  });
+
+  it("la ritenuta dice su quale base è calcolata", () => {
+    const imp: Impostazioni = { ...impostazioniOrdinario(), ritenutaAttiva: true };
+    const fattura: Fattura = {
+      id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+      clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: 10_000,
+    };
+    const nota: NotaCredito = {
+      id: "n", numero: "NC/1", dataDocumento: "2026-03-01", dataRimborso: "2026-04-01",
+      clienteId: "c", descrizione: "", imponibile: 2_000,
+      riconciliazioni: [{ fatturaId: "f", imponibile: 2_000 }],
+    };
+    const p = calcolaProspetto({
+      impostazioni: imp, parametri: par, fatture: [fattura], note: [nota], costi: [],
+      oggi: OGGI_FIXTURE,
+    });
+    const r = riga(prospettoDettagliato(p, imp, par), "ritenute")!;
+    expect(r.valore).toBe(1_600);
+    expect(r.formula).toContain(euro(8_000));
+    expect(r.formula).toContain("riconciliate");
+  });
+
+  it("uno storno non riconciliato è dichiarato sotto la ritenuta", () => {
+    const imp: Impostazioni = { ...impostazioniOrdinario(), ritenutaAttiva: true };
+    const fattura: Fattura = {
+      id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+      clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: 10_000,
+    };
+    const nota: NotaCredito = {
+      id: "n", numero: "NC/1", dataDocumento: "2026-03-01", dataRimborso: "2026-04-01",
+      clienteId: "c", descrizione: "", imponibile: 2_000,
+    };
+    const p = calcolaProspetto({
+      impostazioni: imp, parametri: par, fatture: [fattura], note: [nota], costi: [],
+      oggi: OGGI_FIXTURE,
+    });
+    const r = riga(prospettoDettagliato(p, imp, par), "ritenute")!;
+    expect(r.formula).toContain(euro(10_000));
+    expect(r.nota).toContain("non sono riconciliati");
+  });
+
+  it("in ordinario la detrazione dell'art. 13 è una riga, anche quando è zero", () => {
+    const { sezioni } = sezioniDi(impostazioniOrdinario());
+    const r = riga(sezioni, "detrazione-autonomo")!;
+    expect(r.formula).toContain("Art. 13");
+    expect(r.nota).toContain("reddito complessivo");
+    // In forfettario non esiste: non c'è IRPEF da cui detrarre.
+    expect(riga(sezioniDi(impostazioniForfettario()).sezioni, "detrazione-autonomo")).toBeUndefined();
+  });
+
+  it("quando l'IRPEF si azzera, le addizionali dicono perché non sono dovute", () => {
+    const { sezioni, prospetto } = sezioniDi(impostazioniOrdinario());
+    expect(prospetto.irpefNetta).toBe(0);
+    expect(riga(sezioni, "add-regionale")?.valore).toBe(0);
+    expect(riga(sezioni, "add-regionale")?.nota).toContain("solo se l'IRPEF");
+    expect(riga(sezioni, "add-comunale")?.nota).toContain("solo se l'IRPEF");
+  });
+
+  it("saldo, acconti e rate portano scritto l'anno in cui si versano", () => {
+    // «A giugno» su un prospetto 2026 si legge giugno 2026, e il saldo del
+    // 2026 si versa a giugno 2027.
+    const { sezioni } = sezioniDi(impostazioniForfettario());
+    expect(riga(sezioni, "saldo")?.formula).toContain("30 giugno 2027");
+    expect(riga(sezioni, "primo-acconto")?.formula).toContain("30 giugno 2027");
+    expect(riga(sezioni, "primo-acconto")?.etichetta).toContain("2027");
+    expect(riga(sezioni, "secondo-acconto")?.formula).toContain("30 novembre 2027");
+    expect(riga(sezioni, "rata")?.formula).toContain("novembre 2027");
+  });
+
+  it("il credito d'imposta ricompare in fondo, con che farne", () => {
+    /*
+      Comparire in C e sparire in F faceva sembrare il documento sbagliato:
+      un numero che non torna più non si sa se è stato dimenticato o speso.
+    */
+    const imp: Impostazioni = { ...impostazioniOrdinario(), ritenutaAttiva: true };
+    const fattura: Fattura = {
+      id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+      clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: 10_000,
+    };
+    const p = calcolaProspetto({
+      impostazioni: imp, parametri: par, fatture: [fattura], costi: [], oggi: OGGI_FIXTURE,
+    });
+    expect(p.creditoImposta).toBeGreaterThan(0);
+    const sezioni = prospettoDettagliato(p, imp, par);
+    // Sta in F, non solo in C.
+    const f = sezioni.find((s) => s.lettera === "F")!;
+    const r = f.righe.find((x) => x.id === "credito-a-nuovo")!;
+    expect(r.valore).toBe(p.creditoImposta);
+    expect(r.formula).toContain("compensa in F24");
+    expect(r.nota).toContain("riporto al 2027");
+    expect(r.nota).toContain(euro(par.sogliaVistoCompensazione));
+  });
+
+  it("anche il versato in più dice dove finisce", () => {
+    const imp = impostazioniForfettario();
+    const p = calcolaProspetto({
+      impostazioni: imp, parametri: par, fatture: FATTURE_FIXTURE, costi: COSTI_FIXTURE,
+      versamenti: [{ id: "v", data: "2026-06-30", tipo: "imposte", importo: 9_000 }],
+      oggi: OGGI_FIXTURE,
+    });
+    expect(p.saldoResiduo).toBe(0);
+    const r = riga(prospettoDettagliato(p, imp, par), "eccedenza-versamenti")!;
+    expect(r.valore).toBe(round2(9_000 - p.totaleDovuto));
+    expect(r.formula).toContain("riporto al 2027");
   });
 
   it("con la ritenuta attiva e nessuna trattenuta, lo zero è scritto", () => {

@@ -115,11 +115,14 @@ describe("fixture obbligatorio · chiusura d'anno", () => {
   it("attribuisce il costo a cavallo con la stessa regola, dall'altro lato", () => {
     // cc2: documento del 15 dicembre 2026, pagato il 20 gennaio 2027.
     expect(a2026.prospetto.costiDeducibiliPagati).toBe(10_000); // cc1 2.000 + cc3 8.000
-    expect(a2026.prospetto.aCavallo.costiVersoAnniSuccessivi).toBe(1_000);
+    // I costi a cavallo si contano IVA compresa, come «costi pagati nell'anno»:
+    // stanno nella stessa colonna del prospetto e devono essere la stessa
+    // grandezza. 1.000 € di imponibile più 220 € di IVA.
+    expect(a2026.prospetto.aCavallo.costiVersoAnniSuccessivi).toBe(1_220);
     expect(a2026.prospetto.aCavallo.ivaDetraibileSuPagamentiFuturi).toBe(220);
 
     expect(a2027.prospetto.costiDeducibiliPagati).toBe(1_000);
-    expect(a2027.prospetto.aCavallo.costiDaAnniPrecedenti).toBe(1_000);
+    expect(a2027.prospetto.aCavallo.costiDaAnniPrecedenti).toBe(1_220);
     expect(a2027.iva.totaleCredito).toBe(0);
   });
 
@@ -286,8 +289,8 @@ describe("prospetto dei documenti a cavallo d'anno", () => {
   function righeDi(anno: (typeof a2026)) {
     return prospettoDettagliato(anno.prospetto, anno.impostazioni, anno.parametri)
       .flatMap((s) => s.righe)
-      .reduce<Record<string, { valore: number | string; formula?: string }>>((acc, r) => {
-        acc[r.id] = { valore: r.valore, formula: r.formula };
+      .reduce<Record<string, { valore: number | string; formula?: string; etichetta: string }>>((acc, r) => {
+        acc[r.id] = { valore: r.valore, formula: r.formula, etichetta: r.etichetta };
         return acc;
       }, {});
   }
@@ -296,7 +299,9 @@ describe("prospetto dei documenti a cavallo d'anno", () => {
     const righe = righeDi(a2027);
     expect(righe["ricavi-da-anni-precedenti"].valore).toBe(5_000);
     expect(righe["ricavi-da-anni-precedenti"].formula).toContain("IVA è già stata liquidata");
-    expect(righe["costi-da-anni-precedenti"].valore).toBe(1_000);
+    // IVA compresa, come la riga «costi pagati nell'anno» sopra di lei.
+    expect(righe["costi-da-anni-precedenti"].valore).toBe(1_220);
+    expect(righe["costi-da-anni-precedenti"].etichetta).toContain("IVA compresa");
     expect(righe["costi-da-anni-precedenti"].formula).toContain("già detraibile");
   });
 
@@ -304,7 +309,8 @@ describe("prospetto dei documenti a cavallo d'anno", () => {
     const righe = righeDi(a2026);
     expect(righe["ricavi-verso-anni-successivi"].valore).toBe(5_000);
     expect(righe["ricavi-verso-anni-successivi"].formula).toContain(euro(1_760));
-    expect(righe["costi-verso-anni-successivi"].valore).toBe(1_000);
+    expect(righe["costi-verso-anni-successivi"].valore).toBe(1_220);
+    expect(righe["costi-verso-anni-successivi"].etichetta).toContain("IVA compresa");
     expect(righe["costi-verso-anni-successivi"].formula).toContain(euro(220));
   });
 

@@ -11,7 +11,7 @@ import {
 } from "./fixture";
 import { calcolaAcconti, calcolaProspetto, contributiPrevidenziali, irpefScaglioni } from "./motore";
 import { PARAMETRI_2026 } from "./parametri/2026";
-import type { Fattura, Impostazioni } from "./tipi";
+import type { Fattura, Impostazioni, NotaCredito } from "./tipi";
 
 const par = PARAMETRI_2026;
 
@@ -119,18 +119,29 @@ describe("fixture obbligatorio · ordinario", () => {
     expect(p.redditoLordo).toBe(6520);
     expect(p.totaleContributi).toBe(1699.76);
     expect(p.imponibile).toBe(4820.24);
-    expect(p.totaleImposte).toBe(1230.61);
-    // Carico e netto sono due cifre diverse: 2.930,37 esce di tasca, 3.589,63 resta.
-    expect(p.caricoTotale).toBe(2930.37);
-    expect(p.nettoDisponibile).toBe(3589.63);
-    expect(percentuale(p.pressione)).toBe("39,07 %");
+    /*
+      Qui il motore si stacca dall'Excel di partenza, e volutamente: il foglio
+      non conteneva la detrazione per redditi di lavoro autonomo dell'art. 13
+      TUIR, che spetta d'ufficio e che su 6.520 € di reddito complessivo vale
+      più dell'IRPEF lorda. Con l'IRPEF azzerata cadono anche le addizionali,
+      che sono dovute solo se l'IRPEF risulta dovuta. Restano i contributi.
+    */
+    expect(p.totaleImposte).toBe(0);
+    expect(p.caricoTotale).toBe(1699.76);
+    expect(p.nettoDisponibile).toBe(4820.24);
+    expect(percentuale(p.pressione)).toBe("22,66 %");
   });
 
   it("scompone le imposte come il prospetto", () => {
     expect(p.irpefLorda).toBe(1108.66);
-    expect(p.irpefNetta).toBe(1108.66);
-    expect(p.addizionaleRegionale).toBe(83.39);
-    expect(p.addizionaleComunale).toBe(38.56);
+    // 500 + 765 × (28.000 − 6.520) ÷ 22.500 = 500 + 730,32. Nessuna
+    // maggiorazione: 6.520 € è sotto la fascia 11.000–17.000.
+    expect(p.detrazioneAutonomo).toBe(1230.32);
+    // Incapiente: dell'intera detrazione se ne usano 1.108,66, il resto si perde.
+    expect(p.detrazioniApplicate).toBe(1108.66);
+    expect(p.irpefNetta).toBe(0);
+    expect(p.addizionaleRegionale).toBe(0);
+    expect(p.addizionaleComunale).toBe(0);
     expect(p.impostaSostitutiva).toBe(0);
   });
 
@@ -154,6 +165,124 @@ describe("fixture obbligatorio · ordinario", () => {
     expect(f.iva).toBe(660);
     expect(f.bollo).toBe(0);
     expect(f.totale).toBe(3660);
+  });
+});
+
+describe("detrazione dell'art. 13 dentro la catena", () => {
+  /** Un solo compenso incassato, nessun costo: il reddito lordo è quello. */
+  function ordinarioCon(compenso: number, extra: Partial<Impostazioni> = {}) {
+    const fattura: Fattura = {
+      id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+      clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: compenso,
+    };
+    return calcolaProspetto({
+      impostazioni: { ...impostazioniOrdinario(), ...extra },
+      parametri: par, fatture: [fattura], costi: [], oggi: OGGI_FIXTURE,
+    });
+  }
+
+  it("con un reddito medio la detrazione è parziale e le addizionali restano dovute", () => {
+    /*
+      Reddito lordo 40.000 → detrazione 500 × (50.000 − 40.000) ÷ 22.000 = 227,27.
+      Contributi 40.000 × 26,07 % = 10.428. Imponibile 29.572.
+      IRPEF 28.000 × 23 % + 1.572 × 33 % = 6.440 + 518,76 = 6.958,76.
+      Netta 6.958,76 − 227,27 = 6.731,49.
+    */
+    const p = ordinarioCon(40_000);
+    expect(p.redditoLordo).toBe(40_000);
+    expect(p.detrazioneAutonomo).toBe(227.27);
+    expect(p.irpefLorda).toBe(6_958.76);
+    expect(p.irpefNetta).toBe(6_731.49);
+    expect(p.detrazioniApplicate).toBe(227.27);
+    // L'IRPEF è dovuta, quindi le addizionali si pagano: 29.572 × 1,73 % e × 0,8 %.
+    expect(p.addizionaleRegionale).toBe(511.6);
+    expect(p.addizionaleComunale).toBe(236.58);
+  });
+
+  it("sopra i 50.000 € di reddito complessivo la detrazione non spetta più", () => {
+    const p = ordinarioCon(60_000);
+    expect(p.redditoLordo).toBe(60_000);
+    expect(p.detrazioneAutonomo).toBe(0);
+    expect(p.irpefNetta).toBe(p.irpefLorda);
+  });
+
+  it("in forfettario non entra: non c'è IRPEF da cui detrarla", () => {
+    const p = prospettoCon(impostazioniForfettario());
+    expect(p.detrazioneAutonomo).toBe(0);
+    expect(p.detrazioniTotali).toBe(0);
+  });
+
+  it("le detrazioni indicate a mano si sommano a quella dell'art. 13", () => {
+    const p = ordinarioCon(40_000, { detrazioniPersonali: 300 });
+    expect(p.detrazioniTotali).toBe(527.27);
+    expect(p.irpefNetta).toBe(6_431.49);
+  });
+});
+
+describe("ritenute d'acconto e note di credito", () => {
+  const conRitenuta = { ...impostazioniOrdinario(), ritenutaAttiva: true };
+  const fattura: Fattura = {
+    id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+    clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: 10_000,
+  };
+  function con(note: NotaCredito[], imp: Impostazioni = conRitenuta) {
+    return calcolaProspetto({
+      impostazioni: imp, parametri: par, fatture: [fattura], note, costi: [], oggi: OGGI_FIXTURE,
+    });
+  }
+
+  it("uno storno riconciliato e rimborsato abbassa anche la base della ritenuta", () => {
+    /*
+      È il caso vero: la nota rettifica quella fattura, il committente ha
+      trattenuto su quello che ha pagato davvero. 20 % su 8.000, non su 10.000.
+    */
+    const p = con([
+      {
+        id: "n", numero: "NC/1", dataDocumento: "2026-03-01", dataRimborso: "2026-04-01",
+        clienteId: "c", descrizione: "", imponibile: 2_000,
+        riconciliazioni: [{ fatturaId: "f", imponibile: 2_000 }],
+      },
+    ]);
+    expect(p.compensiIncassati).toBe(8_000);
+    expect(p.baseRitenute).toBe(8_000);
+    expect(p.stornoDedottoDalleRitenute).toBe(2_000);
+    expect(p.ritenuteSubite).toBe(1_600);
+  });
+
+  it("uno storno non riconciliato riduce i ricavi ma non la base della ritenuta", () => {
+    // Senza aggancio non si sa a quale committente attribuirlo: attribuirlo a
+    // caso sposterebbe la ritenuta di qualcun altro.
+    const p = con([
+      {
+        id: "n", numero: "NC/1", dataDocumento: "2026-03-01", dataRimborso: "2026-04-01",
+        clienteId: "c", descrizione: "", imponibile: 2_000,
+      },
+    ]);
+    expect(p.compensiIncassati).toBe(8_000);
+    expect(p.baseRitenute).toBe(10_000);
+    expect(p.ritenuteSubite).toBe(2_000);
+    expect(p.note.nonRiconciliato).toBe(2_000);
+  });
+
+  it("uno storno rimborsato l'anno dopo non tocca la ritenuta di quest'anno", () => {
+    // La nota esiste e riduce l'IVA, ma il denaro non è ancora tornato: quello
+    // che il committente ha trattenuto nel 2026 è calcolato sul lordo.
+    const p = con([
+      {
+        id: "n", numero: "NC/1", dataDocumento: "2026-12-01", dataRimborso: "2027-01-15",
+        clienteId: "c", descrizione: "", imponibile: 2_000,
+        riconciliazioni: [{ fatturaId: "f", imponibile: 2_000 }],
+      },
+    ]);
+    expect(p.compensiIncassati).toBe(10_000);
+    expect(p.baseRitenute).toBe(10_000);
+    expect(p.ritenuteSubite).toBe(2_000);
+  });
+
+  it("senza ritenuta in fattura la base resta a zero", () => {
+    const p = con([], impostazioniOrdinario());
+    expect(p.ritenuteSubite).toBe(0);
+    expect(p.baseRitenute).toBe(0);
   });
 });
 

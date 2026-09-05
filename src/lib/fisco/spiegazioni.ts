@@ -17,6 +17,7 @@ import {
   addizionaleRegionaleDi,
   descriviAddizionale,
 } from "./addizionali";
+import { detrazioneLavoroAutonomo } from "./detrazioni";
 import { noteDelValore } from "./parametri-utente";
 import type { Prospetto } from "./motore";
 import type { Impostazioni, ParametriAnno } from "./tipi";
@@ -154,7 +155,7 @@ export function prospettoDettagliato(
   }
   base.push({
     id: "costi-pagati",
-    etichetta: "Costi pagati nell'anno",
+    etichetta: "Costi pagati nell'anno, IVA compresa",
     valore: p.costiPagatiTotale,
     formato: "euro",
     formula: `Totale dei documenti con data di pagamento nel ${p.anno}, IVA compresa.`,
@@ -164,7 +165,7 @@ export function prospettoDettagliato(
   if (!forfettario && p.aCavallo.costiDaAnniPrecedenti > 0) {
     base.push({
       id: "costi-da-anni-precedenti",
-      etichetta: "di cui pagati su documenti di anni precedenti",
+      etichetta: "di cui pagati su documenti di anni precedenti, IVA compresa",
       valore: p.aCavallo.costiDaAnniPrecedenti,
       formato: "euro",
       formula: `Documenti datati prima del ${p.anno} e pagati quest'anno: si deducono nel ${p.anno}, perché conta la data del pagamento. La loro IVA era già detraibile nell'anno del documento.`,
@@ -173,7 +174,7 @@ export function prospettoDettagliato(
   if (!forfettario && p.aCavallo.costiVersoAnniSuccessivi + p.aCavallo.costiSospesi > 0) {
     base.push({
       id: "costi-verso-anni-successivi",
-      etichetta: `Registrato nel ${p.anno} e non ancora pagato`,
+      etichetta: `Registrato nel ${p.anno} e non ancora pagato, IVA compresa`,
       valore: p.aCavallo.costiVersoAnniSuccessivi + p.aCavallo.costiSospesi,
       formato: "euro",
       formula: `Non è deducibile qui: lo sarà nell'anno in cui lo paghi.${
@@ -304,22 +305,46 @@ export function prospettoDettagliato(
       formato: "euro",
       formula: descriviScaglioni(p.imponibile, imp),
     });
+    // Spetta d'ufficio: si scrive sempre, anche quando è zero, perché il
+    // motivo per cui non spetta è un'informazione quanto l'importo.
+    const art13 = detrazioneLavoroAutonomo(p.redditoLordo, par.detrazioneLavoroAutonomo);
+    imposte.push({
+      id: "detrazione-autonomo",
+      etichetta: "Detrazione per redditi di lavoro autonomo",
+      valore: p.detrazioneAutonomo,
+      formato: "euro",
+      formula: `${art13.descrizione} Art. 13 comma 5 TUIR: spetta d'ufficio, senza doverla chiedere.`,
+      nota: `Si calcola sul reddito complessivo — ${euro(p.redditoLordo)}, il reddito lordo prima della deduzione dei contributi — non sull'imponibile. Se hai altri redditi oltre a quelli dell'attività il tuo reddito complessivo è più alto, e la detrazione più bassa di così.`,
+    });
     if (p.detrazioni > 0) {
       imposte.push({
         id: "detrazioni",
-        etichetta: "Detrazioni d'imposta",
+        etichetta: "Altre detrazioni d'imposta",
         valore: p.detrazioni,
         formato: "euro",
-        formula: "Importo indicato nelle impostazioni: lavoro autonomo, familiari a carico, spese sanitarie.",
+        formula:
+          "Importo indicato nelle impostazioni: familiari a carico, spese sanitarie, altre detrazioni. Il lavoro autonomo è già contato nella riga sopra.",
       });
+    }
+    if (p.detrazioniTotali > 0) {
+      const incapiente = p.detrazioniTotali > p.irpefLorda;
       imposte.push({
         id: "irpef-netta",
         etichetta: "IRPEF netta",
         valore: p.irpefNetta,
         formato: "euro",
-        formula: `${euro(p.irpefLorda)} − ${euro(p.detrazioni)} di detrazioni, mai sotto zero.`,
+        formula: `${euro(p.irpefLorda)} − ${euro(p.detrazioniTotali)} di detrazioni, mai sotto zero.`,
+        nota: incapiente
+          ? `L'imposta lorda è più bassa delle detrazioni: ${euro(round2(p.detrazioniTotali - p.detrazioniApplicate))} restano inutilizzati. Le detrazioni non si rimborsano e non si riportano all'anno dopo.`
+          : undefined,
       });
     }
+    // Le addizionali seguono l'IRPEF: quando è zero non sono dovute, e uno zero
+    // senza spiegazione in un prospetto sembra un dato mancante.
+    const senzaIrpef = p.irpefNetta === 0;
+    const perche = senzaIrpef
+      ? "Non dovuta: le addizionali si pagano solo se l'IRPEF, al netto delle detrazioni, risulta dovuta. Quest'anno l'IRPEF netta è zero."
+      : undefined;
     imposte.push({
       id: "add-regionale",
       etichetta: "Addizionale regionale",
@@ -330,6 +355,7 @@ export function prospettoDettagliato(
       // la domanda: le aliquote vere vanno dall'1,23 % a oltre il 3 %, e in
       // molte regioni sono scaglioni, non un'aliquota sola.
       formula: `${descriviAddizionale(p.imponibile, addizionaleRegionaleDi(imp))}, ${noteDelValore(imp, "addizionaleRegionale")}.`,
+      nota: perche,
     });
     imposte.push({
       id: "add-comunale",
@@ -337,6 +363,7 @@ export function prospettoDettagliato(
       valore: p.addizionaleComunale,
       formato: "euro",
       formula: `${descriviAddizionale(p.imponibile, addizionaleComunaleDi(imp))}, ${noteDelValore(imp, "addizionaleComunale")}.`,
+      nota: perche,
     });
   }
   imposte.push({
@@ -352,7 +379,16 @@ export function prospettoDettagliato(
       etichetta: "Ritenute d'acconto già subite",
       valore: p.ritenuteSubite,
       formato: "euro",
-      formula: `${percentuale(imp.aliquotaRitenuta, 0)} trattenuto dai committenti sulle fatture incassate: è un anticipo, si scomputa dal saldo.`,
+      // La base va detta, non lasciata indovinare: su carta è l'unico modo di
+      // verificare che la ritenuta corrisponda alle certificazioni ricevute.
+      formula:
+        p.stornoDedottoDalleRitenute > 0
+          ? `${percentuale(imp.aliquotaRitenuta, 0)} su ${euro(p.baseRitenute)}: ${euro(round2(p.baseRitenute + p.stornoDedottoDalleRitenute))} di imponibile incassato meno ${euro(p.stornoDedottoDalleRitenute)} di note di credito riconciliate a quelle fatture. È un anticipo, si scomputa dal saldo.`
+          : `${percentuale(imp.aliquotaRitenuta, 0)} su ${euro(p.baseRitenute)} di imponibile incassato, trattenuto dai committenti: è un anticipo, si scomputa dal saldo.`,
+      nota:
+        p.note.nonRiconciliato > 0
+          ? `${euro(p.note.nonRiconciliato)} di note di credito non sono riconciliati a nessuna fattura: riducono i ricavi ma non questa base, perché non si sa a quale committente attribuirli. Riconciliali dalla scheda della nota.`
+          : undefined,
     });
     if (p.creditoImposta > 0) {
       imposte.push({
@@ -525,6 +561,10 @@ export function prospettoDettagliato(
   });
 
   // — F · Saldo e acconti ————————————————————————
+  // Il saldo di un anno e gli acconti per il successivo si versano tutti
+  // nell'anno dopo: l'anno d'imposta e l'anno di cassa non coincidono mai, e
+  // su un documento che gira senza l'app intorno va scritto quale dei due è.
+  const prossimo = p.anno + 1;
   const acconti: RigaProspetto[] = [
     {
       id: "dovuto",
@@ -560,16 +600,52 @@ export function prospettoDettagliato(
     etichetta: "Saldo residuo da versare",
     valore: p.saldoResiduo,
     formato: "euro",
+    // L'anno va scritto. «A giugno» in un documento del 2026 si legge come
+    // giugno 2026, e il saldo del 2026 si versa a giugno 2027.
     formula:
-      p.creditoAnnoPrecedente > 0
+      (p.creditoAnnoPrecedente > 0
         ? `${euro(p.totaleDovuto)} − ${euro(p.giaVersato)} già versati − ${euro(p.creditoUtilizzatoSuSaldo)} di credito, mai sotto zero.`
-        : `${euro(p.totaleDovuto)} − ${euro(p.giaVersato)} già versati, mai sotto zero.`,
+        : `${euro(p.totaleDovuto)} − ${euro(p.giaVersato)} già versati, mai sotto zero.`) +
+      ` Si versa entro il 30 giugno ${prossimo}.`,
   });
+
+  /*
+    Stessa sparizione dell'altro lato: chi ha versato più del dovuto vedeva un
+    saldo a zero e nessuna traccia della differenza. È lo stesso credito, per
+    una strada diversa — e prende la stessa strada nel riporto.
+  */
+  const eccedenzaVersamenti = round2(Math.max(0, p.giaVersato - p.totaleDovuto));
+  if (eccedenzaVersamenti > 0) {
+    acconti.push({
+      id: "eccedenza-versamenti",
+      etichetta: "Versato in più del dovuto",
+      valore: eccedenzaVersamenti,
+      formato: "euro",
+      formula: `${euro(p.giaVersato)} versati con F24 contro ${euro(p.totaleDovuto)} dovuti. La differenza non si perde: entra nel riporto al ${prossimo} insieme all'eventuale credito d'imposta.`,
+    });
+  }
+
+  /*
+    Il credito calcolato in C spariva qui: un numero che compare a metà
+    documento e non ricompare più sembra un errore di somma, e chi legge non
+    sa che cosa deve farne. Dove finisce va scritto dove si guarda che cosa
+    esce dal conto.
+  */
+  if (p.creditoImposta > 0) {
+    acconti.push({
+      id: "credito-a-nuovo",
+      etichetta: "Credito d'imposta da utilizzare",
+      valore: p.creditoImposta,
+      formato: "euro",
+      formula: `Le ritenute subite (${euro(p.ritenuteSubite)}) superano le imposte dell'anno (${euro(p.totaleImposte)}): la differenza non si versa, si recupera. Si compensa in F24 con altre imposte e contributi a partire dalla presentazione della dichiarazione dei redditi ${prossimo}, oppure si chiede a rimborso nella dichiarazione stessa.`,
+      nota: `Fino a ${euro(par.sogliaVistoCompensazione)} l'anno la compensazione è libera; oltre serve il visto di conformità. Quello che non usi non si perde: entra nel riporto al ${prossimo}, dove copre prima il saldo e poi gli acconti.`,
+    });
+  }
 
   if (!p.acconti.dovuti) {
     acconti.push({
       id: "acconti-non-dovuti",
-      etichetta: "Acconti per l'anno successivo",
+      etichetta: `Acconti per il ${prossimo}`,
       valore: "Non dovuti",
       formato: "testo",
       formula: `Il dovuto (${euro(p.totaleDovuto)}) resta sotto la soglia di ${euro(par.sogliaAcconti)}: nessun acconto.`,
@@ -577,32 +653,32 @@ export function prospettoDettagliato(
   } else if (p.acconti.accontoUnico) {
     acconti.push({
       id: "acconto-unico",
-      etichetta: "Acconto unico a novembre",
+      etichetta: `Acconto unico per il ${prossimo}`,
       valore: p.acconti.secondo,
       formato: "euro",
-      formula: `Sotto ${euro(par.sogliaAccontoUnico)} l'acconto non si divide: si versa tutto in una volta a novembre.`,
+      formula: `Sotto ${euro(par.sogliaAccontoUnico)} l'acconto non si divide: si versa tutto in una volta, entro il 30 novembre ${prossimo}.`,
     });
   } else {
     acconti.push({
       id: "primo-acconto",
-      etichetta: "Primo acconto",
+      etichetta: `Primo acconto per il ${prossimo}`,
       valore: p.acconti.primo,
       formato: "euro",
-      formula: `${percentuale(par.quotaPrimoAcconto, 0)} di ${euro(p.totaleDovuto)}, metodo storico. Si versa a giugno insieme al saldo.`,
+      formula: `${percentuale(par.quotaPrimoAcconto, 0)} di ${euro(p.totaleDovuto)}, metodo storico: si calcola sulle imposte del ${p.anno}. Si versa entro il 30 giugno ${prossimo}, insieme al saldo.`,
     });
     acconti.push({
       id: "secondo-acconto",
-      etichetta: "Secondo acconto",
+      etichetta: `Secondo acconto per il ${prossimo}`,
       valore: p.acconti.secondo,
       formato: "euro",
-      formula: `${percentuale(par.quotaSecondoAcconto, 0)} di ${euro(p.totaleDovuto)}. Si versa entro il 30 novembre.`,
+      formula: `${percentuale(par.quotaSecondoAcconto, 0)} di ${euro(p.totaleDovuto)}. Si versa entro il 30 novembre ${prossimo}.`,
     });
     acconti.push({
       id: "rata",
       etichetta: `Rata mensile, rateizzando in ${par.rateRateizzazione} rate`,
       valore: p.rataRateizzazioneConInteressi,
       formato: "euro",
-      formula: `${euro(p.saldoResiduo + p.acconti.primo)} fra saldo e primo acconto, in ${par.rateRateizzazione} rate da giugno a novembre, con interessi dello ${percentuale(par.interesseRateizzazioneMensile, 2)} al mese.`,
+      formula: `${euro(p.saldoResiduo + p.acconti.primo)} fra saldo e primo acconto, in ${par.rateRateizzazione} rate da giugno a novembre ${prossimo}, con interessi dello ${percentuale(par.interesseRateizzazioneMensile, 2)} al mese.`,
       nota: `Senza interessi la rata sarebbe ${euro(p.rataRateizzazione)}.`,
     });
   }

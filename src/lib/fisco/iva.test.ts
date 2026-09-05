@@ -108,13 +108,21 @@ describe("confronto fra regimi", () => {
 
     expect(c.ordinario.redditoLordo).toBe(6520);
     expect(c.ordinario.contributi).toBe(1699.76);
-    expect(c.ordinario.imposte).toBe(1230.61);
-    expect(c.ordinario.caricoTotale).toBe(2930.37);
-    expect(c.ordinario.nettoInTasca).toBe(3589.63);
+    /*
+      Il foglio di calcolo dava 1.230,61 € di imposte perché non conosceva la
+      detrazione dell'art. 13 TUIR. Contandola, su 6.520 € di reddito
+      complessivo l'IRPEF si azzera e con lei le addizionali: a questo livello
+      di ricavi l'ordinario costa meno del forfettario, che paga il 15 % secco
+      senza detrazioni. È il ribaltamento che il confronto esiste per mostrare.
+    */
+    expect(c.ordinario.imposte).toBe(0);
+    expect(c.ordinario.caricoTotale).toBe(1699.76);
+    expect(c.ordinario.nettoInTasca).toBe(4820.24);
 
-    expect(c.differenzaNetto).toBe(716.93);
-    expect(c.convenienza).toBe("forfettario");
-    expect(c.verdetto).toContain("forfettario");
+    // Segnato: forfettario meno ordinario. Negativo significa che vince l'ordinario.
+    expect(c.differenzaNetto).toBe(-513.68);
+    expect(c.convenienza).toBe("ordinario");
+    expect(c.verdetto).toContain("ordinario");
   });
 
   it("dice che sopra il limite il forfettario non si applica", () => {
@@ -160,11 +168,30 @@ describe("confronto fra regimi", () => {
     expect(sopra.convenienza).toBe("forfettario");
   });
 
-  it("restituisce null se le curve non si incrociano mai", () => {
+  it("trova l'incrocio dove la detrazione dell'art. 13 smette di bastare", () => {
+    /*
+      Sotto i settemilacinquecento euro scarsi l'ordinario conviene: la
+      detrazione per redditi di lavoro autonomo azzera l'IRPEF, e con lei le
+      addizionali. Sopra, il forfettario torna avanti. Prima che la detrazione
+      entrasse nel calcolo questo incrocio non esisteva e le curve non si
+      toccavano mai.
+    */
     const incrocio = puntoDiIncrocio(
       { costiDeducibili: 0, costiTotali: 0, ivaAcquisti: 0 },
       impostazioniForfettario(),
       par,
+    );
+    expect(incrocio).toBeGreaterThan(7_000);
+    expect(incrocio).toBeLessThan(8_000);
+  });
+
+  it("restituisce null se le curve non si incrociano nell'intervallo cercato", () => {
+    // Tutto sopra l'incrocio: da lì in su vince sempre il forfettario.
+    const incrocio = puntoDiIncrocio(
+      { costiDeducibili: 0, costiTotali: 0, ivaAcquisti: 0 },
+      impostazioniForfettario(),
+      par,
+      { da: 20_000, a: 85_000 },
     );
     expect(incrocio).toBeNull();
   });
