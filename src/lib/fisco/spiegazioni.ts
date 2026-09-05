@@ -751,10 +751,10 @@ function composizioneRata(
     const dove =
       imp.gestione === "artigiani"
         ? `${euro(a.contributi.base)} di contributi sul reddito eccedente il minimale`
-        : `${euro(a.contributi.base)} di contributi`;
+        : euro(a.contributi.base);
     pezzi.push(
       `${euro(a.contributi[quale])} di contributi, il ${percentuale(quotaRata, 0)} di ${dove}` +
-        ` (l'acconto è il ${percentuale(a.contributi.quota, 0)} in ${interoIt.format(regola?.rate ?? 0)} rate uguali)`,
+        ` — l'acconto è ${conArticolo(a.contributi.quota)} del dovuto, in ${interoIt.format(regola?.rate ?? 0)} rate uguali`,
     );
   }
   if (pezzi.length === 0) return undefined;
@@ -789,7 +789,21 @@ function notaFabbisogno(p: Prospetto): string {
   if (scomputi.length === 0) {
     return "Non hai ritenute né crediti a copertura: da mettere da parte c'è tutto il carico dell'anno.";
   }
-  return `Il carico dell'anno è ${euro(p.caricoTotale)}, ma ${elenco(scomputi)}: sono imposta già pagata e non vanno accantonati una seconda volta.`;
+  return `Il carico dell'anno è ${euro(p.caricoTotale)}, ma ${elenco(scomputi)} sono imposta già pagata: non vanno accantonati una seconda volta.`;
+}
+
+/**
+ * «l'80 %», «il 50 %»: l'articolo giusto davanti a una percentuale.
+ *
+ * In italiano si elide davanti ai numeri che si leggono con una vocale
+ * iniziale — uno, otto, undici, ottanta e i suoi. «Il 80 %» in un documento
+ * che va dal commercialista si nota, e fa sembrare tutto il resto scritto da
+ * una macchina.
+ */
+function conArticolo(frazione: number): string {
+  const n = Math.round(frazione * 100);
+  const vocale = n === 1 || n === 8 || n === 11 || (n >= 80 && n <= 89);
+  return `${vocale ? "l'" : "il "}${percentuale(frazione, 0)}`;
 }
 
 /** «a, b e c»: l'elenco come lo si scrive in italiano. */

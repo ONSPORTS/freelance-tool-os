@@ -94,7 +94,14 @@ export function anniDaCalcolare(archivio: ArchivioPerAnni, annoRichiesto: number
     anni.add(annoDi(c.dataDocumento));
     if (c.dataPagamento) anni.add(annoDi(c.dataPagamento));
   }
-  for (const v of archivio.versamenti) anni.add(annoDi(v.data));
+  // Un versamento conta due volte: nell'anno in cui è uscito dal conto e in
+  // quello d'imposta a cui si riferisce. Un saldo 2025 pagato a giugno 2026
+  // dice che il 2025 esiste e ha dei numeri dentro — saltarlo significherebbe
+  // perderne il riporto, esattamente come per le note di credito.
+  for (const v of archivio.versamenti) {
+    anni.add(annoDi(v.data));
+    if (v.annoImposta !== undefined) anni.add(v.annoImposta);
+  }
   for (const m of archivio.movimentiAttivita) anni.add(m.anno);
   for (const m of archivio.movimentiPersonali) anni.add(m.anno);
 

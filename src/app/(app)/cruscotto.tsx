@@ -28,11 +28,19 @@ export function Cruscotto() {
   const [oggi] = React.useState(() => new Date().toISOString().slice(0, 10));
   const dati = useDati();
   const calcolo = useCalcoloAnno(anno, oggi);
+  // Le scadenze di giugno e novembre vengono dai numeri dell'anno prima.
+  const precedente = useCalcoloAnno(anno - 1, oggi);
 
   const analisi = React.useMemo(() => {
     if (!dati || !calcolo) return null;
     const { prospetto, impostazioni, iva } = calcolo;
-    const scadenze = scadenzeAnno(impostazioni, parametriDi(anno), prospetto, iva);
+    const scadenze = scadenzeAnno(
+      impostazioni,
+      parametriDi(anno),
+      prospetto,
+      iva,
+      precedente?.prospetto ?? null,
+    );
     return {
       mesi: andamentoMensile(
         prospetto.fattureCalcolate,
@@ -53,7 +61,7 @@ export function Cruscotto() {
         oggi,
       }),
     };
-  }, [dati, calcolo, anno, oggi]);
+  }, [dati, calcolo, precedente, anno, oggi]);
 
   const titolo = calcolo?.impostazioni.nome?.trim() || "Cruscotto";
   const descrizione = calcolo

@@ -35,11 +35,20 @@ export function SchermataScadenzario() {
   const [oggi] = React.useState(() => new Date().toISOString().slice(0, 10));
   const dati = useDati();
   const calcolo = useCalcoloAnno(anno, oggi);
+  // Saldo e acconti di quest'anno di calendario si calcolano sui numeri
+  // dell'anno d'imposta precedente: se non c'è, è il primo anno di attività.
+  const precedente = useCalcoloAnno(anno - 1, oggi);
 
   const scadenze = React.useMemo(() => {
     if (!calcolo) return null;
-    return scadenzeAnno(calcolo.impostazioni, parametriDi(anno), calcolo.prospetto, calcolo.iva);
-  }, [calcolo, anno]);
+    return scadenzeAnno(
+      calcolo.impostazioni,
+      parametriDi(anno),
+      calcolo.prospetto,
+      calcolo.iva,
+      precedente?.prospetto ?? null,
+    );
+  }, [calcolo, precedente, anno]);
 
   const spuntate = React.useMemo(() => {
     const insieme = new Set<string>();
@@ -200,6 +209,14 @@ function RigaAdempimento({
               </>
             )}
           </span>
+          {/*
+            Una scadenza senza importo per un motivo che si può dire lo dice.
+            Al primo anno di attività saldo e acconti non hanno un anno prima
+            da cui calcolarsi: la voce resta, con scritto perché è vuota.
+          */}
+          {scadenza.nota && (
+            <span className="mt-1 block text-micro text-inchiostro-tenue">{scadenza.nota}</span>
+          )}
         </span>
       </label>
 
@@ -213,6 +230,12 @@ function RigaAdempimento({
           <span className={cn("cifre text-corpo font-medium", fatto && "text-inchiostro-tenue")}>
             {euro(scadenza.importo)}
           </span>
+        ) : scadenza.nota ? (
+          <Chip tono="attenzione">importo non calcolabile</Chip>
+        ) : scadenza.importo === 0 ? (
+          // Zero è un importo, non un adempimento dichiarativo: la differenza
+          // fra «non devi versare niente» e «qui non si versa mai» conta.
+          <Chip tono="neutro">niente da versare</Chip>
         ) : (
           <Chip tono="neutro">solo dichiarativo</Chip>
         )}

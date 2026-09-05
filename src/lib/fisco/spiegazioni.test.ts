@@ -161,7 +161,9 @@ describe("prospetto dettagliato", () => {
     // scritte una per una, perché sulla somma non torna nessuna percentuale.
     expect(primo.nota).toContain(euro(prospetto.acconti.imposte.primo));
     expect(primo.nota).toContain(euro(prospetto.acconti.contributi.primo));
-    expect(secondo.nota).toContain("80 %");
+    // «il 80 %» in un documento che va dal commercialista si nota.
+    expect(secondo.nota).toContain("l'80 %");
+    expect(secondo.nota).not.toContain("il 80 %");
     expect(prospetto.acconti.contributi.primo).toBe(prospetto.acconti.contributi.secondo);
   });
 

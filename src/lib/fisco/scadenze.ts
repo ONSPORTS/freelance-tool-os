@@ -22,10 +22,13 @@ export type Adempimento = {
   titolo: string;
   /** Importo stimato, `null` quando l'adempimento è solo dichiarativo. */
   importo: number | null;
+  /** Perché l'importo non c'è, quando manca per un motivo che si può dire. */
+  nota?: string;
   categoria: "iva" | "imposte" | "contributi" | "dichiarazione" | "bollo";
 };
 
-type Voce = Omit<Adempimento, "data" | "dataDiCalendario"> & {
+type Voce = Omit<Adempimento, "data" | "dataDiCalendario" | "nota"> & {
+  nota?: string;
   mese: number;
   giorno: number;
   /** Anno successivo a quello di riferimento. */
@@ -40,11 +43,24 @@ type Contesto = {
   artigiani: boolean;
 };
 
+/**
+ * Lo scadenzario di un anno di calendario.
+ *
+ * @param prospetto l'anno d'imposta corrente: da qui vengono le scadenze IVA,
+ * che sono dell'anno in cui si liquidano.
+ * @param precedente l'anno d'imposta precedente, `null` al primo anno di
+ * attività. Da qui vengono saldo e acconti di giugno e novembre: quello che
+ * esce dal conto a giugno del 2027 è il saldo del 2026 più il primo acconto
+ * per il 2027, e tutti e due si calcolano sui numeri del 2026. Prenderli dal
+ * prospetto dell'anno in corso significava mostrare a giugno un saldo che si
+ * verserà l'anno dopo.
+ */
 export function scadenzeAnno(
   imp: Impostazioni,
   par: ParametriAnno,
   prospetto: Prospetto,
   iva: LiquidazioneIva,
+  precedente: Prospetto | null = null,
 ): Adempimento[] {
   const ctx: Contesto = {
     imp,
@@ -99,8 +115,13 @@ export function scadenzeAnno(
     },
     {
       id: "saldo-e-primo-acconto", mese: 6, giorno: 30, categoria: "imposte",
-      titolo: "Saldo di imposte e contributi più il primo acconto",
-      importo: prospetto.saldoResiduo + prospetto.acconti.primo,
+      titolo: precedente
+        ? `Saldo ${precedente.anno} di imposte e contributi più il primo acconto ${imp.anno}`
+        : "Saldo di imposte e contributi più il primo acconto",
+      importo: precedente ? precedente.saldoResiduo + precedente.acconti.primo : null,
+      nota: precedente
+        ? undefined
+        : `Non c'è un ${imp.anno - 1} da cui calcolarlo: a giugno si versa il saldo dell'anno precedente e l'acconto sui suoi numeri. Se il ${imp.anno} è il tuo primo anno, questa scadenza non ti riguarda.`,
       quando: () => true,
     },
     {
@@ -140,11 +161,16 @@ export function scadenzeAnno(
     },
     {
       id: "secondo-acconto", mese: 11, giorno: 30, categoria: "imposte",
-      titolo: prospetto.acconti.accontoUnico
-        ? "Acconto unico di imposte e contributi"
-        : "Secondo acconto di imposte e contributi",
-      importo: prospetto.acconti.secondo,
-      quando: () => prospetto.acconti.dovuti,
+      titolo: precedente?.acconti.accontoUnico
+        ? `Acconto unico di imposte e contributi per il ${imp.anno}`
+        : `Secondo acconto di imposte e contributi per il ${imp.anno}`,
+      importo: precedente ? precedente.acconti.secondo : null,
+      nota: precedente
+        ? undefined
+        : `Si calcola sui numeri del ${imp.anno - 1}, che non c'è.`,
+      // Senza l'anno prima la voce resta in elenco senza importo: dire che una
+      // scadenza non esiste sarebbe peggio che dire che non se ne sa l'importo.
+      quando: () => !precedente || precedente.acconti.dovuti,
     },
     {
       id: "lipe-3t", mese: 11, giorno: 30, categoria: "dichiarazione",
@@ -185,6 +211,7 @@ export function scadenzeAnno(
         ...(data === dataDiCalendario ? {} : { dataDiCalendario }),
         titolo: v.titolo,
         importo: v.importo,
+        ...(v.nota ? { nota: v.nota } : {}),
         categoria: v.categoria,
       };
     })

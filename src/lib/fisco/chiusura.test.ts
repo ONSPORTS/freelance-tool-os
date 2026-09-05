@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catenaAnni, type ArchivioPerAnni } from "@/lib/analisi/anno";
+import { anniDaCalcolare, catenaAnni, type ArchivioPerAnni } from "@/lib/analisi/anno";
 import {
   calcolaRiporto,
   esportazioneProspettoConsentita,
@@ -433,6 +433,27 @@ describe("cambio di regime alla chiusura", () => {
 // ————————————————————————————————————————————————————————————
 // Acconti e credito in ingresso
 // ————————————————————————————————————————————————————————————
+
+describe("la catena conosce gli anni d'imposta dei versamenti", () => {
+  it("un saldo di un anno vuoto entra in catena e porta il suo credito avanti", () => {
+    /*
+      Il versamento è uscito dal conto nel 2026 ma si riferisce al 2025: il
+      2025 esiste, ha un versato e nessun dovuto, e quell'eccedenza è un
+      credito che deve arrivare al 2026. Senza guardare `annoImposta` la
+      catena partiva dal 2026 e il credito si perdeva per strada.
+    */
+    const archivio = {
+      ...archivioChiusura(),
+      versamenti: [
+        { id: "v", data: "2026-06-30", tipo: "imposte" as const, importo: 1_000, annoImposta: 2025 },
+      ],
+    };
+    expect(anniDaCalcolare(archivio, 2026)).toContain(2025);
+    const catena = catenaAnni(archivio, 2026, OGGI_CHIUSURA);
+    expect(catena.get(2025)!.prospetto.giaVersato).toBe(1_000);
+    expect(catena.get(2026)!.prospetto.creditoAnnoPrecedente).toBe(1_000);
+  });
+});
 
 describe("acconti con credito dell'anno precedente", () => {
   /** Qui si guarda il credito, non la composizione: solo imposta principale. */
