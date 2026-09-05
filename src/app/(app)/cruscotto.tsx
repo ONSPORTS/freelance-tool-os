@@ -18,6 +18,8 @@ import { generaAvvisi, type Avviso } from "@/lib/analisi/avvisi";
 import { useCalcoloAnno, useDati } from "@/lib/dati/hooks";
 import { giorniAllaData } from "@/lib/fisco/calendario";
 import { parametriDi } from "@/lib/fisco/parametri";
+import { round2 } from "@/lib/fisco/aritmetica";
+import { periodoIvaCorrente } from "@/lib/fisco/iva";
 import { prossimeScadenze, scadenzeAnno, type Adempimento } from "@/lib/fisco/scadenze";
 import { usePreferenze } from "@/lib/stato/preferenze";
 import { coloreDaNome, data as fmtData, euro, percentuale } from "@/lib/format";
@@ -30,6 +32,12 @@ export function Cruscotto() {
   const calcolo = useCalcoloAnno(anno, oggi);
   // Le scadenze di giugno e novembre vengono dai numeri dell'anno prima.
   const precedente = useCalcoloAnno(anno - 1, oggi);
+  /*
+    E anche l'anno dopo, per una card sola: a settembre il prossimo versamento
+    di un forfettario può cadere a marzo. «Nessuna scadenza in arrivo» quando
+    ce n'è una fra sei mesi è la risposta sbagliata alla domanda giusta.
+  */
+  const successivo = useCalcoloAnno(anno + 1, oggi);
 
   const analisi = React.useMemo(() => {
     if (!dati || !calcolo) return null;
@@ -52,6 +60,17 @@ export function Cruscotto() {
       giorniMedi: giorniMediIncasso(prospetto.fattureCalcolate),
       scadenze,
       prossime: prossimeScadenze(scadenze, oggi, 4),
+      // L'elenco continua nell'anno dopo: serve solo alla card del prossimo
+      // versamento, che non si ferma al 31 dicembre.
+      scadenzeSuccessive: successivo
+        ? scadenzeAnno(
+            successivo.impostazioni,
+            parametriDi(anno + 1),
+            successivo.prospetto,
+            successivo.iva,
+            prospetto,
+          )
+        : [],
       avvisi: generaAvvisi({
         prospetto,
         impostazioni,
@@ -61,7 +80,7 @@ export function Cruscotto() {
         oggi,
       }),
     };
-  }, [dati, calcolo, precedente, anno, oggi]);
+  }, [dati, calcolo, precedente, successivo, anno, oggi]);
 
   const titolo = calcolo?.impostazioni.nome?.trim() || "Cruscotto";
   const descrizione = calcolo
@@ -88,6 +107,39 @@ export function Cruscotto() {
   // La quota di limite forfettario, che finora stava solo nel prospetto: chi
   // guarda il cruscotto e basta non sapeva quanto gli restava.
   const quota = quotaLimite(p, calcolo.impostazioni);
+  /*
+    Il periodo IVA in corso, e la prima scadenza in arrivo. Vengono dagli
+    stessi due oggetti che alimentano la schermata IVA e lo scadenzario: se un
+    giorno divergessero sarebbe un difetto da correggere lì, non da aggirare
+    qui con un secondo calcolo.
+  */
+  const periodoIva = periodoIvaCorrente(iva, oggi, anno);
+  /*
+    Il primo *versamento* in arrivo, non il primo adempimento: una
+    dichiarazione da presentare non è denaro che esce, e in una card che
+    risponde a «quanto e quando pago» sarebbe fuori posto.
+  */
+  const inArrivo = prossimeScadenze(
+    [...analisi.scadenze, ...analisi.scadenzeSuccessive],
+    oggi,
+    40,
+  ).filter((s) => s.categoria !== "dichiarazione");
+  /*
+    Tutto quello che cade nello stesso giorno, non solo la prima voce: il 16
+    novembre un artigiano versa la rata INPS *e* l'IVA del trimestre, e una
+    card che ne mostrasse una sola direbbe un numero più basso del vero
+    proprio nel punto in cui si guarda quanto serve sul conto.
+  */
+  const primaData = inArrivo[0]?.data ?? null;
+  const dovute = inArrivo.filter((s) => s.data === primaData);
+  const conImporto = dovute.filter((s) => s.importo !== null);
+  const prossima = dovute[0] ?? null;
+  const importoProssima =
+    conImporto.length > 0 ? round2(conImporto.reduce((a, s) => a + (s.importo ?? 0), 0)) : null;
+  // Quanto del fabbisogno copre la percentuale impostata. `null` quando non
+  // c'è niente da coprire: una percentuale su zero non vuol dire niente.
+  const copertura =
+    p.fabbisognoDaAccantonare > 0 ? p.accantonamentoAnnuo / p.fabbisognoDaAccantonare : null;
 
   return (
     <Guscio titolo={titolo} descrizione={descrizione}>
@@ -170,7 +222,9 @@ export function Cruscotto() {
             sfondo="indaco"
             etichetta="Incassato"
             valore={euro(p.ricaviRilevanti)}
-            nota={`su ${euro(p.fatturatoEmesso)} emessi`}
+            // Al netto dell'IVA: la barra qui sopra conta il lordo, e senza
+            // dirlo i due numeri sembrano lo stesso numero sbagliato.
+            nota={`al netto dell'IVA · su ${euro(p.fatturatoEmesso)} emessi`}
             chip={
               p.fatturatoEmesso > 0 ? (
                 <Chip tono="chiaro" className="cifre">
@@ -213,11 +267,102 @@ export function Cruscotto() {
             valore={euro(p.nettoDisponibile)}
             nota="prima delle spese personali"
           />
+        </section>
+
+        {/*
+          Quello che devi mettere da parte, e quando esce davvero dal conto.
+
+          Stanno insieme perché rispondono alla stessa domanda da tre lati:
+          quanto al mese, quanto alla prossima scadenza, e se la percentuale
+          che hai impostato basta. L'IVA resta fuori dall'accantonamento — ha
+          ritmo trimestrale, e mensilizzarla nasconderebbe quando esce — ma ha
+          la sua card, perché nella barra in cima compare come quota non tua e
+          poi non si vedeva più da nessuna parte.
+        */}
+        <section
+          aria-label="Quanto mettere da parte, e quando esce"
+          className="grid grid-cols-2 gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        >
           <Kpi
             taglia="kpiSm"
             etichetta="Da accantonare al mese"
             valore={euro(p.accantonamentoMensile)}
-            nota="su un conto separato"
+            nota="imposte e contributi, su un conto separato"
+            sotto={
+              p.ritenuteSubite > 0 || p.creditoAnnoPrecedente > 0 ? (
+                <p className="text-inchiostro-tenue">
+                  al netto di quello che è già coperto
+                </p>
+              ) : undefined
+            }
+          />
+          {periodoIva && (
+            <Kpi
+              taglia="kpiSm"
+              etichetta="IVA da versare"
+              valore={euro(periodoIva.totaleDaVersare)}
+              // La riga deve tornare: debito meno detraibile, meno l'eventuale
+              // credito riportato, più la maggiorazione del trimestrale. Se
+              // manca un pezzo, la sottrazione non dà il numero grande sopra.
+              nota={
+                `${periodoIva.etichetta}: ${euro(periodoIva.debito)} a debito meno ` +
+                `${euro(periodoIva.credito)} detraibile` +
+                (periodoIva.creditoPrecedente > 0
+                  ? ` e ${euro(periodoIva.creditoPrecedente)} di credito riportato`
+                  : "") +
+                (periodoIva.maggiorazione > 0
+                  ? `, più ${euro(periodoIva.maggiorazione)} di maggiorazione`
+                  : "")
+              }
+              sotto={
+                periodoIva.scadenza ? (
+                  <p className="text-inchiostro-tenue">si versa il {fmtData(periodoIva.scadenza)}</p>
+                ) : undefined
+              }
+            />
+          )}
+          <Kpi
+            taglia="kpiSm"
+            etichetta="Prossima scadenza"
+            valore={importoProssima !== null ? euro(importoProssima) : "—"}
+            nota={
+              !prossima
+                ? "nessuna scadenza in arrivo"
+                : dovute.length === 1
+                  ? prossima.titolo
+                  : dovute.map((s) => s.titolo).join(" · ")
+            }
+            sotto={
+              prossima ? (
+                <p className="text-inchiostro-tenue">
+                  {fmtData(prossima.data)}
+                  {dovute.length > 1 && ` · ${dovute.length} versamenti lo stesso giorno`}
+                  {importoProssima === null &&
+                    (prossima.nota ? " · importo non calcolabile" : " · importo non stimato")}
+                  {importoProssima !== null &&
+                    conImporto.length < dovute.length &&
+                    " · uno degli importi non è stimato"}
+                </p>
+              ) : undefined
+            }
+          />
+          <Kpi
+            taglia="kpiSm"
+            etichetta="Copertura dell'accantonamento"
+            valore={copertura === null ? "—" : percentuale(copertura, 0)}
+            nota={
+              copertura === null
+                ? "niente da mettere da parte: ritenute e crediti coprono già il carico"
+                : `il ${percentuale(p.percentualeImpostata, 0)} dei ricavi fa ${euro(p.accantonamentoAnnuo)} sui ${euro(p.fabbisognoDaAccantonare)} da coprire`
+            }
+            sotto={
+              p.scostamentoAccantonamento < 0 ? (
+                <p className="text-[#B8791A]">
+                  mancano {euro(-p.scostamentoAccantonamento)}: porta la percentuale almeno al{" "}
+                  {Math.ceil(p.percentualeTeoricaAccantonamento * 100)}%
+                </p>
+              ) : undefined
+            }
           />
         </section>
 

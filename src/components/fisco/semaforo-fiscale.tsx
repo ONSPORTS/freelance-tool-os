@@ -66,8 +66,15 @@ export function SemaforoFiscale({
           <p className="cifre mt-1 text-semaforo font-semibold tracking-tight">
             {euro(principale.valore)}
           </p>
+          {/*
+            «Incassati» da solo era ambiguo: qui il totale è il denaro entrato
+            in cassa, IVA compresa, mentre la card «Incassato» poco sotto mostra
+            l'imponibile. Stessa parola, due grandezze, stessa schermata: ogni
+            volta che compare va detto di quale delle due si parla.
+          */}
           <p className="mt-1 text-etichetta text-inchiostro-tenue">
-            {percentuale(principale.valore / base, 1)} di {euro(totale)} incassati
+            {percentuale(principale.valore / base, 1)} di {euro(totale)} entrati in cassa, IVA
+            compresa
           </p>
         </div>
 

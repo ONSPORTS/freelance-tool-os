@@ -183,3 +183,29 @@ export function calcolaIva(
     creditoFinale: periodi[periodi.length - 1]?.creditoANuovo ?? 0,
   };
 }
+
+/**
+ * Il periodo di liquidazione in cui cade una data.
+ *
+ * Serve al cruscotto, che dell'IVA deve dire una cosa sola: quanto esce alla
+ * prossima scadenza. Non è il totale dell'anno né l'IVA incassata dai clienti —
+ * quella è denaro che transita — ma il debito del periodo al netto dell'IVA
+ * detraibile dello stesso periodo.
+ *
+ * Fuori dall'anno guardato si torna all'ultimo periodo: chi sfoglia il 2025 a
+ * settembre 2026 vuole vedere come si è chiuso, non un periodo che non esiste.
+ */
+export function periodoIvaCorrente(
+  iva: LiquidazioneIva,
+  oggi: string,
+  anno: number,
+): PeriodoIva | null {
+  if (!iva.applicabile) return null;
+  const periodi = iva.periodicita === "mensile" ? iva.mesi : iva.trimestri;
+  if (periodi.length === 0) return null;
+  const ultimo = periodi[periodi.length - 1] ?? null;
+  if (annoDi(oggi) !== anno) return ultimo;
+  const mese = meseDi(oggi);
+  const indice = iva.periodicita === "mensile" ? mese : Math.ceil(mese / 3);
+  return periodi.find((p) => p.indice === indice) ?? ultimo;
+}
