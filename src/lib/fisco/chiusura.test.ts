@@ -435,11 +435,15 @@ describe("cambio di regime alla chiusura", () => {
 // ————————————————————————————————————————————————————————————
 
 describe("acconti con credito dell'anno precedente", () => {
-  /** Qui si guarda il credito, non la composizione: solo imposte. */
-  const SOLO_IMPOSTE = { base: 0, regola: null };
+  /** Qui si guarda il credito, non la composizione: solo imposta principale. */
+  const basi = (imposta: number) => ({
+    imposta,
+    addizionaleComunale: 0,
+    contributi: { base: 0, regola: null },
+  });
 
   it("senza credito il dovuto e il da versare coincidono", () => {
-    const a = calcolaAcconti(1_000, SOLO_IMPOSTE, PARAMETRI_2026);
+    const a = calcolaAcconti(basi(1_000), PARAMETRI_2026);
     expect(a.primo).toBe(400);
     expect(a.secondo).toBe(600);
     expect(a.primoDaVersare).toBe(400);
@@ -448,7 +452,7 @@ describe("acconti con credito dell'anno precedente", () => {
   });
 
   it("il credito copre prima l'acconto di giugno, poi quello di novembre", () => {
-    const a = calcolaAcconti(1_000, SOLO_IMPOSTE, PARAMETRI_2026, 500);
+    const a = calcolaAcconti(basi(1_000), PARAMETRI_2026, 500);
     // Quello che si dichiara non cambia: cambia quello che esce dal conto.
     expect(a.primo).toBe(400);
     expect(a.secondo).toBe(600);
@@ -459,7 +463,7 @@ describe("acconti con credito dell'anno precedente", () => {
   });
 
   it("il credito che avanza resta disponibile per l'anno dopo", () => {
-    const a = calcolaAcconti(1_000, SOLO_IMPOSTE, PARAMETRI_2026, 1_500);
+    const a = calcolaAcconti(basi(1_000), PARAMETRI_2026, 1_500);
     expect(a.creditoUtilizzato).toBe(1_000);
     expect(a.creditoResiduo).toBe(500);
     expect(a.primoDaVersare).toBe(0);

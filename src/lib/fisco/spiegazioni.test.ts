@@ -414,6 +414,25 @@ describe("prospetto dettagliato", () => {
     expect(r.formula).toContain("riporto al 2027");
   });
 
+  it("la rata di giugno dice tutte e tre le sue quote", () => {
+    const fattura: Fattura = {
+      id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+      clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: 40_000,
+    };
+    const imp = impostazioniOrdinario();
+    const p = calcolaProspetto({
+      impostazioni: imp, parametri: par, fatture: [fattura], costi: [], oggi: OGGI_FIXTURE,
+    });
+    const primo = riga(prospettoDettagliato(p, imp, par), "primo-acconto")!;
+    expect(primo.nota).toContain("di IRPEF");
+    expect(primo.nota).toContain("di addizionale comunale");
+    expect(primo.nota).toContain("di contributi");
+    expect(primo.nota).toContain("L'addizionale regionale non ha acconto");
+    // A novembre l'addizionale comunale non ricompare: è già stata versata.
+    const secondo = riga(prospettoDettagliato(p, imp, par), "secondo-acconto")!;
+    expect(secondo.nota).not.toContain("addizionale comunale");
+  });
+
   it("con la ritenuta attiva e nessuna trattenuta, lo zero è scritto", () => {
     /*
       Su carta non si può chiedere all'app perché una voce manchi: chi applica

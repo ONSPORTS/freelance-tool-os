@@ -52,12 +52,13 @@ export type DetrazioneLavoroAutonomo = {
 };
 
 /**
- * Come si versa in acconto un contributo previdenziale.
+ * Come si versa in acconto un'imposta o un contributo.
  *
  * `quota` è la parte del dovuto che si anticipa, `rate` in quante parti uguali
- * si divide fra le scadenze di giugno e novembre.
+ * si divide fra le scadenze di giugno e novembre. Una sola rata significa
+ * tutto a giugno.
  */
-export type RegolaAccontoContributi = {
+export type RegolaAcconto = {
   quota: number;
   rate: number;
 };
@@ -117,7 +118,15 @@ export type ParametriAnno = {
    * 40/60 delle imposte gonfia la rata di novembre di un quinto dei contributi.
    * `null` dove la regola non è dell'INPS: ogni cassa professionale ha la sua.
    */
-  accontoContributi: Record<Gestione, RegolaAccontoContributi | null>;
+  accontoContributi: Record<Gestione, RegolaAcconto | null>;
+  /**
+   * L'acconto delle addizionali, che è una terza regola ancora.
+   *
+   * La regionale non ha acconto: si versa tutta a saldo. La comunale sì, il
+   * 30 %, e in unica soluzione a giugno — non spalmato su due rate come
+   * l'IRPEF. `null` dove l'acconto non esiste.
+   */
+  accontoAddizionali: { regionale: RegolaAcconto | null; comunale: RegolaAcconto | null };
   /** Sotto questa soglia di imposta dovuta non si versano acconti. */
   sogliaAcconti: number;
   /** Sotto questa soglia l'acconto è unico, a novembre. */

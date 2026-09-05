@@ -12,9 +12,10 @@ export const PARAMETRI_2026: ParametriAnno = {
   fonti: [
     "Legge di Bilancio 2026",
     "Allegato n. 2 alla Legge 190/2014 — coefficienti di redditività",
-    "Circolare INPS n. 8 del 3 febbraio 2026 — aliquote previdenziali",
     "Art. 13 TUIR — detrazione per redditi di lavoro autonomo",
+    "Circolare INPS n. 8 del 3 febbraio 2026 — Gestione Separata: aliquote e acconti",
     "Circolare INPS n. 14 del 9 febbraio 2026 — artigiani e commercianti",
+    "Art. 1 comma 4 D.Lgs. 360/1998 — acconto dell'addizionale comunale",
   ],
   provvisorio: false,
 
@@ -122,6 +123,22 @@ export const PARAMETRI_2026: ParametriAnno = {
     separata: { quota: 0.8, rate: 2 },
     artigiani: { quota: 1, rate: 2 },
     cassa: null,
+  },
+
+  /*
+    Le addizionali non seguono l'IRPEF nemmeno loro.
+
+    Regionale: nessun acconto, si versa tutta a saldo con le modalità e nei
+    termini del saldo IRPEF (art. 50 D.Lgs. 446/1997).
+
+    Comunale: acconto del 30 %, calcolato applicando l'aliquota deliberata al
+    reddito imponibile dell'anno precedente, e versato in unica soluzione a
+    giugno insieme al saldo — non in due rate come l'IRPEF (art. 1 comma 4
+    D.Lgs. 360/1998; codici tributo 3843 acconto e 3844 saldo).
+  */
+  accontoAddizionali: {
+    regionale: null,
+    comunale: { quota: 0.3, rate: 1 },
   },
 
   sogliaVistoCompensazione: 5_000,

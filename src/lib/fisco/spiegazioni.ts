@@ -714,9 +714,17 @@ function composizioneRata(
   const a = p.acconti;
   const pezzi: string[] = [];
   const quotaImposte = quale === "primo" ? par.quotaPrimoAcconto : par.quotaSecondoAcconto;
+  const forfettario = imp.regime === "forfettario";
   if (a.imposte[quale] > 0) {
+    const nome = forfettario ? "imposta sostitutiva" : "IRPEF";
+    const base = round2((forfettario ? p.impostaSostitutiva : p.irpefNetta) - p.ritenuteSubite);
     pezzi.push(
-      `${euro(a.imposte[quale])} di imposte, il ${percentuale(quotaImposte, 0)} di ${euro(p.imposteNetteASaldo)}`,
+      `${euro(a.imposte[quale])} di ${nome}, il ${percentuale(quotaImposte, 0)} di ${euro(base)}`,
+    );
+  }
+  if (a.addizionali[quale] > 0) {
+    pezzi.push(
+      `${euro(a.addizionali[quale])} di addizionale comunale, il ${percentuale(a.addizionali.quota, 0)} di ${euro(a.addizionali.base)}, tutto a giugno`,
     );
   }
   if (a.contributi[quale] > 0) {
@@ -732,13 +740,17 @@ function composizioneRata(
     );
   }
   if (pezzi.length === 0) return undefined;
-  const coda =
-    imp.gestione === "artigiani"
-      ? " I contributi sul minimale non entrano qui: si versano in quattro rate fisse."
-      : imp.gestione === "cassa"
-        ? " I contributi di cassa non entrano qui: la tua cassa ha scadenze e regole proprie."
-        : "";
-  return `${elenco(pezzi)}.${coda}`;
+  const code: string[] = [];
+  if (!forfettario && p.addizionaleRegionale > 0) {
+    code.push("L'addizionale regionale non ha acconto: si versa tutta a saldo.");
+  }
+  if (imp.gestione === "artigiani") {
+    code.push("I contributi sul minimale non entrano qui: si versano in quattro rate fisse.");
+  }
+  if (imp.gestione === "cassa" && p.contributiCassa > 0) {
+    code.push("I contributi di cassa non entrano qui: la tua cassa ha scadenze e regole proprie.");
+  }
+  return [`${elenco(pezzi)}.`, ...code].join(" ");
 }
 
 /**

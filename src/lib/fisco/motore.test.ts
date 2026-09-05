@@ -368,6 +368,63 @@ describe("accantonamento e ritenute", () => {
   });
 });
 
+describe("acconti delle addizionali", () => {
+  /*
+    Tre basi, tre regole. Su 40.000 € incassati in ordinario:
+    IRPEF netta 6.731,49 → 40 % = 2.692,60 e 60 % = 4.038,89.
+    Addizionale comunale 236,58 → 30 % = 70,97, tutto a giugno.
+    Addizionale regionale 511,60 → niente: non ha acconto.
+    Contributi 10.428 → 80 % in due rate da 4.171,20.
+  */
+  const fattura: Fattura = {
+    id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
+    clienteId: "c", descrizione: "", tipoRicavo: "progetto", imponibile: 40_000,
+  };
+  const p = calcolaProspetto({
+    impostazioni: impostazioniOrdinario(), parametri: par,
+    fatture: [fattura], costi: [], oggi: OGGI_FIXTURE,
+  });
+
+  it("l'acconto dell'IRPEF si commisura all'imposta netta, non al totale imposte", () => {
+    expect(p.irpefNetta).toBe(6_731.49);
+    expect(p.acconti.imposte.primo).toBe(2_692.6);
+    expect(p.acconti.imposte.secondo).toBe(4_038.89);
+  });
+
+  it("l'addizionale comunale va al 30 %, tutta a giugno", () => {
+    expect(p.addizionaleComunale).toBe(236.58);
+    expect(p.acconti.addizionali.primo).toBe(70.97);
+    expect(p.acconti.addizionali.secondo).toBe(0);
+  });
+
+  it("l'addizionale regionale non entra in nessuna rata", () => {
+    expect(p.addizionaleRegionale).toBe(511.6);
+    // Se entrasse, la somma delle rate porterebbe i suoi 511,60 € da qualche parte.
+    expect(p.acconti.primo).toBe(round2(2_692.6 + 70.97 + 4_171.2));
+    expect(p.acconti.secondo).toBe(round2(4_038.89 + 4_171.2));
+  });
+
+  it("in forfettario le addizionali non esistono e l'acconto è tutto sostitutiva", () => {
+    const f = calcolaProspetto({
+      impostazioni: impostazioniForfettario(), parametri: par,
+      fatture: [fattura], costi: [], oggi: OGGI_FIXTURE,
+    });
+    expect(f.acconti.addizionali.primo).toBe(0);
+    expect(f.acconti.imposte.primo).toBe(round2(f.impostaSostitutiva * 0.4));
+  });
+
+  it("le ritenute abbassano la base dell'acconto, le addizionali no", () => {
+    const conRitenuta = calcolaProspetto({
+      impostazioni: { ...impostazioniOrdinario(), ritenutaAttiva: true }, parametri: par,
+      fatture: [fattura], costi: [], oggi: OGGI_FIXTURE,
+    });
+    // 8.000 € di ritenute contro 6.731,49 di IRPEF netta: l'acconto d'imposta
+    // si azzera, ma quello dell'addizionale comunale resta dov'è.
+    expect(conRitenuta.acconti.imposte.primo).toBe(0);
+    expect(conRitenuta.acconti.addizionali.primo).toBe(70.97);
+  });
+});
+
 describe("acconti dentro il prospetto, gestione per gestione", () => {
   const fattura: Fattura = {
     id: "f", numero: "1", dataEmissione: "2026-01-10", dataIncasso: "2026-02-10",
@@ -566,22 +623,27 @@ describe("casi limite", () => {
 });
 
 describe("acconti", () => {
-  /** Le sole imposte: nessun contributo in acconto. */
-  const soloImposte = { base: 0, regola: null };
+  /** Costruisce le tre basi, riempiendo solo quelle che il caso vuole. */
+  const basi = (b: Partial<Parameters<typeof calcolaAcconti>[0]>) => ({
+    imposta: 0,
+    addizionaleComunale: 0,
+    contributi: { base: 0, regola: null },
+    ...b,
+  });
 
   it("sotto 51,65 € non si versa nulla", () => {
-    expect(calcolaAcconti(40, soloImposte, par).dovuti).toBe(false);
+    expect(calcolaAcconti(basi({ imposta: 40 }), par).dovuti).toBe(false);
   });
 
   it("fra 51,65 e 257,52 € l'acconto è unico a novembre", () => {
-    const a = calcolaAcconti(200, soloImposte, par);
+    const a = calcolaAcconti(basi({ imposta: 200 }), par);
     expect(a.accontoUnico).toBe(true);
     expect(a.primo).toBe(0);
     expect(a.secondo).toBe(200);
   });
 
   it("sopra 257,52 € si divide in 40% e 60%", () => {
-    const a = calcolaAcconti(2173.84, soloImposte, par);
+    const a = calcolaAcconti(basi({ imposta: 2173.84 }), par);
     expect(a.accontoUnico).toBe(false);
     expect(a.primo).toBe(869.54);
     expect(a.secondo).toBe(1304.3);
@@ -589,7 +651,7 @@ describe("acconti", () => {
 
   it("i contributi della Gestione Separata vanno all'80 % in due rate uguali", () => {
     // 10.000 € di contributi → acconto 8.000, cioè 4.000 e 4.000.
-    const a = calcolaAcconti(0, { base: 10_000, regola: par.accontoContributi.separata }, par);
+    const a = calcolaAcconti(basi({ imposta: 0, contributi: { base: 10_000, regola: par.accontoContributi.separata } }), par);
     expect(a.contributi.primo).toBe(4_000);
     expect(a.contributi.secondo).toBe(4_000);
     expect(a.primo).toBe(4_000);
@@ -599,20 +661,20 @@ describe("acconti", () => {
 
   it("le due basi si sommano rata per rata, ognuna con la sua regola", () => {
     // Imposte 1.000 → 400 e 600. Contributi 10.000 → 4.000 e 4.000.
-    const a = calcolaAcconti(1_000, { base: 10_000, regola: par.accontoContributi.separata }, par);
+    const a = calcolaAcconti(basi({ imposta: 1_000, contributi: { base: 10_000, regola: par.accontoContributi.separata } }), par);
     expect(a.imposte).toEqual({ primo: 400, secondo: 600, unico: false });
     expect(a.primo).toBe(4_400);
     expect(a.secondo).toBe(4_600);
   });
 
   it("artigiani e commercianti: 100 % dell'eccedenza, in due rate del 50 %", () => {
-    const a = calcolaAcconti(0, { base: 3_000, regola: par.accontoContributi.artigiani }, par);
+    const a = calcolaAcconti(basi({ imposta: 0, contributi: { base: 3_000, regola: par.accontoContributi.artigiani } }), par);
     expect(a.contributi.primo).toBe(1_500);
     expect(a.contributi.secondo).toBe(1_500);
   });
 
   it("senza regola — le casse professionali — non si calcola nessun acconto contributivo", () => {
-    const a = calcolaAcconti(0, { base: 9_000, regola: par.accontoContributi.cassa }, par);
+    const a = calcolaAcconti(basi({ imposta: 0, contributi: { base: 9_000, regola: par.accontoContributi.cassa } }), par);
     expect(a.contributi.primo).toBe(0);
     expect(a.contributi.secondo).toBe(0);
     expect(a.dovuti).toBe(false);
@@ -620,13 +682,13 @@ describe("acconti", () => {
 
   it("il centesimo dispari finisce nell'ultima rata, non sparisce", () => {
     // 8.000,01 × 80 % = 6.400,01: 3.200 e 3.200,01.
-    const a = calcolaAcconti(0, { base: 8_000.01, regola: par.accontoContributi.separata }, par);
+    const a = calcolaAcconti(basi({ imposta: 0, contributi: { base: 8_000.01, regola: par.accontoContributi.separata } }), par);
     expect(round2(a.contributi.primo + a.contributi.secondo)).toBe(6_400.01);
   });
 
   it("le soglie valgono sulle imposte, non sui contributi", () => {
     // 40 € di imposte non fanno acconto; 1.000 € di contributi sì.
-    const a = calcolaAcconti(40, { base: 1_000, regola: par.accontoContributi.separata }, par);
+    const a = calcolaAcconti(basi({ imposta: 40, contributi: { base: 1_000, regola: par.accontoContributi.separata } }), par);
     expect(a.imposte.primo).toBe(0);
     expect(a.imposte.secondo).toBe(0);
     expect(a.dovuti).toBe(true);

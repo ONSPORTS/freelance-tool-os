@@ -27,7 +27,7 @@ import type {
   Gestione,
   Impostazioni,
   ParametriAnno,
-  RegolaAccontoContributi,
+  RegolaAcconto,
   ScaglioneIrpef,
   VersamentoF24,
 } from "./tipi";
@@ -97,8 +97,10 @@ export type Acconti = {
   secondo: number;
   /** Sotto la soglia dei 257,52 € l'acconto è unico e si versa a novembre. */
   accontoUnico: boolean;
-  /** Le due quote di cui ogni rata è fatta, perché il prospetto possa dirlo. */
+  /** Le tre quote di cui ogni rata è fatta, perché il prospetto possa dirlo. */
   imposte: { primo: number; secondo: number; unico: boolean };
+  /** Solo l'addizionale comunale: la regionale non ha acconto. */
+  addizionali: { primo: number; secondo: number; base: number; quota: number };
   contributi: { primo: number; secondo: number; base: number; quota: number };
   /** Quanto del credito dell'anno precedente è servito a coprire gli acconti. */
   creditoUtilizzato: number;
@@ -302,15 +304,20 @@ export function contributiPrevidenziali(
  * comunque nelle sue rate.
  */
 export function calcolaAcconti(
-  imposte: number,
-  contributi: { base: number; regola: RegolaAccontoContributi | null },
+  basi: {
+    /** IRPEF netta, o imposta sostitutiva, già al netto delle ritenute subite. */
+    imposta: number;
+    /** Addizionale comunale dovuta: la regionale un acconto non ce l'ha. */
+    addizionaleComunale: number;
+    contributi: { base: number; regola: RegolaAcconto | null };
+  },
   par: ParametriAnno,
   creditoInIngresso = 0,
 ): Acconti {
   const credito = nonNegativo(creditoInIngresso);
 
-  // — Imposte: 40/60, con le due soglie ————————————————
-  const dovutoImposte = nonNegativo(imposte);
+  // — Imposta principale: 40/60, con le due soglie ——————————
+  const dovutoImposte = nonNegativo(basi.imposta);
   let impostePrimo = 0;
   let imposteSecondo = 0;
   let imposteUnico = false;
@@ -324,19 +331,15 @@ export function calcolaAcconti(
     }
   }
 
-  // — Contributi: la regola della gestione ——————————————
-  const baseContributi = nonNegativo(contributi.base);
-  const regola = contributi.regola;
-  const accontoContributi = regola ? round2(baseContributi * regola.quota) : 0;
-  const rate = regola?.rate ?? 0;
-  const contributiPrimo = rate > 1 ? round2(accontoContributi / rate) : 0;
-  // La seconda rata prende il resto: dividendo per due un importo dispari, un
-  // centesimo deve pur finire da qualche parte, e finisce nell'ultima rata.
-  const contributiSecondo =
-    rate > 1 ? round2(accontoContributi - contributiPrimo * (rate - 1)) : accontoContributi;
+  // — Addizionali: solo la comunale, e tutta a giugno ——————————
+  const addizionali = rateDi(nonNegativo(basi.addizionaleComunale), par.accontoAddizionali.comunale);
 
-  const primo = round2(impostePrimo + contributiPrimo);
-  const secondo = round2(imposteSecondo + contributiSecondo);
+  // — Contributi: la regola della gestione ——————————————
+  const baseContributi = nonNegativo(basi.contributi.base);
+  const contributi = rateDi(baseContributi, basi.contributi.regola);
+
+  const primo = round2(impostePrimo + addizionali.primo + contributi.primo);
+  const secondo = round2(imposteSecondo + addizionali.secondo + contributi.secondo);
 
   return conCredito(
     {
@@ -344,17 +347,39 @@ export function calcolaAcconti(
       primo,
       secondo,
       // Unico davvero solo se non c'è nulla da versare a giugno.
-      accontoUnico: imposteUnico && contributiPrimo === 0,
+      accontoUnico: imposteUnico && primo === 0,
       imposte: { primo: impostePrimo, secondo: imposteSecondo, unico: imposteUnico },
+      addizionali: {
+        primo: addizionali.primo,
+        secondo: addizionali.secondo,
+        base: nonNegativo(basi.addizionaleComunale),
+        quota: par.accontoAddizionali.comunale?.quota ?? 0,
+      },
       contributi: {
-        primo: contributiPrimo,
-        secondo: contributiSecondo,
+        primo: contributi.primo,
+        secondo: contributi.secondo,
         base: baseContributi,
-        quota: regola?.quota ?? 0,
+        quota: basi.contributi.regola?.quota ?? 0,
       },
     },
     credito,
   );
+}
+
+/**
+ * Una quota del dovuto, divisa in rate uguali fra giugno e novembre.
+ *
+ * Una rata sola significa tutto a giugno — è il caso dell'addizionale comunale.
+ * Nessuna regola significa nessun acconto: la regionale, le casse.
+ */
+function rateDi(dovuto: number, regola: RegolaAcconto | null): { primo: number; secondo: number } {
+  if (!regola) return { primo: 0, secondo: 0 };
+  const acconto = round2(nonNegativo(dovuto) * regola.quota);
+  if (regola.rate <= 1) return { primo: acconto, secondo: 0 };
+  const primo = round2(acconto / regola.rate);
+  // L'ultima rata prende il resto: dividendo per due un importo dispari, un
+  // centesimo deve pur finire da qualche parte.
+  return { primo, secondo: round2(acconto - primo * (regola.rate - 1)) };
 }
 
 /**
@@ -636,16 +661,28 @@ export function calcolaProspetto(ingresso: IngressoMotore): Prospetto {
   const dopoVersamenti = nonNegativo(totaleDovuto - giaVersato);
   const creditoSuSaldo = Math.min(creditoAnnoPrecedente, dopoVersamenti);
   const saldoResiduo = round2(dopoVersamenti - creditoSuSaldo);
+  /*
+    Tre basi, tre regole. L'acconto dell'IRPEF si commisura al rigo
+    «differenza» della dichiarazione — l'imposta netta meno le ritenute già
+    subite — non al totale delle imposte: le addizionali hanno una vita loro,
+    e la regionale un acconto non ce l'ha proprio.
+  */
+  const baseAccontoImposta = nonNegativo(
+    (forfettario ? impostaSostitutiva : irpefNetta) - ritenuteSubite,
+  );
   const acconti = calcolaAcconti(
-    imposteNetteASaldo,
     {
-      base: baseAccontoContributi({
-        gestione: imp.gestione,
-        contributiGestioneSeparata: contributi.separata,
-        contributiArtigiani: contributi.artigiani,
-        contributiFissi: imp.contributiFissi,
-      }),
-      regola: par.accontoContributi[imp.gestione],
+      imposta: baseAccontoImposta,
+      addizionaleComunale,
+      contributi: {
+        base: baseAccontoContributi({
+          gestione: imp.gestione,
+          contributiGestioneSeparata: contributi.separata,
+          contributiArtigiani: contributi.artigiani,
+          contributiFissi: imp.contributiFissi,
+        }),
+        regola: par.accontoContributi[imp.gestione],
+      },
     },
     par,
     creditoAnnoPrecedente - creditoSuSaldo,
