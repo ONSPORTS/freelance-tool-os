@@ -245,4 +245,60 @@ describe("prospetto dettagliato", () => {
     expect(conNota.fatturatoEmesso).toBe(8_000);
     expect(conNota.note.stornoEmesso).toBe(2_000);
   });
+
+  it("le note di credito sono una voce a sé, fra due totali che tornano", () => {
+    /*
+      Su carta la colonna dei numeri si legge di seguito, e deve sommare: lordo,
+      storno col segno meno, netto. Con il netto in cima e un «di cui» sotto,
+      lo stesso storno sembrava da sottrarre una seconda volta.
+    */
+    const imp = impostazioniForfettario();
+    const fattura: Fattura = {
+      id: "a", numero: "1", dataEmissione: "2026-02-01", dataIncasso: "2026-03-01",
+      clienteId: "c1", descrizione: "", tipoRicavo: "progetto", imponibile: 10_000,
+    };
+    const nota: NotaCredito = {
+      id: "n", dataDocumento: "2026-03-01", numero: "NC/1", clienteId: "c1",
+      descrizione: "", imponibile: 2_000, dataRimborso: "2026-04-01",
+    };
+    const p = calcolaProspetto({
+      impostazioni: imp, parametri: par, fatture: [fattura], note: [nota], costi: [],
+      oggi: OGGI_FIXTURE,
+    });
+    const sezioni = prospettoDettagliato(p, imp, par);
+    const lordo = riga(sezioni, "fatture-incassate")!;
+    const storno = riga(sezioni, "storno-note")!;
+    const netto = riga(sezioni, "compensi")!;
+    expect(lordo.valore).toBe(10_000);
+    expect(storno.valore).toBe(-2_000);
+    expect(netto.valore).toBe(8_000);
+    expect(Number(lordo.valore) + Number(storno.valore)).toBe(Number(netto.valore));
+    // E nell'ordine in cui si leggono.
+    const idBase = sezioni[0].righe.map((r) => r.id);
+    expect(idBase.slice(0, 3)).toEqual(["fatture-incassate", "storno-note", "compensi"]);
+  });
+
+  it("senza note di credito non compare nessuna riga di storno", () => {
+    const { sezioni } = sezioniDi(impostazioniForfettario());
+    expect(riga(sezioni, "fatture-incassate")).toBeUndefined();
+    expect(riga(sezioni, "storno-note")).toBeUndefined();
+    expect(riga(sezioni, "compensi")?.etichetta).toBe("Compensi incassati nell'anno");
+  });
+
+  it("con la ritenuta attiva e nessuna trattenuta, lo zero è scritto", () => {
+    /*
+      Su carta non si può chiedere all'app perché una voce manchi: chi applica
+      la ritenuta in fattura deve leggere che quest'anno non gliene hanno
+      trattenute, non trovare il nulla.
+    */
+    const imp: Impostazioni = { ...impostazioniOrdinario(), ritenutaAttiva: true };
+    const fattura: Fattura = {
+      id: "a", numero: "1", dataEmissione: "2026-02-01", dataIncasso: null,
+      clienteId: "c1", descrizione: "", tipoRicavo: "progetto", imponibile: 10_000,
+    };
+    const { sezioni } = sezioniDi(imp, [fattura], []);
+    const r = riga(sezioni, "ritenute")!;
+    expect(r.valore).toBe(0);
+    expect(r.formula).toContain("Nessun committente");
+  });
 });

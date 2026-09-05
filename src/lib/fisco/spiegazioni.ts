@@ -11,7 +11,7 @@
  * mandare al commercialista.
  */
 import { euro, interoIt, percentuale } from "@/lib/format";
-import { rapporto } from "./aritmetica";
+import { rapporto, round2 } from "./aritmetica";
 import {
   addizionaleComunaleDi,
   addizionaleRegionaleDi,
@@ -53,24 +53,24 @@ export function prospettoDettagliato(
   const sezioni: SezioneProspetto[] = [];
 
   // — A · Base di calcolo ————————————————————————————
-  const base: RigaProspetto[] = [
-    {
-      id: "compensi",
-      etichetta: "Compensi incassati nell'anno",
-      valore: p.compensiIncassati,
-      formato: "euro",
-      formula:
-        p.note.stornoIncassato > 0
-          ? `Fatture incassate nel ${p.anno}, meno ${euro(p.note.stornoIncassato)} di note di credito rimborsate nell'anno.`
-          : `Somma degli imponibili delle fatture con data di incasso nel ${p.anno}. Conta quando il denaro è arrivato, non quando hai emesso la fattura.`,
-    },
-  ];
-  // Voce a sé e non annegata nel totale: un fatturato che cala senza dire
-  // perché è il modo più veloce di far perdere fiducia a un prospetto.
+  const base: RigaProspetto[] = [];
+  // Le note di credito sono una voce a sé, in mezzo a due totali che tornano:
+  // lordo, storno, netto. Prima erano un «di cui» sotto un compenso già netto,
+  // e su carta la colonna non sommava — 39.950, −400, 39.950 letti di fila
+  // sembrano uno storno da sottrarre una seconda volta. Su un documento che
+  // finisce dal commercialista una colonna che non torna è un errore, anche
+  // quando ogni singolo numero è giusto.
   if (p.note.stornoIncassato > 0) {
     base.push({
+      id: "fatture-incassate",
+      etichetta: "Fatture incassate nell'anno",
+      valore: round2(p.compensiIncassati + p.note.stornoIncassato),
+      formato: "euro",
+      formula: `Somma degli imponibili delle fatture con data di incasso nel ${p.anno}, al lordo degli storni. Conta quando il denaro è arrivato, non quando hai emesso la fattura.`,
+    });
+    base.push({
       id: "storno-note",
-      etichetta: "di cui storni da note di credito",
+      etichetta: `Note di credito rimborsate nell'anno${p.note.numero > 1 ? ` (${interoIt.format(p.note.numero)})` : ""}`,
       valore: -p.note.stornoIncassato,
       formato: "euro",
       formula: `${p.note.numero === 1 ? "Una nota di credito rimborsata" : "Note di credito rimborsate"} nel ${p.anno}: il denaro è tornato al cliente, quindi non è ricavo.`,
@@ -78,6 +78,21 @@ export function prospettoDettagliato(
         p.note.nonRiconciliato > 0
           ? `${euro(p.note.nonRiconciliato)} non sono riconciliati a nessuna fattura: riducono comunque i ricavi.`
           : undefined,
+    });
+    base.push({
+      id: "compensi",
+      etichetta: "Compensi incassati, al netto degli storni",
+      valore: p.compensiIncassati,
+      formato: "euro",
+      formula: `${euro(p.compensiIncassati + p.note.stornoIncassato)} di fatture incassate meno ${euro(p.note.stornoIncassato)} di note di credito.`,
+    });
+  } else {
+    base.push({
+      id: "compensi",
+      etichetta: "Compensi incassati nell'anno",
+      valore: p.compensiIncassati,
+      formato: "euro",
+      formula: `Somma degli imponibili delle fatture con data di incasso nel ${p.anno}. Conta quando il denaro è arrivato, non quando hai emesso la fattura.`,
     });
   }
   if (p.note.stornoDaRimborsare > 0) {
@@ -358,6 +373,18 @@ export function prospettoDettagliato(
         totale: true,
       });
     }
+  } else if (imp.ritenutaAttiva && !forfettario) {
+    // Zero dichiarato, non zero taciuto. Chi applica la ritenuta in fattura e
+    // non ne vede traccia nel prospetto non sa se non gliene hanno trattenute
+    // o se il documento se n'è dimenticato: sulla carta la differenza non si
+    // può verificare, e questa riga la dice.
+    imposte.push({
+      id: "ritenute",
+      etichetta: "Ritenute d'acconto già subite",
+      valore: 0,
+      formato: "euro",
+      formula: `Nessun committente ha trattenuto la ritenuta del ${percentuale(imp.aliquotaRitenuta, 0)} sulle fatture incassate nel ${p.anno}: non c'è nulla da scomputare dal saldo.`,
+    });
   }
 
   sezioni.push({
@@ -572,7 +599,7 @@ export function prospettoDettagliato(
     });
     acconti.push({
       id: "rata",
-      etichetta: `Rata mensile se rateizzi in ${par.rateRateizzazione}`,
+      etichetta: `Rata mensile, rateizzando in ${par.rateRateizzazione} rate`,
       valore: p.rataRateizzazioneConInteressi,
       formato: "euro",
       formula: `${euro(p.saldoResiduo + p.acconti.primo)} fra saldo e primo acconto, in ${par.rateRateizzazione} rate da giugno a novembre, con interessi dello ${percentuale(par.interesseRateizzazioneMensile, 2)} al mese.`,

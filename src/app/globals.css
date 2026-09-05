@@ -166,18 +166,45 @@
     box-shadow: none !important;
   }
 
-  /* Nessun blocco si spezza lasciando l'intestazione sola in fondo. */
-  [data-documento="prospetto"] section,
-  [data-documento="prospetto"] header,
+  /*
+    Che cosa non si spezza mai: i due riquadri d'apertura, la fascia di sintesi,
+    ogni riga della catena di calcolo con la sua formula, la nota finale.
+
+    Le sezioni, invece, possono continuare sul foglio dopo. Tenerle intere
+    sembrava più ordinato e non lo era: bastava che l'ultima non ci stesse per
+    lasciare un quarto di pagina bianco, e il documento cresceva di un foglio
+    senza aver detto niente di più.
+  */
+  [data-documento="prospetto"] [data-blocco],
   [data-documento="prospetto"] footer,
-  [data-documento="prospetto"] tr {
+  [data-documento="prospetto"] section tr {
     break-inside: avoid;
   }
 
-  /* Un titolo di sezione non resta mai come ultima riga di pagina. */
+  /*
+    Niente righe orfane. Il titolo di sezione resta attaccato alla prima riga e
+    la prima alla seconda: una sezione che continua sul foglio dopo lo fa da
+    almeno due righe, mai da una sola rimasta sotto il proprio titolo.
+  */
   [data-documento="prospetto"] h1,
-  [data-documento="prospetto"] h2 {
+  [data-documento="prospetto"] h2,
+  [data-documento="prospetto"] section tbody tr:first-child {
     break-after: avoid;
+  }
+
+  /* E l'ultima riga di una sezione non resta sola in cima al foglio dopo. */
+  [data-documento="prospetto"] section tbody tr:last-child {
+    break-before: avoid;
+  }
+
+  /*
+    La tabella che avvolge l'impaginato non allinea niente: serve solo perché il
+    browser ripete il `<thead>` a ogni salto di pagina. È così che la testata
+    torna sul secondo foglio — senza librerie, senza contatori di pagina, che in
+    Chromium non esistono fuori dai margini di @page.
+  */
+  [data-documento="prospetto"] > table > thead {
+    display: table-header-group;
   }
 
   /* Niente righe orfane o vedove nei paragrafi di nota. */
